@@ -1,0 +1,16 @@
+# ASSUMPTIONS — StratOS-QXPro
+
+Apéndice continuo de decisiones tomadas ante ambigüedades no bloqueantes del `doc_app\PROMPT_MAESTRO.md`. Formato: `[ID] decisión + justificación, 1 línea`. Máximo 1 línea por entrada; si hace falta más contexto, referenciar un ADR en `docs\adr\`.
+
+## G0 — Scaffold y tooling de gobierno
+
+- **[G0-01]** Repo git independiente (no monorepo con SQX_144_Full2): decidido explícitamente con el operador en el arranque de G0, es la única opción coherente con `.github\workflows\ci.yml` tal como fue entregado (checkout de la raíz = raíz del proyecto).
+- **[G0-02]** Intérprete del `.venv` del proyecto: `C:\Users\Ivan SQX\AppData\Local\Programs\Python\Python312\python.exe` (Python 3.12 exacto per PARTE 4; el `python` del PATH por defecto en esta máquina es 3.11.15, del venv de otro proyecto).
+- **[G0-03]** `.mcp.json` no fija `STRATOS_ROOT`: `mcp\stratos_mcp_server.py` ya resuelve la raíz como `Path(__file__).resolve().parent.parent`, así que funciona sin hardcodear la ruta física (evita el problema que tenía el `.mcp` obsoleto apuntando a `C:\BOTS\SCRIPTS\StratOS-QXPro`).
+- **[G0-04]** `api-gateway\` en G0 es un placeholder mínimo (FastAPI stub sin lógica, sin cobertura en `ci.yml`): el prompt maestro no asigna su construcción real a ninguna fase G1-G9 explícita; se revisará su alcance real cuando se implemente `core-engine` API (G5) y WS.
+- **[G0-05]** `ph_delta` / `ph_lambda` (detector Page-Hinkley, PARTE 8/10.3) sin valor numérico en el prompt maestro: seed con `ph_delta=0.005`, `ph_lambda=50` (rango típico de literatura para series de retornos diarios/trade a trade); requiere validación del operador cuando se implemente `page_hinkley()` en G2/G3 con datos reales del seed.
+- **[G0-06]** `ums_min_months` (PARTE 7.9, regla de avance UMS) sin valor numérico: seed con `3` (un trimestre de métricas sostenidas) para ser coherente con la cadencia trimestral del resto del sistema (impulsos, robustez); a confirmar por el operador.
+- **[G0-07]** Sharpe mínimo de avance UMS (PARTE 7.9) sin valor numérico: seed con `ums_min_sharpe=1.0` (mismo umbral que el gate 3 del pipeline F4+, PARTE 6.3); a confirmar por el operador.
+- **[G0-08]** `block_target` usa la clave `CONCAVE` (no `CONCAVO`) para que las claves de `SystemConfig` sean ASCII/inglés consistentes con el resto de identificadores del sistema (regla 0.2.8: identificadores en inglés); el valor y el 40% se respetan literales de PARTE 10.3.
+- **[G0-09]** `doc_app\Documento_Auditoria_Estrategias_SQX*.md` y `doc_app\Strategy_Robustness_Auditor_SRA_Especificacion_Proyecto.md` no pertenecen al árbol de referencias de la PARTE 0.1 del prompt maestro (son notas de otro proyecto, "SQX Analyzer Pro"); se dejan intactos sin tocar (doc_app es contractual/read-only) y se anotan en `docs\backlog.md` para que el operador decida si se archivan en otro sitio.
+- **[G0-10]** `.claude\scripts\guardrails\pre_commit_scan.py` era un duplicado exacto de `scripts\guardrails\pre_commit_scan.py` (el hook `PreToolUse` de `.claude\settings.json` solo referencia la segunda ruta): se eliminó el duplicado, fuente única en `scripts\guardrails\`.
