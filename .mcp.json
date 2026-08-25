@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "stratos": {
+      "command": "C:\\BOTS\\Versiones\\SQX_144_Full2\\Apps_entorno_SQX\\StratOS-QXPro-v2\\.venv\\Scripts\\python.exe",
+      "args": [
+        "C:\\BOTS\\Versiones\\SQX_144_Full2\\Apps_entorno_SQX\\StratOS-QXPro-v2\\mcp\\stratos_mcp_server.py"
+      ]
+    }
+  }
+}
