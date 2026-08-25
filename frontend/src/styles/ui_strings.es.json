@@ -1,0 +1,69 @@
+{
+  "$comment": "Catalogo de textos de UI (P11): ningun literal de captura va inline en componentes. Semilla de G0 con los literales ya citados textualmente en PROMPT_MAESTRO PARTE 7/11; se completa pestana a pestana en G6-G7 leyendo cada captura antes de implementar.",
+
+  "app": {
+    "title": "Panel Maestro de Portfolio — Copiloto de decisiones · StratOS",
+    "roleBadge": "Ingeniero"
+  },
+
+  "header": {
+    "equity": "EQUITY",
+    "pnlDay": "P&L DÍA",
+    "drawdown": "DRAWDOWN",
+    "semaphoreGlobal": "SEMÁFORO GLOBAL",
+    "mt": "MT",
+    "alerts": "ALERTAS",
+    "dataStale": "DATOS STALE (hace {minutes} min)"
+  },
+
+  "tabs": {
+    "resumen": "Resumen",
+    "cuentasEa": "Cuentas/EA",
+    "pipeline": "Pipeline",
+    "bots": "Bots",
+    "portfolio": "Portfolio",
+    "salud": "Salud",
+    "riesgo": "Riesgo",
+    "ejecucion": "Ejecución",
+    "escalado": "Escalado",
+    "graveyard": "Graveyard",
+    "auditoria": "Auditoría"
+  },
+
+  "decisionCard": {
+    "confirm": "Confirmar",
+    "postpone": "Posponer",
+    "dismiss": "Descartar",
+    "seeEvidence": "Ver evidencia",
+    "requiresAction": "Requiere acción ({count})",
+    "emptyState": "Sin decisiones pendientes. El sistema está al día."
+  },
+
+  "bots": {
+    "impulseButton": "Tengo el impulso de intervenir"
+  },
+
+  "riesgo": {
+    "copyWindows": "Copiar ventanas",
+    "killswitchNote": "El panel avisa e instruye; la ejecución de cierres vive en MetaTrader"
+  },
+
+  "pipeline": {
+    "promoteTo": "Promover a F{phase}",
+    "moveTo": "Mover a…"
+  },
+
+  "graveyard": {
+    "banner": "Un bot retirado nunca se reactiva sin re-validación completa (pipeline desde Fase 3)."
+  },
+
+  "auditoria": {
+    "verifiedTitle": "Verificado",
+    "reconciliationTitle": "Reconciliación contable",
+    "disclaimer": "Verificación técnica de integridad de datos desde su recepción. NO constituye una auditoría contable, financiera ni legal. La exactitud última depende del terminal y del broker."
+  },
+
+  "scaffold": {
+    "placeholder": "StratOS-QXPro — scaffold G0, pestañas en G6/G7"
+  }
+}
