@@ -1,0 +1,107 @@
+{
+  "$comment": "StratOS-QXPro design tokens — CONTRACTUAL (regla P11). Extraidos de capturas_proyecto_dashboard. Tailwind theme se genera desde este archivo; ningun color/espaciado suelto en componentes.",
+  "color": {
+    "bg": {
+      "app": "#0B0D12",
+      "surface": "#14171F",
+      "surfaceRaised": "#161A23",
+      "surfaceHover": "#1B2029",
+      "overlay": "rgba(11, 13, 18, 0.72)"
+    },
+    "border": {
+      "subtle": "#232838",
+      "strong": "#2E3547",
+      "focus": "#7C6CF5"
+    },
+    "text": {
+      "primary": "#E6E9F0",
+      "secondary": "#8B93A7",
+      "muted": "#5B6377",
+      "inverse": "#0B0D12"
+    },
+    "accent": {
+      "primary": "#7C6CF5",
+      "primaryHover": "#8B7CF6",
+      "primaryMuted": "rgba(124, 108, 245, 0.14)"
+    },
+    "semantic": {
+      "success": "#22C55E",
+      "successMuted": "rgba(34, 197, 94, 0.14)",
+      "warning": "#F59E0B",
+      "warningMuted": "rgba(245, 158, 11, 0.14)",
+      "orange": "#F97316",
+      "orangeMuted": "rgba(249, 115, 22, 0.16)",
+      "danger": "#EF4444",
+      "dangerMuted": "rgba(239, 68, 68, 0.14)",
+      "info": "#38BDF8",
+      "infoMuted": "rgba(56, 189, 248, 0.14)"
+    },
+    "semaphore": {
+      "verde": "#22C55E",
+      "amarillo": "#F59E0B",
+      "naranja": "#F97316"
+    },
+    "pnl": {
+      "positive": "#22C55E",
+      "negative": "#EF4444",
+      "neutral": "#8B93A7"
+    },
+    "heatmap": {
+      "scale": "diverging",
+      "min": "#0B0D12",
+      "mid": "#5A1A1A",
+      "max": "#DC2626",
+      "diagonal": "#7C6CF5",
+      "redundantStroke": "#F97316",
+      "comment": "correlacion alta = rojo intenso; diagonal 1.00 atenuada; par redundante con borde naranja"
+    },
+    "chart": {
+      "equityLine": "#22C55E",
+      "equityArea": "rgba(34, 197, 94, 0.18)",
+      "botPnlLine": "#8B7CF6",
+      "botPnlArea": "rgba(139, 124, 246, 0.16)",
+      "grid": "#1E2432",
+      "axis": "#5B6377"
+    }
+  },
+  "font": {
+    "family": {
+      "sans": "Inter, system-ui, -apple-system, 'Segoe UI', sans-serif",
+      "mono": "'JetBrains Mono', 'Cascadia Code', Consolas, monospace"
+    },
+    "size": {
+      "xs": "0.6875rem",
+      "sm": "0.8125rem",
+      "base": "0.875rem",
+      "lg": "1rem",
+      "xl": "1.25rem",
+      "2xl": "1.5rem",
+      "stat": "1.625rem"
+    },
+    "numeric": "font-variant-numeric: tabular-nums",
+    "weight": { "regular": 400, "medium": 500, "semibold": 600, "bold": 700 }
+  },
+  "space": { "1": "0.25rem", "2": "0.5rem", "3": "0.75rem", "4": "1rem", "5": "1.25rem", "6": "1.5rem", "8": "2rem" },
+  "radius": { "sm": "6px", "md": "10px", "lg": "12px", "pill": "999px" },
+  "shadow": {
+    "card": "0 1px 2px rgba(0, 0, 0, 0.35)",
+    "raised": "0 4px 16px rgba(0, 0, 0, 0.45)"
+  },
+  "component": {
+    "StatCard": { "padding": "0.875rem 1rem", "radius": "md", "gap": "0.25rem", "labelSize": "xs", "valueSize": "stat" },
+    "Badge": { "radius": "pill", "padding": "0.125rem 0.5rem", "size": "xs", "weight": 600 },
+    "Button": { "radius": "md", "padding": "0.5rem 0.875rem", "size": "sm", "weight": 600 },
+    "Card": { "padding": "1rem", "radius": "lg", "border": "subtle" },
+    "ProgressBar": { "height": "4px", "track": "#1E2432", "fill": "accent.primary" },
+    "Tab": { "activeBorder": "accent.primary", "activeColor": "text.primary", "idleColor": "text.secondary" },
+    "Table": { "rowHeight": "2.25rem", "headerSize": "xs", "headerColor": "text.secondary", "rowDivider": "border.subtle" }
+  },
+  "layout": {
+    "headerHeight": "auto",
+    "tabBarSticky": true,
+    "contentMaxWidth": "1720px",
+    "contentPadding": "1.25rem",
+    "gridGap": "1rem"
+  },
+  "motion": { "duration": { "fast": "120ms", "base": "200ms" }, "easing": "ease-out" }
+}
