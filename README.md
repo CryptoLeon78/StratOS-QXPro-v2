@@ -9,14 +9,14 @@ La especificación contractual completa está en [`doc_app\PROMPT_MAESTRO.md`](d
 - Python 3.12 (el proyecto fija esta versión en `pyproject.toml`; en Windows, si el `python` del PATH es otra versión, apunta el venv al intérprete 3.12 explícitamente).
 - Node.js 20+ / npm.
 - Docker + Docker Compose v2.
-- (Opcional, para el MCP `stratos`) paquete `mcp` instalado en el mismo venv que `core-engine`.
+- (Opcional, para el MCP `stratos`) paquete `mcp<2` instalado en el mismo venv que `core-engine` (`stratos_mcp_server.py` usa la API `FastMCP` de mcp 1.x; `mcp` 2.x la renombró a `MCPServer` y rompe el import).
 
 ## Arranque rápido
 
 ```powershell
 # 1. Entorno Python del core-engine
 python -m venv .venv
-.venv\Scripts\pip install -e "core-engine[dev]" mcp
+.venv\Scripts\pip install -e "core-engine[dev]" "mcp<2"
 
 # 2. Infra local (Postgres+TimescaleDB, Redis)
 docker compose up -d postgres redis
