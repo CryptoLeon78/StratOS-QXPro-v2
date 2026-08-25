@@ -1,0 +1,44 @@
+# Perfil de produccion (Nodo B, VPS Linux): añade nginx+Certbot como unico
+# punto de entrada publico y quita la publicacion directa de puertos de
+# frontend/api-gateway/postgres/redis hacia el host.
+# Uso: docker compose -f docker-compose.yml -f docker-compose.override.prod.yml up -d
+services:
+  postgres:
+    ports: []
+
+  redis:
+    ports: []
+
+  core-engine:
+    ports: []
+
+  api-gateway:
+    ports: []
+
+  frontend:
+    ports: []
+
+  nginx:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - certbot-www:/var/www/certbot:ro
+      - certbot-conf:/etc/letsencrypt:ro
+    depends_on:
+      - frontend
+      - api-gateway
+    ports:
+      - "80:80"
+      - "443:443"
+
+  certbot:
+    image: certbot/certbot:v3.1.0
+    volumes:
+      - certbot-www:/var/www/certbot
+      - certbot-conf:/etc/letsencrypt
+    entrypoint: >
+      sh -c "trap exit TERM; while :; do certbot renew; sleep 12h; done"
+
+volumes:
+  certbot-www:
+  certbot-conf:

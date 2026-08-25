@@ -1,0 +1,113 @@
+# Topologia completa del Nodo B (PARTE 3 del prompt maestro). mt5-connector y
+# mt5-simulator NO viven aqui: corren en el Nodo A (VPS Windows), fuera de
+# Docker (PARTE 3/G4).
+#
+# Criterio de salida de G0: solo "postgres" y "redis" tienen que quedar
+# healthy (`docker compose up -d postgres redis`). worker/scheduler estan
+# declarados con el comando ARQ que usaran en G5, pero ese modulo todavia no
+# existe en core-engine — no arrancaran limpios hasta esa fase; es esperado.
+#
+# Puertos de host desplazados de sus defaults (5432/6379/8000/8080/5173):
+# esta maquina ya tiene otros servicios locales ocupando esos puertos
+# (verificado con netstat en G0). Los puertos INTERNOS de cada contenedor
+# (los que usan los servicios entre si dentro de la red de compose) siguen
+# siendo los estandar.
+services:
+  postgres:
+    image: timescale/timescaledb:2.17.2-pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-stratos}
+      POSTGRES_USER: ${POSTGRES_USER:-stratos_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD debe estar en .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-stratos_user} -d ${POSTGRES_DB:-stratos}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  core-engine:
+    build: ./core-engine
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-stratos_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-stratos}
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8100:8000"
+
+  worker:
+    build: ./core-engine
+    command: ["arq", "core.jobs.worker.WorkerSettings"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-stratos_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-stratos}
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  scheduler:
+    build: ./core-engine
+    command: ["arq", "core.jobs.scheduler.SchedulerSettings"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-stratos_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-stratos}
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  api-gateway:
+    build: ./api-gateway
+    env_file: .env
+    depends_on:
+      - core-engine
+    ports:
+      - "8180:8080"
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - api-gateway
+    ports:
+      - "5273:80"
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    profiles: ["observability"]
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    profiles: ["observability"]
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres-data:

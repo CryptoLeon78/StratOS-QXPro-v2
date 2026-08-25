@@ -22,7 +22,7 @@ python -m venv .venv
 docker compose up -d postgres redis
 
 # 3. Backend (una vez exista el modelo de datos, G1+)
-.venv\Scripts\python -m uvicorn core.main:app --app-dir core-engine/src --reload --port 8000
+.venv\Scripts\python -m uvicorn core.main:app --app-dir core-engine/src --reload --port 8100
 
 # 4. Frontend
 cd frontend

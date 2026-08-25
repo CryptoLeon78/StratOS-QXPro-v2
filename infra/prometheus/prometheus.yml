@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: core-engine
+    static_configs:
+      - targets: ["core-engine:8000"]
+  - job_name: api-gateway
+    static_configs:
+      - targets: ["api-gateway:8080"]
