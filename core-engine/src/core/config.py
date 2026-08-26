@@ -1,14 +1,20 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Resuelto contra la raiz del repo, no contra el cwd: pytest corre con
+# cwd=core-engine (testpaths=["tests"]) y ".env" relativo no lo encontraria
+# ahi (bug real encontrado al montar los fixtures de tests de G1).
+_REPO_ROOT_ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
 
 
 class Settings(BaseSettings):
     """PARTE 10.1: unica fuente de configuracion de despliegue (env). Nada de
     URLs, credenciales ni TTLs hardcodeados en logica de negocio."""
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=_REPO_ROOT_ENV_FILE, extra="ignore")
 
     database_url: str = Field(validation_alias="DATABASE_URL")
     app_database_url: str = Field(validation_alias="APP_DATABASE_URL")
