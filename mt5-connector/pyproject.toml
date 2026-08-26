@@ -48,3 +48,10 @@ python_version = "3.12"
 strict = true
 mypy_path = "src"
 explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+# MetaTrader5 es Windows-only y nunca se declara como dependencia (real_
+# adapter.py lo importa de forma perezosa, dentro de cada metodo) -- no
+# hay stubs ni el paquete instalado en este entorno, ni podria haberlo.
+module = "MetaTrader5"
+ignore_missing_imports = true
