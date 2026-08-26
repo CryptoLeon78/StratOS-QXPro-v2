@@ -10,6 +10,8 @@
   "semaphore_orange_days": 15,
   "orange_virtual_trades": 30,
   "baseline_grace_days": 5,
+  "semaphore_sizing_amarillo_pct": 50,
+  "semaphore_sizing_verde_pct": 100,
 
   "ph_delta": 0.005,
   "ph_lambda": 50,

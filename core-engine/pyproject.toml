@@ -37,6 +37,7 @@ dev = [
     "ruff>=0.7",
     "mypy>=1.12",
     "pandas-stubs>=2.2",
+    "fakeredis>=2.24",
 ]
 sentry = ["sentry-sdk[fastapi]>=2.17"]
 
