@@ -36,7 +36,7 @@ npm run dev
 # Backend
 pytest core-engine\tests -q
 ruff check core-engine\
-mypy core-engine\src\ --strict
+mypy --config-file core-engine\pyproject.toml core-engine\src\ --strict
 
 # Frontend
 cd frontend; npm run build; npm run test

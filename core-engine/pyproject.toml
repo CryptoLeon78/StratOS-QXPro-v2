@@ -63,3 +63,9 @@ python_version = "3.12"
 strict = true
 mypy_path = "src"
 explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+# statsmodels no distribuye stubs ni py.typed; sin esto mypy --strict no
+# puede analizar core/formulas/portfolio.py en absoluto (import-untyped).
+module = "statsmodels.*"
+ignore_missing_imports = true
