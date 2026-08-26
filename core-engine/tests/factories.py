@@ -3,9 +3,11 @@
 hace `session.add(obj)` + `await session.commit()` — evita atar la factory a
 una sesion sincrona, que no encaja con el engine async del proyecto.
 
-Solo las tablas que los tests de G1 necesitan de verdad (Account, Bot,
-Baseline, Trade, EquitySnapshot, IngestBatch, DecisionLog, SystemConfig); el
-resto se factoriza cuando la fase que las usa (G2/G3) las necesite."""
+Solo las tablas que los tests de G1 necesitan de verdad: las 8 de dominio
+general (Account, Bot, Baseline, Trade, EquitySnapshot, IngestBatch,
+DecisionLog, SystemConfig) mas las 6 tablas inmutables completas (P6/P15.3,
+las necesita el test de permisos). El resto se factoriza cuando la fase que
+las usa (G2/G3) las necesite."""
 
 import hashlib
 from datetime import UTC, datetime
@@ -18,13 +20,14 @@ from core.db.enums import (
     BaselineSource,
     BotProfile,
     BotRole,
+    ChecklistType,
     PipelinePhase,
     SemaphoreState,
     TradeType,
 )
 from core.db.models.accounts import Account, Baseline, Bot
-from core.db.models.decisions import DecisionLog
-from core.db.models.governance import SystemConfig
+from core.db.models.decisions import DecisionLog, KillSwitchEvent, SemaphoreTransition
+from core.db.models.governance import ChecklistRun, SystemConfig, WithdrawalLog
 from core.db.models.market import EquitySnapshot, IngestBatch, Trade
 
 
@@ -159,3 +162,55 @@ class SystemConfigFactory(factory.Factory):
     key = factory.Sequence(lambda n: f"test_key_{n}")
     value = factory.LazyFunction(dict)
     updated_at = factory.LazyFunction(lambda: datetime.now(UTC))
+
+
+class SemaphoreTransitionFactory(factory.Factory):
+    class Meta:
+        model = SemaphoreTransition
+
+    bot_id = None  # el test lo rellena tras insertar el Bot
+    ts = factory.LazyFunction(lambda: datetime.now(UTC))
+    from_state = SemaphoreState.VERDE
+    to_state = SemaphoreState.AMARILLO
+    trigger_metrics = factory.LazyFunction(dict)
+    instruction_text = (
+        "Reducir sizing al 50% (bajar fraction Kelly). Aumentar frecuencia de revisión."
+    )
+    confirmed_at = None
+    confirmed_by = None
+
+
+class KillSwitchEventFactory(factory.Factory):
+    class Meta:
+        model = KillSwitchEvent
+
+    ts = factory.LazyFunction(lambda: datetime.now(UTC))
+    level = 1
+    portfolio_dd_pct = Decimal("8.500")
+    actions = factory.LazyFunction(dict)
+    instruction_text = "Notificar. Vigilar sin intervenir."
+    confirmed_at = None
+    confirmed_by = None
+
+
+class WithdrawalLogFactory(factory.Factory):
+    class Meta:
+        model = WithdrawalLog
+
+    ts = factory.LazyFunction(lambda: datetime.now(UTC))
+    amount = Decimal("2500.00")
+    equity_before = Decimal("179642.70")
+    checklist_completed = factory.LazyFunction(dict)
+
+
+class ChecklistRunFactory(factory.Factory):
+    class Meta:
+        model = ChecklistRun
+
+    ts = factory.LazyFunction(lambda: datetime.now(UTC))
+    checklist_type = ChecklistType.SUNDAY
+    period_key = factory.Sequence(lambda n: f"test-period-{n}")
+    items = factory.LazyFunction(dict)
+    completed = True
+    signed_by = None
+    signature_hash = None

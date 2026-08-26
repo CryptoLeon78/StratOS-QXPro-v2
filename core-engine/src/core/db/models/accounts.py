@@ -55,8 +55,11 @@ class Bot(Base):
     sizing_multiplier: Mapped[Decimal] = mapped_column(
         Numeric(4, 2), default=Decimal("1.0"), server_default="1.0"
     )
+    # PARTE 5.2 declara "NUMERIC(4,2) DEFAULT 100.0", pero 100.00 no cabe en
+    # NUMERIC(4,2) (max 99.99) — inconsistencia real de la spec, corregida a
+    # NUMERIC(5,2) (ver ASSUMPTIONS G1-10).
     sizing_current_pct: Mapped[Decimal] = mapped_column(
-        Numeric(4, 2), default=Decimal("100.0"), server_default="100.0"
+        Numeric(5, 2), default=Decimal("100.0"), server_default="100.0"
     )
     kelly_fraction: Mapped[Decimal | None] = mapped_column(Numeric(4, 2), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

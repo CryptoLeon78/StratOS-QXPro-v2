@@ -470,7 +470,13 @@ def downgrade() -> None:
         "ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE USAGE, SELECT ON SEQUENCES FROM stratos_app"
     )
     bind.exec_driver_sql("DROP OWNED BY stratos_app")
-    bind.exec_driver_sql("DROP ROLE IF EXISTS stratos_app")
+    # NO se hace DROP ROLE: stratos_app es un objeto de *cluster*, y otras
+    # bases de datos en el mismo cluster (p.ej. stratos_test, creada por el
+    # fixture de tests) pueden seguir teniendo grants para el -- DROP ROLE
+    # fallaria con DependentObjectsStillExistError (bug real encontrado en
+    # esta sesion al bajar la base principal con stratos_test ya montada).
+    # DROP OWNED BY ya limpio todo lo de ESTA base; el rol se queda vivo en
+    # el cluster (igual que dejariamos vivo un login role compartido).
 
     op.execute("DROP MATERIALIZED VIEW IF EXISTS equity_daily")
 

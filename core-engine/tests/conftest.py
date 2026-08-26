@@ -79,7 +79,9 @@ async def db_connection(test_database: dict[str, str]) -> AsyncIterator[AsyncCon
 
 @pytest_asyncio.fixture
 async def db_session(db_connection: AsyncConnection) -> AsyncIterator[AsyncSession]:
-    session = AsyncSession(bind=db_connection, join_transaction_mode="create_savepoint")
+    session = AsyncSession(
+        bind=db_connection, join_transaction_mode="create_savepoint", expire_on_commit=False
+    )
     async with session:
         yield session
 
