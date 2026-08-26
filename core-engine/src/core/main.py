@@ -8,6 +8,7 @@ from core.routers.accounts import router as accounts_router
 from core.routers.bots import router as bots_router
 from core.routers.decisions import router as decisions_router
 from core.routers.header import router as header_router
+from core.routers.portfolio import router as portfolio_router
 
 app = FastAPI(title="StratOS-QXPro core-engine")
 app.include_router(ingest_router)
@@ -16,6 +17,7 @@ app.include_router(header_router)
 app.include_router(decisions_router)
 app.include_router(accounts_router)
 app.include_router(bots_router)
+app.include_router(portfolio_router)
 
 
 @app.exception_handler(SealMismatchError)
