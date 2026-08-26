@@ -1,0 +1,43 @@
+from functools import lru_cache
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """PARTE 10.1: unica fuente de configuracion de despliegue (env). Nada de
+    URLs, credenciales ni TTLs hardcodeados en logica de negocio."""
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    database_url: str = Field(validation_alias="DATABASE_URL")
+    app_database_url: str = Field(validation_alias="APP_DATABASE_URL")
+    redis_url: str = Field(validation_alias="REDIS_URL")
+
+    jwt_secret: str = Field(validation_alias="JWT_SECRET")
+    jwt_access_ttl_min: int = Field(default=15, validation_alias="JWT_ACCESS_TTL_MIN")
+    jwt_refresh_ttl_days: int = Field(default=30, validation_alias="JWT_REFRESH_TTL_DAYS")
+
+    ingest_api_keys: str = Field(validation_alias="INGEST_API_KEYS")
+
+    telegram_bot_token: str = Field(default="", validation_alias="TELEGRAM_BOT_TOKEN")
+    telegram_chat_id: str = Field(default="", validation_alias="TELEGRAM_CHAT_ID")
+
+    sentry_dsn: str = Field(default="", validation_alias="SENTRY_DSN")
+
+    deployment_profile: str = Field(default="full", validation_alias="DEPLOYMENT_PROFILE")
+    tz_display: str = Field(default="Europe/Madrid", validation_alias="TZ_DISPLAY")
+    base_currency: str = Field(default="EUR", validation_alias="BASE_CURRENCY")
+
+    news_provider: str = Field(default="ics", validation_alias="NEWS_PROVIDER")
+    news_source_url: str = Field(default="", validation_alias="NEWS_SOURCE_URL")
+    benchmark_provider: str = Field(default="csv", validation_alias="BENCHMARK_PROVIDER")
+    benchmark_symbol: str = Field(default="^SPX", validation_alias="BENCHMARK_SYMBOL")
+
+    operator_email: str = Field(default="", validation_alias="OPERATOR_EMAIL")
+    operator_password_hash: str = Field(default="", validation_alias="OPERATOR_PASSWORD_HASH")
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()  # type: ignore[call-arg]
