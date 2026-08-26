@@ -46,6 +46,14 @@ class Settings(BaseSettings):
     operator_email: str = Field(default="", validation_alias="OPERATOR_EMAIL")
     operator_password_hash: str = Field(default="", validation_alias="OPERATOR_PASSWORD_HASH")
 
+    # No esta en la lista literal de PARTE 10.1 (escrita antes de que G6
+    # decidiera que el frontend habla DIRECTO con core-engine, sin
+    # api-gateway de por medio -- ASSUMPTIONS G6-00). Sin esto, el navegador
+    # bloquea toda peticion desde el dev server de Vite (origen distinto).
+    cors_allowed_origins: str = Field(
+        default="http://localhost:5173", validation_alias="CORS_ALLOWED_ORIGINS"
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -1,8 +1,10 @@
 from fastapi import FastAPI, Request, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from ingest_seal.sealing import SealMismatchError
 
 from core.auth.router import router as auth_router
+from core.config import get_settings
 from core.ingest.router import router as ingest_router
 from core.metrics import PrometheusMiddleware
 from core.metrics import router as metrics_router
@@ -27,6 +29,23 @@ from core.ws.router import router as ws_router
 
 app = FastAPI(title="StratOS-QXPro core-engine")
 app.add_middleware(PrometheusMiddleware)
+# G6: el frontend (Vite dev server) llama a core-engine DIRECTO, sin
+# api-gateway de por medio (ASSUMPTIONS G6-00) -- sin esto el navegador
+# bloquea toda peticion cross-origin. Anadida DESPUES de PrometheusMiddleware
+# a proposito: Starlette envuelve middlewares en orden inverso al de alta,
+# asi que esta queda mas exterior y las respuestas de error (401/422/...)
+# tambien llevan las cabeceras CORS.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        origin.strip()
+        for origin in get_settings().cors_allowed_origins.split(",")
+        if origin.strip()
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(ingest_router)
 app.include_router(metrics_router)
 app.include_router(auth_router)
