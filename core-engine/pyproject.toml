@@ -15,6 +15,12 @@ dependencies = [
     # antes de instalar core-engine; no esta en ningun indice publico.
     "stratos-ingest-seal>=0.1.0",
     "fastapi>=0.115",
+    # FastAPI lo exige en runtime (no solo en type-checking) para construir
+    # cualquier ruta con Form()/OAuth2PasswordRequestForm -- auth/router.py
+    # POST /token lo usa. Sin esto declarado, un venv local que lo tenga
+    # instalado de forma incidental (transitiva de otro paquete) esconde el
+    # fallo hasta un venv limpio (encontrado via el primer CI real de G5).
+    "python-multipart>=0.0.12",
     "uvicorn[standard]>=0.32",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
