@@ -8,6 +8,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.db.base import Base
+from core.db.column_types import DrawdownPct
 from core.db.enums import BaselineSource, BotProfile, BotRole, PipelinePhase, SemaphoreState
 
 
@@ -76,15 +77,15 @@ class Baseline(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     bot_id: Mapped[int] = mapped_column(ForeignKey("bot.id"))
     source: Mapped[BaselineSource] = mapped_column(SAEnum(BaselineSource, name="baseline_source"))
-    profit_factor: Mapped[float] = mapped_column()
-    expectancy_r: Mapped[float] = mapped_column()
+    profit_factor: Mapped[float] = mapped_column()  # rolling_profit_factor() -> float | None
+    expectancy_r: Mapped[float] = mapped_column()  # expectancy_r() -> float
     sharpe: Mapped[float] = mapped_column()
-    max_dd_pct: Mapped[float] = mapped_column()
+    max_dd_pct: Mapped[Decimal] = mapped_column(DrawdownPct)  # max_drawdown_pct() -> Decimal
     win_rate: Mapped[float] = mapped_column()
     payoff: Mapped[float] = mapped_column()
     avg_trade_duration_min: Mapped[float] = mapped_column()
     max_consec_losses: Mapped[int] = mapped_column(Integer)
     expected_trades_30d: Mapped[int] = mapped_column(Integer)
-    dd_contract_pct: Mapped[float] = mapped_column()
+    dd_contract_pct: Mapped[Decimal] = mapped_column(DrawdownPct)  # misma familia que max_dd_pct
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
