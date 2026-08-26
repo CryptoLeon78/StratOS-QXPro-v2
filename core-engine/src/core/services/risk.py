@@ -57,7 +57,7 @@ class ExposureRow:
     pnl: Decimal
 
 
-async def _real_portfolio_equity_curve(session: AsyncSession, window_start: datetime) -> pd.Series:
+async def real_portfolio_equity_curve(session: AsyncSession, window_start: datetime) -> pd.Series:
     rows = (
         await session.execute(
             select(EquitySnapshot.account_id, EquitySnapshot.ts, EquitySnapshot.equity)
@@ -82,7 +82,7 @@ async def compute_tail_risk(
     session: AsyncSession, config: RiskServiceConfig, now: datetime
 ) -> TailRiskResult | None:
     window_start = now - timedelta(days=config.window_days)
-    equity_curve = await _real_portfolio_equity_curve(session, window_start)
+    equity_curve = await real_portfolio_equity_curve(session, window_start)
     if len(equity_curve) < 2:
         return None
 
