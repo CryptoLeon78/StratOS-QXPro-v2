@@ -132,9 +132,22 @@ class ChallengerConfig:
     p_max: float = 0.05
     overstay_months: int = 6
     instruction_overstay: str = "Competitivo pero no superior — valorar retirar y liberar plaza"
+    cemetery_banner: str = (
+        "Un bot retirado nunca se reactiva sin re-validación completa (pipeline desde Fase 3)."
+    )
 
 
 @dataclass(frozen=True)
 class ChallengerResult:
     passed: bool
     criteria: dict[str, bool] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ReactivationResult:
+    """Resultado de cualquier intento de reactivar un bot del Cementerio --
+    PARTE 6.3: "API 409 siempre; sin control en UI". `allowed` es siempre
+    False por diseno (ver `evaluate_cemetery_reactivation`)."""
+
+    allowed: bool
+    reason: str
