@@ -74,7 +74,11 @@ jobs:
       - name: Run Pytest
         env:
           DATABASE_URL: postgresql+asyncpg://stratos_user:stratos_secret_2026@localhost:5432/stratos
+          APP_DATABASE_URL: postgresql+asyncpg://stratos_app:stratos_app_secret_2026@localhost:5432/stratos
+          APP_DB_PASSWORD: stratos_app_secret_2026
           REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET: ci-test-jwt-secret
+          INGEST_API_KEYS: ci-test-ingest-key
         run: |
           cd core-engine
           pytest -v
