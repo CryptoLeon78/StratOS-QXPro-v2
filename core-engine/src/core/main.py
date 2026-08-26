@@ -1,6 +1,22 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
+from ingest_seal.sealing import SealMismatchError
+
+from core.ingest.router import router as ingest_router
 
 app = FastAPI(title="StratOS-QXPro core-engine")
+app.include_router(ingest_router)
+
+
+@app.exception_handler(SealMismatchError)
+async def seal_mismatch_handler(request: Request, exc: SealMismatchError) -> JSONResponse:
+    """PARTE 6/9.1: sello invalido -> 422, fail-closed. `seal_and_create_batch`
+    ya garantiza que nada se persiste antes de que esto se lance (la
+    excepcion se levanta ANTES de crear la fila IngestBatch)."""
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        content={"detail": f"batch seal mismatch: expected={exc.expected} actual={exc.actual}"},
+    )
 
 
 @app.get("/health")

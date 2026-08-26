@@ -8,6 +8,12 @@ version = "0.1.0"
 description = "StratOS-QXPro core-engine: dominio, formulas, maquinas de estado y API (FastAPI async)."
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    # Paquete local (G4): canonicalizacion + SHA-256 de lotes de ingesta,
+    # compartido con mt5-connector -- ver shared-ingest-seal/pyproject.toml
+    # para el porque de un paquete propio en vez de depender de core-engine
+    # al reves. Se instala por separado (pip install -e shared-ingest-seal)
+    # antes de instalar core-engine; no esta en ningun indice publico.
+    "stratos-ingest-seal>=0.1.0",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "pydantic>=2.9",
@@ -47,6 +53,14 @@ packages = ["src/core"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[tool.coverage.run]
+# SQLAlchemy async (asyncpg) puentea DBAPI sincrono via greenlet
+# (greenlet_spawn/await_only) -- sin esto, coverage.py pierde el rastro de
+# cualquier linea que este "al otro lado" de un `await session.execute(...)`
+# (descubierto al medir las primeras rutas HTTP reales, G4: rutas con
+# resolve_account/ingest_trades aparecian falsamente sin cubrir).
+concurrency = ["greenlet"]
 
 [tool.ruff]
 target-version = "py312"
