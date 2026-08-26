@@ -4,6 +4,8 @@ from ingest_seal.sealing import SealMismatchError
 
 from core.auth.router import router as auth_router
 from core.ingest.router import router as ingest_router
+from core.metrics import PrometheusMiddleware
+from core.metrics import router as metrics_router
 from core.routers.accounts import router as accounts_router
 from core.routers.audit import router as audit_router
 from core.routers.bots import router as bots_router
@@ -24,7 +26,9 @@ from core.routers.withdrawals import router as withdrawals_router
 from core.ws.router import router as ws_router
 
 app = FastAPI(title="StratOS-QXPro core-engine")
+app.add_middleware(PrometheusMiddleware)
 app.include_router(ingest_router)
+app.include_router(metrics_router)
 app.include_router(auth_router)
 app.include_router(header_router)
 app.include_router(decisions_router)
