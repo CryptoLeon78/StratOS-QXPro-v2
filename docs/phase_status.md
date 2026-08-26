@@ -4,7 +4,7 @@
 
 ## Fase actual: G4 — mt5-connector + mt5-simulador + ingesta real
 
-**Estado**: **cerrada en lo local, pendiente de confirmar CI verde** (GitHub Actions con congestión de runners al cierre de esta sesión — varios pushes quedaron en cola >15 min con "job was not acquired by Runner"; ver nota abajo. No se afirma "CI verde" sin el run real confirmado, por regla del proyecto).
+**Estado**: **verificado localmente, CI pendiente**. Fallo confirmado del lado de GitHub, no del código: el run [`32986481038`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/32986481038) se marcó `completed`/`failure` en 3 segundos con sus 3 jobs aún en `queued` (nunca llegaron a ejecutarse en ningún runner); otro run quedó `queued` >30 min sin arrancar. Reintentar el push no ayuda mientras dure la congestión del pool de runners — se documenta el estado y se retoma la confirmación de CI en la próxima sesión, sin afirmar "CI verde" sin el run real (regla del proyecto).
 
 ### Verde (verificado con comandos reales en esta sesión)
 - **5 paquetes nuevos/tocados, 299 tests, 100% en 3 de ellos**: `core-engine/src/core/ingest/` (213 statements, 48 tests, **100%** — los 7 endpoints de PARTE 9.1) · `shared-ingest-seal` (17 statements, 11 tests, **100%**) · `mt5-simulator` (97 statements, 11 tests, **100%**) · `mt5-connector` (371 statements, 55 tests, **94%** — 100% salvo `real_adapter.py` 71% y `main.py` 90%, los 2 módulos que tocan MT5/el proceso real y que NO se pueden verificar sin un terminal Windows) · `integration-tests` (1 test, el criterio de salida literal de G4).
