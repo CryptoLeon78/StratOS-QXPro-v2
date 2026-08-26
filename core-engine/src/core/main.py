@@ -21,6 +21,7 @@ from core.routers.portfolio import router as portfolio_router
 from core.routers.risk import router as risk_router
 from core.routers.scaling import router as scaling_router
 from core.routers.withdrawals import router as withdrawals_router
+from core.ws.router import router as ws_router
 
 app = FastAPI(title="StratOS-QXPro core-engine")
 app.include_router(ingest_router)
@@ -42,6 +43,7 @@ app.include_router(scaling_router)
 app.include_router(audit_router)
 app.include_router(withdrawals_router)
 app.include_router(checklists_router)
+app.include_router(ws_router)
 
 
 @app.exception_handler(SealMismatchError)
