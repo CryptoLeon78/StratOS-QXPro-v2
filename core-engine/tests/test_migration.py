@@ -31,9 +31,7 @@ async def test_hypertables_created(db_connection: AsyncConnection) -> None:
 
 async def test_equity_daily_continuous_aggregate_created(db_connection: AsyncConnection) -> None:
     result = await db_connection.execute(
-        text(
-            "SELECT view_name, hypertable_name FROM timescaledb_information.continuous_aggregates"
-        )
+        text("SELECT view_name, hypertable_name FROM timescaledb_information.continuous_aggregates")
     )
     rows = {(row[0], row[1]) for row in result}
     assert ("equity_daily", "equity_snapshot") in rows

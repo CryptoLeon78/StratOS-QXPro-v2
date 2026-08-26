@@ -61,7 +61,7 @@ class ChallengerEvaluation(Base):
 
 
 class CemeteryEntry(Base):
-    """"Un bot retirado nunca se reactiva sin re-validacion completa (pipeline
+    """ "Un bot retirado nunca se reactiva sin re-validacion completa (pipeline
     desde Fase 3)" (banner de la pestana Graveyard). Reincorporacion exige
     repetir desde F3 con identidad NUEVA (nuevo Bot.id), nunca resucitar el
     registro (PARTE 5.2/6.3)."""
@@ -79,6 +79,4 @@ class CemeteryEntry(Base):
         default=PipelinePhase.F3,
         server_default=PipelinePhase.F3.value,
     )
-    reactivation_blocked: Mapped[bool] = mapped_column(
-        Boolean, default=True, server_default="true"
-    )
+    reactivation_blocked: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
