@@ -101,6 +101,39 @@
   "ums_min_months__assumption": "G0-06: no fijado en PARTE 10.3/7.9; default trimestral, coherente con la cadencia de revision de robustez.",
   "ums_min_sharpe": 1.0,
   "ums_min_sharpe__assumption": "G0-07: no fijado en PARTE 10.3/7.9; se reutiliza el mismo umbral que el gate 3 del pipeline (Sharpe > 1).",
+  "ums_max_dd_gate_pct": 8,
+  "ums_max_dd_gate_pct__assumption": "G5-Q4: PARTE 7.9 pide 'DD dentro de gate' para avanzar de fase UMS sin fijar el numero. Valor provisional, a confirmar por el operador antes de gobernar un ascenso de fase UMS real (mismo patron que ums_min_months/ums_min_sharpe).",
+
+  "telegram_soft_digest_enabled": true,
+  "telegram_soft_digest_hour_utc": 20,
+  "telegram_soft_digest__assumption": "G5-Q3: PARTE 9.4 cita 'telegram_soft_digest' sin definir su forma. hour_utc=20 coincide con el cierre de jornada operador (Europe/Madrid tarde-noche).",
+
+  "checklist_catalog": {
+    "SUNDAY": [
+      "Revisar errores de EA",
+      "Revisar desconexiones",
+      "Revisar órdenes rechazadas",
+      "Copiar las noticias de la semana entrante al filtro horario"
+    ],
+    "BIWEEKLY": [
+      "Revisar semáforos contra línea base",
+      "Confirmar que los bots en AMARILLO tienen el sizing al 50%"
+    ],
+    "MONTHLY": [
+      "Comparar cada bot con su backtest y rebalancear los bloques si se desvían más de 10 puntos",
+      "Revisar correlaciones",
+      "Ejecutar el retiro mensual"
+    ],
+    "QUARTERLY": [
+      "Revisión de robustez completa",
+      "Chequeo de alfa/beta frente al benchmark",
+      "Informe trimestral del coste de impulsos"
+    ],
+    "ANNUAL": [
+      "Reestructuración anual del portfolio"
+    ]
+  },
+  "checklist_catalog__comment": "Literal del 'calendario de decisiones' del video (doc_app/transcripcion_video_SIN__minutaje...md, fuente #2 de PARTE 0.1), citado tambien en PARTE 14 como checklist imprimible de docs/runbook.md. Prohibido mirar la rentabilidad en la revision dominical es una regla de conducta, no un item firmable.",
 
   "instruction_templates": {
     "semaphore_verde": "Mantener. No tocar nada.",
