@@ -238,3 +238,27 @@ async def test_task_maybe_send_digest_drains_the_queue_at_the_configured_hour(
     remaining = await redis.lrange("telegram:digest:pending", 0, -1)
     assert remaining == []
     await redis.aclose()
+
+
+async def test_instrumented_task_failure_increments_arq_job_failures_total() -> None:
+    from core.jobs.tasks import ARQ_JOB_FAILURES_TOTAL, _instrumented
+
+    async def _boom(ctx: dict) -> None:
+        raise RuntimeError("fallo simulado")
+
+    wrapped = _instrumented("test_boom_job")(_boom)
+    before = ARQ_JOB_FAILURES_TOTAL.labels(job_name="test_boom_job")._value.get()
+    with pytest.raises(RuntimeError):
+        await wrapped({})
+    after = ARQ_JOB_FAILURES_TOTAL.labels(job_name="test_boom_job")._value.get()
+    assert after == before + 1
+
+
+async def test_instrumented_task_preserves_function_name() -> None:
+    from core.jobs.tasks import _instrumented
+
+    async def _noop(ctx: dict) -> None:
+        return None
+
+    wrapped = _instrumented("whatever")(_noop)
+    assert wrapped.__name__ == "_noop"

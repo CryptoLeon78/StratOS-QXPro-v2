@@ -32,19 +32,29 @@ from core.jobs.tasks import (
 )
 from core.jobs.worker import startup
 
+# `WorkerCoroutine` (arq.typing) exige el atributo `__qualname__: str` ademas
+# de `__call__` -- ningun valor cuyo tipo estatico se exprese como
+# `Callable[...]` (ni siquiera via ParamSpec) lo satisface estructuralmente
+# para mypy, solo una `def` literal. `task_*` (jobs/tasks.py) esta envuelta
+# por `_instrumented()` precisamente con ese tipo de retorno, de ahi el
+# `type: ignore` -- en runtime `functools.wraps` preserva `__qualname__` sin
+# problema (ver test_instrumented_task_preserves_function_name).
 CRON_JOBS = [
-    cron(task_run_killswitch_sweep, minute=set(range(60)), second=0),
-    cron(task_run_semaphore_sweep, minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
-    cron(task_run_watchdog, minute={0, 15, 30, 45}),
-    cron(task_run_config_drift, minute={0, 10, 20, 30, 40, 50}),
-    cron(task_run_correlations, weekday="sun", hour=6, minute=0),
-    cron(task_run_montecarlo_check, hour=3, minute=0),
-    cron(task_run_audit_daily, hour=2, minute=0),
-    cron(task_run_ums_downgrade_check, minute=0),
-    cron(task_evaluate_impulses, hour=4, minute=0),
+    cron(task_run_killswitch_sweep, minute=set(range(60)), second=0),  # type: ignore[arg-type]
+    cron(
+        task_run_semaphore_sweep,  # type: ignore[arg-type]
+        minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55},
+    ),
+    cron(task_run_watchdog, minute={0, 15, 30, 45}),  # type: ignore[arg-type]
+    cron(task_run_config_drift, minute={0, 10, 20, 30, 40, 50}),  # type: ignore[arg-type]
+    cron(task_run_correlations, weekday="sun", hour=6, minute=0),  # type: ignore[arg-type]
+    cron(task_run_montecarlo_check, hour=3, minute=0),  # type: ignore[arg-type]
+    cron(task_run_audit_daily, hour=2, minute=0),  # type: ignore[arg-type]
+    cron(task_run_ums_downgrade_check, minute=0),  # type: ignore[arg-type]
+    cron(task_evaluate_impulses, hour=4, minute=0),  # type: ignore[arg-type]
     # PARTE 9.4: digest SUAVE diario -- se autocomprueba cada hora, solo
     # actua a la hora configurada (telegram_soft_digest_hour_utc).
-    cron(task_maybe_send_digest, minute=0),
+    cron(task_maybe_send_digest, minute=0),  # type: ignore[arg-type]
 ]
 
 

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from redis.asyncio import Redis
 
 from core.config import Settings, get_settings
+from core.metrics import WS_CONNECTIONS_ACTIVE
 from core.redis import get_redis
 from core.ws.auth import authenticate_ws
 from core.ws.bridge import TOPIC_MAP, stream_topics
@@ -23,11 +24,14 @@ async def _handle(websocket: WebSocket, path: str, settings: Settings, redis: Re
         return
 
     await websocket.accept()
+    WS_CONNECTIONS_ACTIVE.labels(channel=path).inc()
     try:
         async for message in stream_topics(redis, TOPIC_MAP[path]):
             await websocket.send_text(message)
     except WebSocketDisconnect:
         pass
+    finally:
+        WS_CONNECTIONS_ACTIVE.labels(channel=path).dec()
 
 
 @router.websocket("/ws/equity")

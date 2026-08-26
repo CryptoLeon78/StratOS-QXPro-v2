@@ -76,3 +76,17 @@ class TestWsRouting:
                     equity_ws.close()
         finally:
             publisher.close()
+
+
+class TestWsConnectionsGauge:
+    def test_gauge_increments_while_connected_and_decrements_after(
+        self, client: TestClient
+    ) -> None:
+        from core.metrics import WS_CONNECTIONS_ACTIVE
+
+        before = WS_CONNECTIONS_ACTIVE.labels(channel="/ws/health")._value.get()
+        with client.websocket_connect(f"/ws/health?token={_valid_token()}"):
+            during = WS_CONNECTIONS_ACTIVE.labels(channel="/ws/health")._value.get()
+            assert during == before + 1
+        after = WS_CONNECTIONS_ACTIVE.labels(channel="/ws/health")._value.get()
+        assert after == before
