@@ -6,12 +6,14 @@ from core.auth.router import router as auth_router
 from core.ingest.router import router as ingest_router
 from core.routers.accounts import router as accounts_router
 from core.routers.bots import router as bots_router
+from core.routers.cemetery import router as cemetery_router
 from core.routers.decisions import router as decisions_router
 from core.routers.execution import router as execution_router
 from core.routers.header import router as header_router
 from core.routers.health import router as health_router
 from core.routers.killswitch import router as killswitch_router
 from core.routers.news import router as news_router
+from core.routers.pipeline import router as pipeline_router
 from core.routers.portfolio import router as portfolio_router
 from core.routers.risk import router as risk_router
 
@@ -28,6 +30,8 @@ app.include_router(risk_router)
 app.include_router(killswitch_router)
 app.include_router(news_router)
 app.include_router(execution_router)
+app.include_router(pipeline_router)
+app.include_router(cemetery_router)
 
 
 @app.exception_handler(SealMismatchError)
