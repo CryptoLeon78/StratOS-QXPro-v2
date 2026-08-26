@@ -3,7 +3,7 @@ propias, ver ASSUMPTIONS G4), prefijo de entorno CONNECTOR_."""
 
 import pytest
 
-from connector.config import ConnectorSettings
+from connector.config import ConnectorSettings, get_connector_settings
 
 
 def test_defaults_match_parte_12_contractual_values() -> None:
@@ -27,6 +27,16 @@ def test_deals_and_backoff_base_are_the_documented_assumption() -> None:
     assert settings.deals_poll_interval_s == 5.0
     assert settings.backoff_base_seconds == 5.0
     assert settings.backoff_multiplier == 2.0
+
+
+def test_get_connector_settings_reads_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CONNECTOR_CORE_ENGINE_URL", "https://cached.example.com")
+    monkeypatch.setenv("CONNECTOR_INGEST_API_KEY", "cachedkey")
+    monkeypatch.setenv("CONNECTOR_ACCOUNT_LOGIN", "111")
+    get_connector_settings.cache_clear()
+    settings = get_connector_settings()
+    assert settings.core_engine_url == "https://cached.example.com"
+    get_connector_settings.cache_clear()
 
 
 def test_env_prefix_is_connector(monkeypatch: pytest.MonkeyPatch) -> None:
