@@ -8,9 +8,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.base import get_session
 from core.ingest.accounts import resolve_account
-from core.ingest.schemas import EquityIngestRequest, IngestResponse, TradesIngestRequest
+from core.ingest.schemas import (
+    EquityIngestRequest,
+    IngestResponse,
+    PositionsIngestRequest,
+    TradesIngestRequest,
+)
 from core.ingest.security import require_api_key
 from core.ingest.services.equity import ingest_equity
+from core.ingest.services.positions import ingest_positions
 from core.ingest.services.trades import ingest_trades
 
 router = APIRouter(prefix="/ingest", tags=["ingest"], dependencies=[Depends(require_api_key)])
@@ -22,6 +28,16 @@ async def post_trades(
 ) -> IngestResponse:
     account = await resolve_account(session, req.account_login)
     outcome = await ingest_trades(session, account, req)
+    await session.commit()
+    return IngestResponse(**outcome._asdict())
+
+
+@router.post("/positions", response_model=IngestResponse)
+async def post_positions(
+    req: PositionsIngestRequest, session: AsyncSession = Depends(get_session)
+) -> IngestResponse:
+    account = await resolve_account(session, req.account_login)
+    outcome = await ingest_positions(session, account, req)
     await session.commit()
     return IngestResponse(**outcome._asdict())
 
