@@ -4,6 +4,7 @@
 
   "semaphore_pf_warn": 0.75,
   "semaphore_pf_orange": 0.60,
+  "semaphore_pf_recover": 0.90,
   "semaphore_exp_warn": 0.60,
   "semaphore_exp_recover": 0.80,
   "semaphore_recovery_days": 10,
@@ -12,6 +13,7 @@
   "baseline_grace_days": 5,
   "semaphore_sizing_amarillo_pct": 50,
   "semaphore_sizing_verde_pct": 100,
+  "semaphore_dd_contract_orange_ratio": 0.80,
 
   "ph_delta": 0.005,
   "ph_lambda": 50,

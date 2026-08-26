@@ -26,6 +26,7 @@ class TransitionResult:
     severity: AlertLevel | None
     requires_confirmation: bool
     trigger_metrics: dict[str, Any]
+    new_sizing_pct: Decimal | None = None
 
 
 @dataclass(frozen=True)
@@ -39,17 +40,21 @@ class SemaphoreMetrics:
     page_hinkley_triggered: bool
     dd_bot_pct: Decimal
     dd_contract_pct: Decimal
+    pf_virtual: float | None = None
+    exp_virtual: float | None = None
 
 
 @dataclass(frozen=True)
 class SemaphoreConfig:
     pf_warn: float = 0.75
     pf_orange: float = 0.60
+    pf_recover: float = 0.90
     exp_warn: float = 0.60
     exp_recover: float = 0.80
     recovery_days: int = 10
     orange_days: int = 15
     orange_virtual_trades: int = 30
+    dd_contract_orange_ratio: float = 0.80
     sizing_amarillo_pct: Decimal = Decimal("50")
     sizing_verde_pct: Decimal = Decimal("100")
     instruction_verde: str = "Mantener. No tocar nada."
