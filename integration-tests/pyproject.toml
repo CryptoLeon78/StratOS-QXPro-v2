@@ -1,0 +1,32 @@
+# StratOS-QXPro G4: unico consumidor de core-engine + mt5-connector +
+# mt5-simulator a la vez. Prueba el criterio de salida de G4: integracion
+# conector<->core con simulador, corte de 10 min sin perdidas ni duplicados.
+#
+# Sin codigo de libreria propio (solo tests) -- no se instala como paquete
+# editable, no necesita [build-system]/[project]: `core-engine`,
+# `mt5-connector` y `mt5-simulator` se instalan por separado (ya son
+# dependencias de desarrollo entre si) y `pytest integration-tests/tests`
+# corre directamente contra ellos, ya presentes en el mismo entorno.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+# asyncpg no distribuye stubs ni py.typed (mismo caso que statsmodels en
+# core-engine/pyproject.toml).
+module = "asyncpg"
+ignore_missing_imports = true
