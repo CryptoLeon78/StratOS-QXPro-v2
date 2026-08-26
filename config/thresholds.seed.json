@@ -85,6 +85,10 @@
 
   "audit_tolerance": 0.0001,
 
+  "withdrawal_safety_margin": 1.0,
+  "withdrawal_max_dd_gate_pct": 8,
+  "withdrawal_gate__assumption": "G5: PARTE 8/14 no fija ni el margen de seguridad de sustainable_withdrawal() ni el gate de DD que anula el retiro sugerido. safety_margin=1.0 (sin recorte adicional, formula literal 'nomina = equity x retorno medio mensual'); max_dd_gate_pct=8 reutiliza el mismo valor que kill_l1 (primer nivel de alerta del kill-switch) como referencia de 'ya en zona de vigilancia', editable por separado.",
+
   "impulse_eval_days": 7,
   "heartbeat_interval_s": 60,
   "uptime_target_7d": 99.5,
