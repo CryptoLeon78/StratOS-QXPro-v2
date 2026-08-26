@@ -145,8 +145,11 @@
     "killswitch_l4": "Cerrar posiciones y DESACTIVAR todos los EAs.",
     "pipeline_frequency_low": "Frecuencia <2 trades/semana: mínimo absoluto 30 trades con fiabilidad estadística baja",
     "challenger_overstay": "Competitivo pero no superior — valorar retirar y liberar plaza",
-    "cemetery_banner": "Un bot retirado nunca se reactiva sin re-validación completa (pipeline desde Fase 3)."
+    "cemetery_banner": "Un bot retirado nunca se reactiva sin re-validación completa (pipeline desde Fase 3).",
+    "tail_risk_ok": "Colas dentro de los gates (CVaR99 diario < 3 % y mensual < 15 %). Mantener.",
+    "tail_risk_breach": "Incumplimiento de contrato de cola — revisar exposición y reducir sizing."
   },
+  "tail_risk_breach__assumption": "G5: PARTE 7.7 solo da el texto literal del caso OK; el texto de incumplimiento es diseño propio, mismo tono que las instrucciones de kill-switch/semáforo.",
 
   "ui_strings_catalog": "frontend/src/styles/ui_strings.es.json"
 }
