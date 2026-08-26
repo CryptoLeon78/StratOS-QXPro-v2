@@ -43,6 +43,9 @@ class TestListCemetery:
 
 class TestReactivate:
     async def test_always_returns_409(self, api_client: AsyncClient) -> None:
+        """Criterio de aceptacion PARTE 16 #4 ("Cementerio: 409 + sin
+        control UI + banner 'pipeline desde Fase 3'") -- ver indice en
+        tests/e2e/test_g5_exit_criteria.py."""
         response = await api_client.post("/api/v1/cemetery/1/reactivate")
         assert response.status_code == 409
         assert "Fase 3" in response.json()["detail"]

@@ -3,10 +3,16 @@
 `services/`, comitean. La logica real vive en `services/`, testeable sin
 HTTP."""
 
+from datetime import UTC, datetime
+
+import httpx
 from fastapi import APIRouter, Depends
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.config import Settings, get_settings
 from core.db.base import get_session
+from core.http_client import get_http_client
 from core.ingest.accounts import resolve_account
 from core.ingest.schemas import (
     EaStateIngestRequest,
@@ -26,6 +32,8 @@ from core.ingest.services.heartbeat import ingest_heartbeat
 from core.ingest.services.positions import ingest_positions
 from core.ingest.services.signals import ingest_signals
 from core.ingest.services.trades import ingest_trades
+from core.notifications.dispatch import dispatch_new_alerts
+from core.redis import get_redis
 
 router = APIRouter(prefix="/ingest", tags=["ingest"], dependencies=[Depends(require_api_key)])
 
@@ -42,11 +50,29 @@ async def post_trades(
 
 @router.post("/positions", response_model=IngestResponse)
 async def post_positions(
-    req: PositionsIngestRequest, session: AsyncSession = Depends(get_session)
+    req: PositionsIngestRequest,
+    session: AsyncSession = Depends(get_session),
+    redis: Redis = Depends(get_redis),
+    http_client: httpx.AsyncClient = Depends(get_http_client),
+    settings: Settings = Depends(get_settings),
 ) -> IngestResponse:
+    """P5 (PARTE 2/16 criterio 12): una posicion sin SL dispara una `Alert`
+    CRITICA (`services/positions.py::_apply_p5_check`, misma transaccion) y
+    debe llegar a Telegram en <60s -- no puede esperar al proximo barrido
+    ARQ (el mas frecuente, killswitch, es cada 1 min). Por eso el despacho
+    va inline aqui, no en un `task_*` de `jobs/tasks.py`, siempre DESPUES
+    del commit (un fallo de red de Telegram no debe arriesgar un rollback
+    de dominio)."""
+    run_start = datetime.now(UTC)
     account = await resolve_account(session, req.account_login)
     outcome = await ingest_positions(session, account, req)
     await session.commit()
+    # redis-py stub tipa Redis.rpush como Awaitable[int] | int (soporta
+    # pipelines sincronas) -- nunca subtipo estructural del retorno
+    # `Coroutine[..., object]` que exige el Protocol `_RedisLike`
+    # (dispatch.py). Mismo criterio ya usado en este repo para friccion de
+    # stubs (pubsub.aclose() en ws/bridge.py, .loc/.items() de pandas).
+    await dispatch_new_alerts(session, redis, http_client, settings, run_start)  # type: ignore[arg-type]
     return IngestResponse(**outcome._asdict())
 
 

@@ -15,14 +15,12 @@ from decimal import Decimal
 from typing import Any
 
 import httpx
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import get_settings
 from core.db.enums import AlertLevel
-from core.db.models.decisions import Alert
 from core.metrics import ARQ_JOB_DURATION_SECONDS, ARQ_JOB_FAILURES_TOTAL
-from core.notifications.dispatch import dispatch_alert
+from core.notifications.dispatch import dispatch_new_alerts
 from core.notifications.telegram import send_telegram_message
 from core.services.audit import AuditConfig, run_audit_daily
 from core.services.config_drift import run_drift_check
@@ -72,17 +70,9 @@ def _instrumented(job_name: str) -> Callable[[_TaskFn], _TaskFn]:
 
 
 async def _dispatch_new_alerts(session: AsyncSession, redis: Any, run_start: datetime) -> None:
-    """Envia a Telegram (dispatch_alert, ya existe) cada Alert creado
-    DURANTE este barrido -- `ts >= run_start` distingue una alerta nueva de
-    una ya existente que el barrido solo actualizo (resolved=True nunca
-    toca `ts`)."""
-    new_alerts = (await session.execute(select(Alert).where(Alert.ts >= run_start))).scalars().all()
-    if not new_alerts:
-        return
     settings = get_settings()
     async with httpx.AsyncClient() as client:
-        for alert in new_alerts:
-            await dispatch_alert(client, redis, settings, alert)
+        await dispatch_new_alerts(session, redis, client, settings, run_start)
 
 
 @_instrumented("task_run_semaphore_sweep")

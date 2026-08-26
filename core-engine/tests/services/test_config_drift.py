@@ -99,6 +99,8 @@ class TestComputeOrphansAndMissing:
 
 class TestRunDriftCheck:
     async def test_mode_drift_creates_critica_alert(self, db_session: object) -> None:
+        """Criterio de salida literal de G5 ("deriva EA modo incorrecto") --
+        ver indice en tests/e2e/test_g5_exit_criteria.py."""
         account = await _account(db_session)
         bot = BotFactory(account_id=account.id, semaphore_state=SemaphoreState.NARANJA)
         db_session.add(bot)  # type: ignore[attr-defined]

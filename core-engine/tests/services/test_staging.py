@@ -142,6 +142,8 @@ class TestEscalateStagingStep:
         await redis.aclose()
 
     async def test_sizing_cap_blocks_escalation_above_89_percent(self, db_session: object) -> None:
+        """Criterio de aceptacion PARTE 16 #11 ("SIZING_CAP bloquea
+        activacion >89 %") -- ver indice en tests/e2e/test_g5_exit_criteria.py."""
         from core.db.models.pipeline import PipelineCandidate
 
         account = await _account(db_session)
