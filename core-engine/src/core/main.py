@@ -61,6 +61,6 @@ async def seal_mismatch_handler(request: Request, exc: SealMismatchError) -> JSO
     )
 
 
-@app.get("/health")
+@app.get("/health", tags=["ops"])
 async def health() -> dict[str, str]:
     return {"status": "ok", "service": "core-engine"}

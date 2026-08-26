@@ -35,7 +35,7 @@ _SEMAPHORE_SEVERITY = {
     SemaphoreState.AMARILLO: 1,
     SemaphoreState.NARANJA: 2,
 }
-_HEARTBEAT_STALE_AFTER_S = 120
+_HEARTBEAT_STALE_AFTER_S = 120  # header_heartbeat_stale_after_s, thresholds.seed.json
 _EQUITY_CURVE_LOOKBACK_DAYS = {"30d": 30, "90d": 90, "180d": 180, "1y": 365, "all": 3650}
 
 

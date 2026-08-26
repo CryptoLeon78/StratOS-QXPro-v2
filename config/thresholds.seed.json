@@ -93,6 +93,11 @@
   "heartbeat_interval_s": 60,
   "uptime_target_7d": 99.5,
 
+  "header_heartbeat_stale_after_s": 120,
+  "header_heartbeat_stale__assumption": "G5-cierre: routers/header.py tenia _HEARTBEAT_STALE_AFTER_S=120 como constante de modulo sin clave sembrada (encontrado en el scan_hardcoding de cierre de fase) -- el badge DATOS STALE del criterio 13 de PARTE 16 necesita un umbral, y 2x heartbeat_interval_s (60s) es el margen minimo razonable antes de considerar un heartbeat perdido, no solo tarde.",
+  "news_shield_default_hours": 48,
+  "news_shield_default_hours__assumption": "G5-cierre: routers/news.py tenia Query(default=48) en /news/shield y /news/shield/windows sin clave sembrada (mismo hallazgo del scan_hardcoding de cierre). 48h cubre el fin de semana + el dia habil siguiente, ventana razonable para planificar el blackout sin recargar la vista por defecto.",
+
   "ums_phases": [
     { "phase": 1, "name": "Validacion Personal", "equity_min": 0, "equity_max": 5000, "risk_per_trade_pct_min": null, "risk_per_trade_pct_max": null, "risk_note": "micro-lotes", "kelly_fraction": 0.5 },
     { "phase": 2, "name": "Track Record", "equity_min": 5000, "equity_max": 25000, "risk_per_trade_pct_min": 1.0, "risk_per_trade_pct_max": 1.5, "risk_note": null, "kelly_fraction": 0.5 },

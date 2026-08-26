@@ -21,6 +21,8 @@ from core.db.models.governance import NewsEvent
 
 router = APIRouter(prefix="/api/v1/news", tags=["news"], dependencies=[Depends(get_current_user)])
 
+_SHIELD_DEFAULT_HOURS = 48  # news_shield_default_hours, thresholds.seed.json
+
 
 class NewsShieldRow(BaseModel):
     id: int
@@ -71,14 +73,14 @@ async def _shield_rows(session: AsyncSession, hours: int) -> list[NewsShieldRow]
 
 @router.get("/shield", response_model=list[NewsShieldRow])
 async def news_shield(
-    hours: int = Query(default=48), session: AsyncSession = Depends(get_session)
+    hours: int = Query(default=_SHIELD_DEFAULT_HOURS), session: AsyncSession = Depends(get_session)
 ) -> list[NewsShieldRow]:
     return await _shield_rows(session, hours)
 
 
 @router.get("/shield/windows", response_model=None)
 async def news_shield_windows(
-    hours: int = Query(default=48),
+    hours: int = Query(default=_SHIELD_DEFAULT_HOURS),
     format_: Literal["text", "csv", "json"] = Query(default="text", alias="format"),
     session: AsyncSession = Depends(get_session),
 ) -> PlainTextResponse | list[NewsShieldRow]:

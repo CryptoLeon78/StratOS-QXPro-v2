@@ -32,7 +32,7 @@ WS_CONNECTIONS_ACTIVE = Gauge("ws_connections_active", "Conexiones WebSocket act
 router = APIRouter()
 
 
-@router.get("/metrics")
+@router.get("/metrics", tags=["ops"])
 async def metrics() -> Response:
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
