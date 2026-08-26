@@ -22,3 +22,4 @@ Apéndice continuo de decisiones tomadas ante ambigüedades no bloqueantes del `
 ## G1 — Modelo de datos
 
 - **[G1-01]** `scan_hardcoding` marca `Field(default=15, ...)`/`Field(default=30, ...)` en `core/config.py` (`jwt_access_ttl_min`/`jwt_refresh_ttl_days`) como literales sospechosos: es un falso positivo, PARTE 10.1 asigna explícitamente estos dos valores a `Settings`/env (parámetros de despliegue), no a `SystemConfig`. Moverlos violaría la propia regla P11, no la cumpliría.
+- **[G1-02]** `scan_hardcoding` marca `1.0`/`100.0` en `core/db/models/accounts.py` (`Bot.sizing_multiplier`/`sizing_current_pct`): son los `DEFAULT` de columna que PARTE 5.2 fija literalmente en la propia DDL (`sizing_multiplier NUMERIC(4,2) DEFAULT 1.0`, `sizing_current_pct NUMERIC(4,2) DEFAULT 100.0`) — son esquema, no un umbral de negocio que deba vivir en `SystemConfig`.
