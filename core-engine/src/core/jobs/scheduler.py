@@ -20,6 +20,7 @@ from arq.connections import RedisSettings
 from core.config import get_settings
 from core.jobs.tasks import (
     task_evaluate_impulses,
+    task_maybe_send_digest,
     task_run_audit_daily,
     task_run_config_drift,
     task_run_correlations,
@@ -41,6 +42,9 @@ CRON_JOBS = [
     cron(task_run_audit_daily, hour=2, minute=0),
     cron(task_run_ums_downgrade_check, minute=0),
     cron(task_evaluate_impulses, hour=4, minute=0),
+    # PARTE 9.4: digest SUAVE diario -- se autocomprueba cada hora, solo
+    # actua a la hora configurada (telegram_soft_digest_hour_utc).
+    cron(task_maybe_send_digest, minute=0),
 ]
 
 

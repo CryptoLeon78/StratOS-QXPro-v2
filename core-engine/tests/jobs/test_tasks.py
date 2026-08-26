@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import fakeredis
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
@@ -189,4 +190,51 @@ async def test_task_evaluate_impulses_closes_a_due_impulse(db_connection: AsyncC
 
     await session.refresh(impulse)
     assert impulse.status == ImpulseStatus.CLOSED
+    await redis.aclose()
+
+
+class _FixedHourDatetime(datetime):
+    _fixed_hour: int = 20
+
+    @classmethod
+    def now(cls, tz=None):  # type: ignore[override]
+        return datetime(2026, 8, 26, cls._fixed_hour, 0, 0, tzinfo=tz)
+
+
+async def test_task_maybe_send_digest_noop_outside_the_configured_hour(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import core.jobs.tasks as tasks_module
+
+    class _WrongHour(_FixedHourDatetime):
+        _fixed_hour = 9
+
+    monkeypatch.setattr(tasks_module, "datetime", _WrongHour)  # type: ignore[attr-defined]
+    redis = fakeredis.FakeAsyncRedis()
+    await redis.rpush("telegram:digest:pending", '{"message": "no deberia tocarse"}')
+
+    await tasks_module.task_maybe_send_digest({"redis": redis})
+
+    remaining = await redis.lrange("telegram:digest:pending", 0, -1)
+    assert len(remaining) == 1
+    await redis.aclose()
+
+
+async def test_task_maybe_send_digest_drains_the_queue_at_the_configured_hour(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import core.jobs.tasks as tasks_module
+
+    class _RightHour(_FixedHourDatetime):
+        _fixed_hour = 20
+
+    monkeypatch.setattr(tasks_module, "datetime", _RightHour)  # type: ignore[attr-defined]
+    redis = fakeredis.FakeAsyncRedis()
+    await redis.rpush("telegram:digest:pending", '{"message": "alerta 1"}')
+    await redis.rpush("telegram:digest:pending", '{"message": "alerta 2"}')
+
+    await tasks_module.task_maybe_send_digest({"redis": redis})
+
+    remaining = await redis.lrange("telegram:digest:pending", 0, -1)
+    assert remaining == []
     await redis.aclose()

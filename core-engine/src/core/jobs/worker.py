@@ -17,6 +17,7 @@ from core.config import get_settings
 from core.db.base import engine
 from core.jobs.tasks import (
     task_evaluate_impulses,
+    task_maybe_send_digest,
     task_run_audit_daily,
     task_run_config_drift,
     task_run_correlations,
@@ -37,6 +38,7 @@ FUNCTIONS = [
     task_run_ums_downgrade_check,
     task_evaluate_impulses,
     task_run_config_drift,
+    task_maybe_send_digest,
 ]
 
 
