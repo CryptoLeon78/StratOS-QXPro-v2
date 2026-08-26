@@ -59,6 +59,18 @@ extend-exclude = ["alembic/versions"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.flake8-bugbear]
+# B008 asume que una funcion en un default de argumento es siempre un bug;
+# Depends/Header/Query/etc son el patron de inyeccion de dependencias propio
+# de FastAPI (PARTE 9.1 ingest/), no un error.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Header",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+]
+
 [tool.mypy]
 python_version = "3.12"
 strict = true
