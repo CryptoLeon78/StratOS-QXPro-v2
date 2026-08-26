@@ -13,6 +13,12 @@ import pytest_asyncio
 from sqlalchemy import delete, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+
+from core.db.enums import DecisionStatus
+from core.db.models.accounts import Account, Bot
+from core.db.models.decisions import Decision, DecisionLog, KillSwitchEvent, SemaphoreTransition
+from core.db.models.governance import ChecklistRun, WithdrawalLog
+from core.db.models.market import IngestBatch
 from tests.factories import (
     AccountFactory,
     BotFactory,
@@ -23,12 +29,6 @@ from tests.factories import (
     SemaphoreTransitionFactory,
     WithdrawalLogFactory,
 )
-
-from core.db.enums import DecisionStatus
-from core.db.models.accounts import Account, Bot
-from core.db.models.decisions import Decision, DecisionLog, KillSwitchEvent, SemaphoreTransition
-from core.db.models.governance import ChecklistRun, WithdrawalLog
-from core.db.models.market import IngestBatch
 
 
 @pytest_asyncio.fixture

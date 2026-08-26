@@ -8,9 +8,9 @@ import hashlib
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from tests.factories import AccountFactory, IngestBatchFactory
 
 from core.db.models.market import IngestBatch
+from tests.factories import AccountFactory, IngestBatchFactory
 
 
 async def test_ingest_batch_persists_with_valid_seal(db_session: AsyncSession) -> None:
