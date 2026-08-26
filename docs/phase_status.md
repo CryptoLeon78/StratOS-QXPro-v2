@@ -2,27 +2,29 @@
 
 > Se actualiza SIEMPRE al cerrar trabajo (regla de continuidad entre sesiones). Al abrir sesión, leer esto + `CLAUDE.md` + `ASSUMPTIONS.md` antes de proponer nada.
 
-## Fase actual: G1 — Modelo de datos
+## Fase actual: G2 — Fórmulas (TDD)
 
-**Estado**: **cerrada por completo**. Los 3 criterios de salida de PARTE 12 verificados con ejecución real contra Postgres/TimescaleDB (no mockeado) y con CI en GitHub Actions verde (3/3 jobs — run [`32934145617`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions)).
+**Estado**: **cerrada por completo**. Los 20 fórmulas de PARTE 8 implementadas con TDD real (rojo confirmado con comandos reales antes de cada implementación, nunca narrado) y CI en GitHub Actions verde 3/3 (run [`32939959347`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions)).
 
 ### Verde (verificado con comandos reales en esta sesión)
-- 25/25 tablas de PARTE 5.2 en el modelo SQLAlchemy (`core-engine/src/core/db/models/`, 5 módulos temáticos) + 15 enums + registro compartido de tipos `Enum`/`Numeric`.
-- Migración Alembic `0001` (25 tablas + 3 hypertables + compresión/retención + continuous aggregate `equity_daily` + rol `stratos_app` con grants exactos: SELECT/INSERT/UPDATE/DELETE en mutables, solo SELECT/INSERT en las 6 inmutables) y `0002` (fix de precisión `sizing_current_pct`). Roundtrip `upgrade → downgrade → upgrade` verificado limpio, incluso con `stratos_test` ya montada.
-- 16/16 tests verdes contra `stratos_test` real: `test_migration.py` (catálogo de Postgres/Timescale), `test_immutability_permissions.py` (las 6 inmutables + control negativo), `test_ingest_batch_seal.py` (sello sha256, NOT NULL real).
-- `ruff check` + `ruff format --check` + `mypy --strict` limpios (verificado sin caché tras el hallazgo de G1-14). `scan_hardcoding`: 15 hallazgos, todos falsos positivos de categorías ya documentadas (G1-01/02/03).
-- `docker-compose.yml`/`.env.example` ampliados con `APP_DATABASE_URL`/`APP_DB_PASSWORD` (rol de aplicación). `ci.yml` ampliado con las 4 vars nuevas que `Settings` exige.
+- `core-engine/src/core/formulas/` (6 módulos: `types`, `trading`, `portfolio`, `pipeline`, `monitoring`, `audit`) — **100 % de cobertura, 217/217 statements, 87/87 tests** (exige PARTE 12: ≥95 %). Suite completa del proyecto: 103/103 en verde (sin regresión de G0/G1).
+- Property-based con `hypothesis` en las 4 propiedades que PARTE 8 cita explícitamente: `max_drawdown_pct ≥ 0`, `|correlation_matrix| ≤ 1`, `walk_forward_efficiency` acotada con inputs acotados, `decision_eta_days` monótona (no creciente) en `freq_week`.
+- Nuevas dependencias reales (pandas/numpy/statsmodels) verificadas con `ols_alpha_beta` (regresión OLS real) y `daily_returns`/`correlation_matrix` (`pd.Series`/`pd.DataFrame` tal cual exige la firma de PARTE 8).
+- `ruff check` + `ruff format --check` + `mypy --config-file core-engine/pyproject.toml ... --strict` limpios. `scan_hardcoding`: solo defaults de parámetro que PARTE 8 fija literalmente en su propia firma (categorías G2-01/04, no umbrales de negocio).
 
-### 7 bugs reales encontrados y corregidos en esta sesión (detalle en ASSUMPTIONS G1-05 a G1-14)
-Postgres no acepta bind params en DDL (`CREATE ROLE`) · `op.drop_table` no limpia tipos ENUM · `CREATE ROLE` no era idempotente entre bases del mismo cluster · `Settings.env_file` relativo rompía con `cwd=core-engine/` · fixture de tests necesitaba subproceso para Alembic (no la API Python, por el `lru_cache` de `get_settings`) · `PARTE 5.2` tiene una inconsistencia real (`NUMERIC(4,2) DEFAULT 100.0` desborda) · `DROP ROLE` en downgrade rompía con una segunda base en el cluster · `tests/` necesitaba `__init__.py` para que `pytest` (ejecutable a secas, como lo invoca CI) resolviera imports · caché de `ruff` desactualizada tras cambiar límites de paquete.
+### 7 bugs reales encontrados y corregidos en esta sesión (detalle en ASSUMPTIONS G2-02/03/05/06/07 + hallazgos sin número propio)
+`mypy` resuelve su config contra el *cwd*, no la ruta analizada — `ci.yml` nunca cargaba el override de `statsmodels` (habría roto CI, corregido con `--config-file` antes de pushear) · `pandas.ffill(limit=0)` lanza en vez de ser no-op · `monte_carlo_maxdd` necesitaba una base de equity que PARTE 8 no incluye en la firma (`initial_equity` añadido) · `page_hinkley` de un solo lado (formulación clásica) no detectaba bajadas de la media — solo subidas; reimplementado como detector de dos lados tras verlo fallar con una serie de caída fuerte · una rama muerta en `historical_cvar` (el umbral de percentil nunca deja la cola vacía) · dos mensajes de error inconsistentes con el patrón "vac..." del resto del catálogo.
 
 ### Pendiente — depende del operador, no de más trabajo de agente
-- Revisar los defaults inventados en `ASSUMPTIONS.md` (G0-05 a G0-08: Page-Hinkley, UMS min months/Sharpe; G1-05/06/07 password del rol de aplicación si se necesita rotación real en producción) antes de que G2/G3 los consuman en serio.
+- Revisar los defaults/diseños propios en `ASSUMPTIONS.md` (G0-05 a G0-08, G1-05/06/07, y ahora G2-06/07: la fórmula de `sustainable_withdrawal` y el reparto de `counterfactual_impulse` por tipo de impulso son diseño propio sin cifra exacta de PARTE 8 que contrastar) antes de que G3 los use en las máquinas de estado.
 
 ## Fases cerradas
 
+### G1 — Modelo de datos (cerrada)
+25/25 tablas de PARTE 5.2, migraciones Alembic 0001/0002, rol `stratos_app` con grants exactos, 16/16 tests contra Postgres/TimescaleDB real. Detalle en `ASSUMPTIONS.md` G1-01 a G1-14 y el historial de commits.
+
 ### G0 — Scaffold + tooling de gobierno (cerrada)
-Repo git independiente en `https://github.com/CryptoLeon78/StratOS-QXPro-v2` (privado), `.mcp.json` operativo (registrado también en el raíz de `SQX_144_Full2`), `docker compose up -d postgres redis` healthy, CI verde, `config/thresholds.seed.json` (61 claves), scaffolds de `core-engine`/`api-gateway`/`frontend`. Detalle completo en el historial de commits y `ASSUMPTIONS.md` G0-01 a G0-14.
+Repo git independiente en `https://github.com/CryptoLeon78/StratOS-QXPro-v2` (privado), `.mcp.json` operativo, `docker compose up -d postgres redis` healthy, CI verde, `config/thresholds.seed.json` (61 claves), scaffolds de `core-engine`/`api-gateway`/`frontend`. Detalle en `ASSUMPTIONS.md` G0-01 a G0-14.
 
 ## Fases futuras (PARTE 12)
-G2 Fórmulas (TDD) · G3 Máquinas de estado · G4 mt5-connector + simulador · G5 core-engine (servicios/API/WS) · G6 Frontend shell + Resumen · G7 Frontend resto de pestañas · G8 Seed + E2E · G9 Hardening.
+G3 Máquinas de estado · G4 mt5-connector + simulador · G5 core-engine (servicios/API/WS) · G6 Frontend shell + Resumen · G7 Frontend resto de pestañas · G8 Seed + E2E · G9 Hardening.
