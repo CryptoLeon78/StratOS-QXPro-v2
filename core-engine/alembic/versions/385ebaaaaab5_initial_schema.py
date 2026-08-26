@@ -424,7 +424,22 @@ def upgrade() -> None:
     app_password = get_settings().app_db_password
     escaped_password = app_password.replace("'", "''")
     bind = op.get_bind()
-    bind.exec_driver_sql(f"CREATE ROLE stratos_app LOGIN PASSWORD '{escaped_password}'")
+    # Idempotente: esta migracion puede correr contra mas de una base de
+    # datos en el mismo cluster (p.ej. stratos y stratos_test) y el rol es
+    # un objeto de cluster, no de base de datos — un CREATE ROLE simple
+    # fallaria con "role already exists" en la segunda base (bug real
+    # encontrado al montar el fixture de tests contra stratos_test).
+    bind.exec_driver_sql(
+        f"""
+        DO $do$
+        BEGIN
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'stratos_app') THEN
+                CREATE ROLE stratos_app LOGIN PASSWORD '{escaped_password}';
+            END IF;
+        END
+        $do$
+        """
+    )
     bind.exec_driver_sql("GRANT USAGE ON SCHEMA public TO stratos_app")
     bind.exec_driver_sql(
         "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO stratos_app"
