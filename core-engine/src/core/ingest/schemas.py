@@ -17,7 +17,14 @@ rechazando texto/numeros confundidos de tipo).
 
 Todos los payloads llevan `batch_sha256` (PARTE 6: sello del lote, ver
 `ingest_seal`) -- el conector lo calcula antes de tocar la red; el servicio
-de cada ruta lo revalida antes de persistir nada (fail-closed)."""
+de cada ruta lo revalida antes de persistir nada (fail-closed).
+
+Todos los payloads llevan tambien `connector_instance_id`: `IngestBatch`
+(G1) lo exige NOT NULL en TODO lote, no solo en heartbeat -- la notacion
+compacta de PARTE 9.1 ({account_login, trades:[...]}) solo lo muestra
+explicito para `/ingest/heartbeat` porque ahi es el dato relevante del
+endpoint, no porque sea el unico payload que lo lleve (esa misma notacion
+tampoco enumera los campos reales de un Trade, y aun asi hacen falta)."""
 
 from datetime import datetime
 from decimal import Decimal
@@ -55,6 +62,7 @@ class TradeIn(_Strict):
 
 class TradesIngestRequest(_Strict):
     account_login: str
+    connector_instance_id: str
     trades: list[TradeIn]
     batch_sha256: str = Field(min_length=64, max_length=64)
 
@@ -74,6 +82,7 @@ class PositionIn(_Strict):
 
 class PositionsIngestRequest(_Strict):
     account_login: str
+    connector_instance_id: str
     ts: LaxDatetime
     positions: list[PositionIn]
     batch_sha256: str = Field(min_length=64, max_length=64)
@@ -81,6 +90,7 @@ class PositionsIngestRequest(_Strict):
 
 class EquityIngestRequest(_Strict):
     account_login: str
+    connector_instance_id: str
     ts: LaxDatetime
     equity: LaxDecimal
     balance: LaxDecimal
@@ -109,6 +119,7 @@ class SignalIn(_Strict):
 
 class SignalsIngestRequest(_Strict):
     account_login: str
+    connector_instance_id: str
     magic: int
     signals: list[SignalIn]
     batch_sha256: str = Field(min_length=64, max_length=64)
@@ -125,6 +136,7 @@ class FillIn(_Strict):
 
 class ExecutionIngestRequest(_Strict):
     account_login: str
+    connector_instance_id: str
     magic: int
     fills: list[FillIn]
     batch_sha256: str = Field(min_length=64, max_length=64)
@@ -141,6 +153,7 @@ class EaStateIn(_Strict):
 
 class EaStateIngestRequest(_Strict):
     account_login: str
+    connector_instance_id: str
     eas: list[EaStateIn]
     batch_sha256: str = Field(min_length=64, max_length=64)
 

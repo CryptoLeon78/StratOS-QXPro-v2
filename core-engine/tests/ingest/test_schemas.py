@@ -26,6 +26,7 @@ class TestLaxDecimalAndDatetimeAcceptRealisticJson:
         req = TradesIngestRequest.model_validate(
             {
                 "account_login": "100231",
+                "connector_instance_id": "conn-1",
                 "batch_sha256": SEAL,
                 "trades": [
                     {
@@ -54,6 +55,7 @@ class TestLaxDecimalAndDatetimeAcceptRealisticJson:
         req = PositionsIngestRequest.model_validate(
             {
                 "account_login": "100231",
+                "connector_instance_id": "conn-1",
                 "batch_sha256": SEAL,
                 "ts": "2026-08-26T12:00:00Z",
                 "positions": [
@@ -78,6 +80,7 @@ class TestLaxDecimalAndDatetimeAcceptRealisticJson:
         req = EquityIngestRequest.model_validate(
             {
                 "account_login": "100231",
+                "connector_instance_id": "conn-1",
                 "batch_sha256": SEAL,
                 "ts": "2026-08-26T12:00:00Z",
                 "equity": 179642.70,
@@ -95,6 +98,7 @@ class TestStrictFieldsRejectTypeConfusion:
             PositionsIngestRequest.model_validate(
                 {
                     "account_login": "100231",
+                    "connector_instance_id": "conn-1",
                     "batch_sha256": SEAL,
                     "ts": "2026-08-26T12:00:00Z",
                     "positions": [
@@ -117,6 +121,7 @@ class TestStrictFieldsRejectTypeConfusion:
             EaStateIngestRequest.model_validate(
                 {
                     "account_login": "100231",
+                    "connector_instance_id": "conn-1",
                     "batch_sha256": SEAL,
                     "eas": [
                         {
@@ -134,6 +139,7 @@ class TestStrictFieldsRejectTypeConfusion:
             SignalsIngestRequest.model_validate(
                 {
                     "account_login": "100231",
+                    "connector_instance_id": "conn-1",
                     "batch_sha256": SEAL,
                     "magic": 118344,
                     "signals": [
@@ -179,6 +185,7 @@ class TestExecutionAndEaStateShapes:
         req = ExecutionIngestRequest.model_validate(
             {
                 "account_login": "100231",
+                "connector_instance_id": "conn-1",
                 "batch_sha256": SEAL,
                 "magic": 118231,
                 "fills": [
@@ -199,6 +206,7 @@ class TestExecutionAndEaStateShapes:
         req = EaStateIngestRequest.model_validate(
             {
                 "account_login": "100231",
+                "connector_instance_id": "conn-1",
                 "batch_sha256": SEAL,
                 "eas": [
                     {
