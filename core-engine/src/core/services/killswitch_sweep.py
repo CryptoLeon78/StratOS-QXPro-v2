@@ -46,7 +46,7 @@ async def compute_portfolio_dd_pct(
     return Decimal(str((peak - current) / peak * 100))
 
 
-async def _current_level(session: AsyncSession) -> int:
+async def current_killswitch_level(session: AsyncSession) -> int:
     last = (
         await session.execute(
             select(KillSwitchEvent.level).order_by(KillSwitchEvent.ts.desc()).limit(1)
@@ -66,6 +66,6 @@ async def sweep_portfolio(
     if dd_pct is None:
         return
 
-    current_level = await _current_level(session)
+    current_level = await current_killswitch_level(session)
     result = evaluate_killswitch_escalation(dd_pct, current_level, config)
     await apply_killswitch_transition(session, redis, result)
