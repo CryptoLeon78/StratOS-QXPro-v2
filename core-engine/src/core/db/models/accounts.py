@@ -4,9 +4,9 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
+from core.db import sa_enums
 from core.db.base import Base
 from core.db.column_types import DrawdownPct
 from core.db.enums import BaselineSource, BotProfile, BotRole, PipelinePhase, SemaphoreState
@@ -40,14 +40,12 @@ class Bot(Base):
     name: Mapped[str] = mapped_column(String)
     market: Mapped[str] = mapped_column(String)
     timeframe: Mapped[str] = mapped_column(String)
-    profile: Mapped[BotProfile] = mapped_column(SAEnum(BotProfile, name="bot_profile"))
-    role: Mapped[BotRole] = mapped_column(SAEnum(BotRole, name="bot_role"))
+    profile: Mapped[BotProfile] = mapped_column(sa_enums.bot_profile)
+    role: Mapped[BotRole] = mapped_column(sa_enums.bot_role)
     slot: Mapped[str | None] = mapped_column(String, nullable=True)
-    pipeline_phase: Mapped[PipelinePhase] = mapped_column(
-        SAEnum(PipelinePhase, name="pipeline_phase")
-    )
+    pipeline_phase: Mapped[PipelinePhase] = mapped_column(sa_enums.pipeline_phase)
     semaphore_state: Mapped[SemaphoreState] = mapped_column(
-        SAEnum(SemaphoreState, name="semaphore_state"),
+        sa_enums.semaphore_state,
         default=SemaphoreState.VERDE,
         server_default=SemaphoreState.VERDE.value,
     )
@@ -76,7 +74,7 @@ class Baseline(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     bot_id: Mapped[int] = mapped_column(ForeignKey("bot.id"))
-    source: Mapped[BaselineSource] = mapped_column(SAEnum(BaselineSource, name="baseline_source"))
+    source: Mapped[BaselineSource] = mapped_column(sa_enums.baseline_source)
     profit_factor: Mapped[float] = mapped_column()  # rolling_profit_factor() -> float | None
     expectancy_r: Mapped[float] = mapped_column()  # expectancy_r() -> float
     sharpe: Mapped[float] = mapped_column()

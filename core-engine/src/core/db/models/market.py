@@ -24,9 +24,9 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
 )
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
+from core.db import sa_enums
 from core.db.base import Base
 from core.db.column_types import DrawdownPct, FxRateValue, Money, Price, RMultiple, Volume
 from core.db.enums import TradeType
@@ -50,7 +50,7 @@ class Trade(Base):
     symbol: Mapped[str] = mapped_column(String)
     open_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     close_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    type: Mapped[TradeType] = mapped_column(SAEnum(TradeType, name="trade_type"))
+    type: Mapped[TradeType] = mapped_column(sa_enums.trade_type)
     volume: Mapped[Decimal] = mapped_column(Volume)
     open_price: Mapped[Decimal] = mapped_column(Price)
     close_price: Mapped[Decimal | None] = mapped_column(Price, nullable=True)
