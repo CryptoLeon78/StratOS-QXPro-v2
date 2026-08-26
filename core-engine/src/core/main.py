@@ -2,10 +2,12 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from ingest_seal.sealing import SealMismatchError
 
+from core.auth.router import router as auth_router
 from core.ingest.router import router as ingest_router
 
 app = FastAPI(title="StratOS-QXPro core-engine")
 app.include_router(ingest_router)
+app.include_router(auth_router)
 
 
 @app.exception_handler(SealMismatchError)
