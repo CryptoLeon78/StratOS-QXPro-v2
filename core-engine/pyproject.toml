@@ -46,6 +46,9 @@ asyncio_mode = "auto"
 target-version = "py312"
 line-length = 100
 src = ["src", "tests"]
+# alembic/versions/ es codigo generado (alembic revision --autogenerate) que
+# .claude/settings.json ya bloquea editar a mano; no se reformatea ni se lint-ea.
+extend-exclude = ["alembic/versions"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

@@ -12,6 +12,9 @@ class Settings(BaseSettings):
 
     database_url: str = Field(validation_alias="DATABASE_URL")
     app_database_url: str = Field(validation_alias="APP_DATABASE_URL")
+    # Solo la usa la migracion 0001 para crear el rol stratos_app (CREATE
+    # ROLE ... PASSWORD); no se usa en runtime de la app.
+    app_db_password: str = Field(validation_alias="APP_DB_PASSWORD")
     redis_url: str = Field(validation_alias="REDIS_URL")
 
     jwt_secret: str = Field(validation_alias="JWT_SECRET")
