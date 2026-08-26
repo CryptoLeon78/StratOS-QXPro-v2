@@ -15,6 +15,7 @@ from decimal import Decimal
 
 import factory
 
+from core.auth.security import hash_password
 from core.db.enums import (
     ActorType,
     BaselineSource,
@@ -27,7 +28,7 @@ from core.db.enums import (
 )
 from core.db.models.accounts import Account, Baseline, Bot
 from core.db.models.decisions import DecisionLog, KillSwitchEvent, SemaphoreTransition
-from core.db.models.governance import ChecklistRun, SystemConfig, WithdrawalLog
+from core.db.models.governance import ChecklistRun, SystemConfig, User, WithdrawalLog
 from core.db.models.market import EaState, EquitySnapshot, IngestBatch, Trade, VirtualTrade
 
 
@@ -235,6 +236,19 @@ class EaStateFactory(factory.Factory):
     news_windows = factory.LazyFunction(list)
     ingest_batch_id = None  # el test lo rellena tras insertar el IngestBatch
     last_ingested_at = factory.LazyFunction(lambda: datetime.now(UTC))
+
+
+TEST_USER_PASSWORD = "correct-horse-battery-staple"
+
+
+class UserFactory(factory.Factory):
+    class Meta:
+        model = User
+
+    email = factory.Sequence(lambda n: f"operator{n}@stratos.local")
+    hashed_password = factory.LazyFunction(lambda: hash_password(TEST_USER_PASSWORD))
+    role = "operator"
+    created_at = factory.LazyFunction(lambda: datetime.now(UTC))
 
 
 class ChecklistRunFactory(factory.Factory):
