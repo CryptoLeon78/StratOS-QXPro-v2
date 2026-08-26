@@ -28,7 +28,7 @@ from core.db.enums import (
 from core.db.models.accounts import Account, Baseline, Bot
 from core.db.models.decisions import DecisionLog, KillSwitchEvent, SemaphoreTransition
 from core.db.models.governance import ChecklistRun, SystemConfig, WithdrawalLog
-from core.db.models.market import EquitySnapshot, IngestBatch, Trade
+from core.db.models.market import EaState, EquitySnapshot, IngestBatch, Trade, VirtualTrade
 
 
 class AccountFactory(factory.Factory):
@@ -201,6 +201,40 @@ class WithdrawalLogFactory(factory.Factory):
     amount = Decimal("2500.00")
     equity_before = Decimal("179642.70")
     checklist_completed = factory.LazyFunction(dict)
+
+
+class VirtualTradeFactory(factory.Factory):
+    class Meta:
+        model = VirtualTrade
+
+    account_id = None  # el test lo rellena tras insertar el Account
+    bot_id = None
+    magic_number = 118344
+    signal_id = factory.Sequence(lambda n: f"signal-{n}")
+    symbol = "XAUUSD"
+    type = TradeType.BUY
+    volume = Decimal("0.10")
+    entry_price = Decimal("2400.00000")
+    sl = None
+    tp = None
+    ts = factory.LazyFunction(lambda: datetime.now(UTC))
+    ingest_batch_id = None  # el test lo rellena tras insertar el IngestBatch
+    ingested_at = factory.LazyFunction(lambda: datetime.now(UTC))
+
+
+class EaStateFactory(factory.Factory):
+    class Meta:
+        model = EaState
+
+    account_id = None  # el test lo rellena tras insertar el Account
+    magic_number = 118231
+    ea_version = "1.0.3"
+    mode = "REAL"
+    autotrading = True
+    schedule_filter = factory.LazyFunction(dict)
+    news_windows = factory.LazyFunction(list)
+    ingest_batch_id = None  # el test lo rellena tras insertar el IngestBatch
+    last_ingested_at = factory.LazyFunction(lambda: datetime.now(UTC))
 
 
 class ChecklistRunFactory(factory.Factory):

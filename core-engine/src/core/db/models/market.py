@@ -13,9 +13,11 @@ Todas las columnas Numeric se tipan `Mapped[Decimal]`: el tipo SQLAlchemy
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -24,6 +26,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.db import sa_enums
@@ -114,3 +117,49 @@ class FxRate(Base):
     base: Mapped[str] = mapped_column(String(3))
     quote: Mapped[str] = mapped_column(String(3))
     rate: Mapped[Decimal] = mapped_column(FxRateValue)
+
+
+class VirtualTrade(Base):
+    """G4/ASSUMPTIONS: `POST /ingest/signals` (PARTE 9.1) no tiene tabla en
+    PARTE 5.2 -- son trades virtuales (semaforo NARANJA, PARTE 6.1), no
+    trades reales, por eso viven aparte de `Trade` (mezclarlos corrompería
+    cualquier formula que escanee P&L real). Mutable: no es una de las 6
+    tablas inmutables de P6/P15.3."""
+
+    __tablename__ = "virtual_trade"
+    __table_args__ = (UniqueConstraint("account_id", "magic_number", "signal_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("account.id"))
+    bot_id: Mapped[int | None] = mapped_column(ForeignKey("bot.id"), nullable=True)
+    magic_number: Mapped[int] = mapped_column(Integer)
+    signal_id: Mapped[str] = mapped_column(String)
+    symbol: Mapped[str] = mapped_column(String)
+    type: Mapped[TradeType] = mapped_column(sa_enums.trade_type)
+    volume: Mapped[Decimal] = mapped_column(Volume)
+    entry_price: Mapped[Decimal] = mapped_column(Price)
+    sl: Mapped[Decimal | None] = mapped_column(Price, nullable=True)
+    tp: Mapped[Decimal | None] = mapped_column(Price, nullable=True)
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    ingest_batch_id: Mapped[int] = mapped_column(ForeignKey("ingest_batch.id"))
+    ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class EaState(Base):
+    """G4/ASSUMPTIONS: `POST /ingest/ea_state` (PARTE 9.1) alimenta la
+    pestaña Cuentas/EA (7.2, diseño derivado) -- espejo del ULTIMO estado
+    reportado por EA, no una serie temporal (por eso PK compuesta simple,
+    UPSERT en cada ingesta, no INSERT append-only)."""
+
+    __tablename__ = "ea_state"
+    __table_args__ = (PrimaryKeyConstraint("account_id", "magic_number"),)
+
+    account_id: Mapped[int] = mapped_column(ForeignKey("account.id"))
+    magic_number: Mapped[int] = mapped_column(Integer)
+    ea_version: Mapped[str] = mapped_column(String)
+    mode: Mapped[str] = mapped_column(String)
+    autotrading: Mapped[bool] = mapped_column(Boolean)
+    schedule_filter: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    news_windows: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+    ingest_batch_id: Mapped[int] = mapped_column(ForeignKey("ingest_batch.id"))
+    last_ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
