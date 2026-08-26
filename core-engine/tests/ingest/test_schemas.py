@@ -174,6 +174,7 @@ class TestBatchSha256Shape:
                 "connector_instance_id": "conn-1",
                 "account_login": "100231",
                 "latency_ms": 42,
+                "ts": "2026-08-26T12:00:00Z",
                 "batch_sha256": SEAL,
             }
         )

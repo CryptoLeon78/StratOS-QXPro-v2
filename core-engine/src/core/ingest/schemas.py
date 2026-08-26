@@ -24,7 +24,15 @@ Todos los payloads llevan tambien `connector_instance_id`: `IngestBatch`
 compacta de PARTE 9.1 ({account_login, trades:[...]}) solo lo muestra
 explicito para `/ingest/heartbeat` porque ahi es el dato relevante del
 endpoint, no porque sea el unico payload que lo lleve (esa misma notacion
-tampoco enumera los campos reales de un Trade, y aun asi hacen falta)."""
+tampoco enumera los campos reales de un Trade, y aun asi hacen falta).
+
+`HeartbeatIngestRequest` lleva ademas `ts` (tampoco en la notacion
+compacta): `HeartbeatLog.ts` es parte de su PK compuesta
+`(ts, connector_instance_id, account_id)` -- si `ts` lo pusiera el
+servidor en cada request, un reenvio real (mismo heartbeat, misma
+`batch_sha256`) generaria una fila NUEVA en vez de deduplicar, rompiendo
+P9 igual que le pasaria a `trades`/`equity` si `open_time`/`ts` no
+vinieran del cliente."""
 
 from datetime import datetime
 from decimal import Decimal
@@ -103,6 +111,7 @@ class HeartbeatIngestRequest(_Strict):
     connector_instance_id: str
     account_login: str
     latency_ms: int
+    ts: LaxDatetime
     batch_sha256: str = Field(min_length=64, max_length=64)
 
 
