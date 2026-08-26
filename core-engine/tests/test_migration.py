@@ -6,7 +6,8 @@ resultado real en el catalogo de Postgres/TimescaleDB."""
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-EXPECTED_TABLE_COUNT = 27  # PARTE 5.2 (25) + ea_state + virtual_trade (G4, migracion 011e)
+# PARTE 5.2 (25) + ea_state/virtual_trade (G4) + checklist_item_signature (G5)
+EXPECTED_TABLE_COUNT = 28
 
 
 async def test_all_tables_created(db_connection: AsyncConnection) -> None:

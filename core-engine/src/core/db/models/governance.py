@@ -55,6 +55,12 @@ class MonteCarloRun(Base):
 
 
 class UmsPhaseLog(Base):
+    """G5 (7.9): cada fila representa una transicion REAL de fase, no una
+    evaluacion cualquiera -- las subidas solo se insertan firmadas
+    (`signed_by` NOT NULL), las bajadas automaticas se insertan sin firma
+    (regla asimetrica: avance humano, descenso automatico por proteccion).
+    "Fase actual" = fase de la ultima fila."""
+
     __tablename__ = "ums_phase_log"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -63,6 +69,7 @@ class UmsPhaseLog(Base):
     equity_at: Mapped[Decimal] = mapped_column(Money)
     metrics: Mapped[dict[str, Any]] = mapped_column(JSONB)
     ready_to_advance: Mapped[bool] = mapped_column(Boolean)
+    signed_by: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class WithdrawalLog(Base):
@@ -105,6 +112,27 @@ class ChecklistRun(Base):
     completed: Mapped[bool] = mapped_column(Boolean)
     signed_by: Mapped[str | None] = mapped_column(String, nullable=True)
     signature_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class ChecklistItemSignature(Base):
+    """G5 (aprobada por el operador): staging MUTABLE para las firmas
+    item-a-item del checklist dominical/mensual (PARTE 7.9/14). `ChecklistRun`
+    (inmutable, UNIQUE(checklist_type, period_key)) solo admite UNA fila
+    final por periodo -- esta tabla acumula el progreso item a item hasta
+    que el catalogo se completa, momento en el que se inserta la fila unica
+    en ChecklistRun. Sobrevive a un reinicio del stack (a diferencia de
+    guardar el progreso en Redis, que en este proyecto no tiene persistencia
+    configurada)."""
+
+    __tablename__ = "checklist_item_signature"
+    __table_args__ = (UniqueConstraint("checklist_type", "period_key", "item_key"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    checklist_type: Mapped[ChecklistType] = mapped_column(sa_enums.checklist_type)
+    period_key: Mapped[str] = mapped_column(String)
+    item_key: Mapped[str] = mapped_column(String)
+    signed_by: Mapped[str] = mapped_column(String)
+    signed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class User(Base):
