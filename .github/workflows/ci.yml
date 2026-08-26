@@ -85,6 +85,155 @@ jobs:
           cd core-engine
           pytest -v
 
+  lint-mt5-connector:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Orden de instalacion no trivial (G4): mt5-connector[dev] depende de
+      # mt5-simulator, que a su vez depende de mt5-connector (base, sin
+      # [dev]) -- ninguno esta en un indice publico, asi que hay que
+      # instalar en 2 pasadas para que pip resuelva cada extra contra lo ya
+      # presente en el entorno, no contra PyPI.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e shared-ingest-seal
+          pip install -e mt5-connector
+          pip install -e "mt5-simulator[dev]"
+          pip install -e "mt5-connector[dev]"
+
+      - name: Run Ruff (linter & formatter)
+        run: |
+          ruff check mt5-connector/
+          ruff format --check mt5-connector/
+
+      - name: Run Mypy (strict typechecking)
+        run: |
+          mypy --config-file mt5-connector/pyproject.toml mt5-connector/src/ --strict
+
+  test-mt5-connector:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Sin Postgres/Redis: todos los tests de mt5-connector son locales
+      # (SQLite del buffer, httpx.MockTransport/ASGITransport) -- el
+      # paquete `MetaTrader5` real (Windows-only) nunca se instala aqui.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e shared-ingest-seal
+          pip install -e mt5-connector
+          pip install -e "mt5-simulator[dev]"
+          pip install -e "mt5-connector[dev]"
+
+      - name: Run Pytest
+        run: |
+          cd mt5-connector
+          pytest -v
+
+  lint-and-test-mt5-simulator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e shared-ingest-seal
+          pip install -e mt5-connector
+          pip install -e "mt5-simulator[dev]"
+
+      - name: Run Ruff (linter & formatter)
+        run: |
+          ruff check mt5-simulator/
+          ruff format --check mt5-simulator/
+
+      - name: Run Mypy (strict typechecking)
+        run: |
+          mypy --config-file mt5-simulator/pyproject.toml mt5-simulator/src/ --strict
+
+      - name: Run Pytest
+        run: |
+          cd mt5-simulator
+          pytest -v
+
+  test-integration:
+    runs-on: ubuntu-latest
+    # Criterio de salida de G4 (PARTE 12): unico job que instala los 3
+    # paquetes a la vez contra Postgres real (mismos servicios que
+    # test-backend -- integration-tests corre contra stratos_test real).
+    services:
+      postgres:
+        image: timescale/timescaledb:2.17.2-pg16
+        env:
+          POSTGRES_DB: stratos
+          POSTGRES_USER: stratos_user
+          POSTGRES_PASSWORD: stratos_secret_2026
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e shared-ingest-seal
+          pip install -e "core-engine[dev]"
+          pip install -e mt5-connector
+          pip install -e "mt5-simulator[dev]"
+          pip install -e "mt5-connector[dev]"
+          pip install pytest pytest-asyncio asyncpg
+
+      - name: Run Pytest
+        env:
+          DATABASE_URL: postgresql+asyncpg://stratos_user:stratos_secret_2026@localhost:5432/stratos
+          APP_DATABASE_URL: postgresql+asyncpg://stratos_app:stratos_app_secret_2026@localhost:5432/stratos
+          APP_DB_PASSWORD: stratos_app_secret_2026
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET: ci-test-jwt-secret
+          INGEST_API_KEYS: ci-test-ingest-key
+        run: |
+          cd integration-tests
+          pytest -v
+
   lint-and-build-frontend:
     runs-on: ubuntu-latest
     steps:
