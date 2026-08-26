@@ -39,7 +39,7 @@ class SemaphoreSweepConfig:
     ph_lambda: float = 50.0
 
 
-async def _assemble_metrics(
+async def assemble_semaphore_metrics(
     session: AsyncSession, bot: Bot, baseline: Baseline, sweep_config: SemaphoreSweepConfig
 ) -> SemaphoreMetrics:
     rows = (
@@ -106,7 +106,7 @@ async def sweep_all_bots(
         if baseline is None:
             continue
 
-        metrics = await _assemble_metrics(session, bot, baseline, sweep_config)
+        metrics = await assemble_semaphore_metrics(session, bot, baseline, sweep_config)
         days_in_state = (now - bot.entered_state_at).days
 
         # Aproximacion (ASSUMPTIONS G5): no hay historico de evaluaciones
