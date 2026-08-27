@@ -1,16 +1,15 @@
 """Recalcula `Trade.r_multiple` para todos los trades cerrados con `sl`
-no nulo (G10, docs/backlog.md) usando `formulas/trading.py::r_multiple`
-(ya existe, PARTE 8) + `instrument_spec` (G10, importado de SQX via
+no nulo (G10, docs/backlog.md) usando
+`formulas/trading.py::r_multiple_net_of_costs` (envoltorio TDD de
+`r_multiple`, PARTE 8) + `instrument_spec` (G10, importado de SQX via
 `import_instrument_specs.py`). Re-ejecutable: recalcula y SOBRESCRIBE (no
 solo rellena NULLs) -- si `instrument_spec` se actualiza con datos mas
 recientes, este script propaga el nuevo tick_value/tick_size.
 
-`profit_net = Trade.profit + Trade.commission + Trade.swap` (P&L neto
-real, incluye costes de la operacion) -- PARTE 8 no fija esta suma
-explicitamente para `r_multiple` a nivel de trade individual; decision
-propia documentada aqui y en ASSUMPTIONS G10 (mismo criterio que
-`core/ingest/services/trades.py` usa al poblar `r_multiple` para los
-trades nuevos desde el ingest).
+`profit_net = Trade.profit + Trade.commission + Trade.swap` (decision
+propia de `r_multiple_net_of_costs`, ver su docstring) -- misma convencion
+que usa `core/ingest/services/trades.py` al poblar `r_multiple` para los
+trades nuevos desde el ingest, unica fuente de esta regla.
 
 Trades sin `sl`, o cuyo `symbol` no tiene fila en `instrument_spec`, se
 quedan con `r_multiple` NULL -- no se inventa.
@@ -25,7 +24,7 @@ from decimal import Decimal
 import core.db.models  # noqa: F401 -- registra las tablas en Base.metadata
 from core.db.base import async_session_factory
 from core.db.models.market import InstrumentSpec, Trade
-from core.formulas.trading import r_multiple
+from core.formulas.trading import r_multiple_net_of_costs
 from sqlalchemy import select
 
 
@@ -43,9 +42,10 @@ def r_multiple_for_trade(
     if spec is None or sl is None:
         return None
     tick_value, tick_size = spec
-    profit_net = profit + commission + swap
-    return r_multiple(
-        profit_net=profit_net,
+    return r_multiple_net_of_costs(
+        profit=profit,
+        commission=commission,
+        swap=swap,
         entry=entry,
         sl=sl,
         volume=volume,

@@ -4,16 +4,25 @@ existe Y ya esta cerrada (`close_time IS NOT NULL`), un reenvio no toca
 nada (duplicado real); si existe pero seguia abierta (la creo antes
 `/ingest/positions`), esta es la primera vez que se reporta el cierre ->
 se actualiza. `bot_id NULL` = huerfano, la ingesta nunca se rechaza por eso
-(PARTE 5.2)."""
+(PARTE 5.2).
+
+`r_multiple` (G10, docs/backlog.md) se calcula aqui mismo, en el momento
+del cierre, via `formulas/trading.py::r_multiple_net_of_costs` +
+`instrument_spec` (ya importado de SQX, `scripts/import_instrument_specs.py`)
+-- sin fila de spec para el simbolo, o sin `sl`, se queda NULL (no se
+inventa). Misma convencion que `scripts/backfill_r_multiple.py` usa para
+los trades historicos ya cerrados antes de este commit."""
 
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models.accounts import Account, Bot
-from core.db.models.market import Trade
+from core.db.models.market import InstrumentSpec, Trade
+from core.formulas.trading import r_multiple_net_of_costs
 from core.ingest.batch import seal_and_create_batch
 from core.ingest.schemas import TradesIngestRequest
 from core.ingest.services import IngestOutcome
@@ -24,6 +33,21 @@ async def _resolve_bot_id(session: AsyncSession, account_id: int, magic_number: 
         select(Bot.id).where(Bot.account_id == account_id, Bot.magic_number == magic_number)
     )
     return result.scalar_one_or_none()
+
+
+async def _instrument_specs(
+    session: AsyncSession, symbols: set[str]
+) -> dict[str, tuple[Decimal, Decimal]]:
+    if not symbols:
+        return {}
+    rows = (
+        await session.execute(
+            select(
+                InstrumentSpec.symbol, InstrumentSpec.tick_value, InstrumentSpec.tick_size
+            ).where(InstrumentSpec.symbol.in_(symbols))
+        )
+    ).all()
+    return {symbol: (tick_value, tick_size) for symbol, tick_value, tick_size in rows}
 
 
 async def ingest_trades(
@@ -41,9 +65,25 @@ async def ingest_trades(
     )
 
     now = datetime.now(UTC)
+    specs = await _instrument_specs(session, {trade.symbol for trade in req.trades})
     accepted = 0
     for trade in req.trades:
         bot_id = await _resolve_bot_id(session, account.id, trade.magic_number)
+        spec = specs.get(trade.symbol)
+        r_multiple = (
+            r_multiple_net_of_costs(
+                profit=trade.profit,
+                commission=trade.commission,
+                swap=trade.swap,
+                entry=trade.open_price,
+                sl=trade.sl,
+                volume=trade.volume,
+                tick_value=spec[0],
+                tick_size=spec[1],
+            )
+            if spec is not None
+            else None
+        )
         stmt = (
             pg_insert(Trade)
             .values(
@@ -63,6 +103,7 @@ async def ingest_trades(
                 profit=trade.profit,
                 commission=trade.commission,
                 swap=trade.swap,
+                r_multiple=r_multiple,
                 ingest_batch_id=batch.id,
                 ingested_at=now,
             )
@@ -74,6 +115,7 @@ async def ingest_trades(
                     "profit": trade.profit,
                     "commission": trade.commission,
                     "swap": trade.swap,
+                    "r_multiple": r_multiple,
                 },
                 where=Trade.close_time.is_(None),
             )

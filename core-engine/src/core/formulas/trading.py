@@ -35,6 +35,32 @@ def r_multiple(
     return profit_net / risk
 
 
+def r_multiple_net_of_costs(
+    profit: Decimal,
+    commission: Decimal,
+    swap: Decimal,
+    entry: Decimal,
+    sl: Decimal | None,
+    volume: Decimal,
+    tick_value: Decimal,
+    tick_size: Decimal,
+) -> Decimal | None:
+    """G10: envoltorio de `r_multiple()` con `profit_net = profit +
+    commission + swap` (comision/swap ya llevan su propio signo en
+    `Trade`, negativos si son coste) -- PARTE 8 no fija esta suma a nivel
+    de trade individual; decision propia documentada en ASSUMPTIONS G10.
+    Unica fuente de esta convencion: reutilizada tal cual por
+    `core/ingest/services/trades.py` y `scripts/backfill_r_multiple.py`."""
+    return r_multiple(
+        profit_net=profit + commission + swap,
+        entry=entry,
+        sl=sl,
+        volume=volume,
+        tick_value=tick_value,
+        tick_size=tick_size,
+    )
+
+
 def expectancy_r(r_multiples: list[Decimal]) -> float:
     """Media; ventana vacia -> ValueError (PARTE 8)."""
     if not r_multiples:

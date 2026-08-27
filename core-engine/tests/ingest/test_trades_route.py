@@ -1,7 +1,9 @@
 """PARTE 9.1: `POST /ingest/trades` end-to-end (ASGI real contra
 `stratos_test`) -- idempotencia (P9), huerfanos (bot_id NULL no rechaza),
-mismatch de sello (422, cero filas)."""
+mismatch de sello (422, cero filas), r_multiple (G10, docs/backlog.md)."""
 
+from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from httpx import AsyncClient
@@ -9,7 +11,7 @@ from ingest_seal.sealing import compute_batch_sha256
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
-from core.db.models.market import IngestBatch, Trade
+from core.db.models.market import IngestBatch, InstrumentSpec, Trade
 from core.ingest.schemas import TradesIngestRequest
 from tests.factories import AccountFactory, BotFactory
 from tests.ingest.conftest import TEST_INGEST_API_KEY
@@ -157,3 +159,53 @@ async def test_unknown_account_login_is_404(ingest_client: AsyncClient) -> None:
     payload = _sealed_trades_payload("no-such-login", "conn-1", [_trade(3000005, 118231)])
     response = await ingest_client.post("/ingest/trades", json=payload, headers=HEADERS)
     assert response.status_code == 404
+
+
+async def test_computes_r_multiple_when_instrument_spec_exists(
+    ingest_client: AsyncClient, db_connection: AsyncConnection
+) -> None:
+    account = AccountFactory()
+    async with _session(db_connection) as session:
+        session.add(account)
+        session.add(
+            InstrumentSpec(
+                symbol="EURUSD",
+                tick_size=Decimal("0.0001"),
+                tick_value=Decimal("1"),
+                point_value=Decimal("10000"),
+                source="test",
+                imported_at=datetime.now(UTC),
+            )
+        )
+        await session.commit()
+
+    # open_price=1.085, sl=1.08 -> riesgo = 0.005/0.0001*1*0.1 = 5;
+    # profit_net = 10.5-0.5+0.0 = 10.0 -> r = 2.0
+    payload = _sealed_trades_payload(account.login, "conn-1", [_trade(3000006, 118231)])
+    response = await ingest_client.post("/ingest/trades", json=payload, headers=HEADERS)
+    assert response.status_code == 200
+
+    async with _session(db_connection) as session2:
+        trade = (
+            await session2.execute(select(Trade).where(Trade.ticket_mt5 == 3000006))
+        ).scalar_one()
+        assert trade.r_multiple == Decimal("2.0000")
+
+
+async def test_r_multiple_stays_null_without_instrument_spec(
+    ingest_client: AsyncClient, db_connection: AsyncConnection
+) -> None:
+    account = AccountFactory()
+    async with _session(db_connection) as session:
+        session.add(account)
+        await session.commit()
+
+    payload = _sealed_trades_payload(account.login, "conn-1", [_trade(3000007, 118231)])
+    response = await ingest_client.post("/ingest/trades", json=payload, headers=HEADERS)
+    assert response.status_code == 200
+
+    async with _session(db_connection) as session2:
+        trade = (
+            await session2.execute(select(Trade).where(Trade.ticket_mt5 == 3000007))
+        ).scalar_one()
+        assert trade.r_multiple is None
