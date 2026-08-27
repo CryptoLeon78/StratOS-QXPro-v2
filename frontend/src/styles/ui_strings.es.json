@@ -143,6 +143,23 @@
     "emptyState": "Sin bots activos (F7/Producción) todavía."
   },
 
+  "ejecucion": {
+    "heartbeatTitle": "Heartbeat",
+    "terminalReporting": "Terminal reportando",
+    "terminalDown": "Terminal sin reportar",
+    "lastReport": "Último reporte: {date}",
+    "uptime7d": "Continuidad 7 días: {pct}",
+    "tcaTitle": "TCA / Perfil de broker",
+    "tcaPending": "TCA (§10.1) y Broker Profile (§10.2) requieren la v1.1 del EA reporter (precio solicitado vs ejecutado + spread por ejecución).",
+    "tcaPendingDetail": "Cuando el EA reporte slippage y spread por ejecución, aquí verás slippage P50/P95/P99, Asymmetry Index, Implementation Shortfall y el mapa de spread por sesión.",
+    "watchdogTitle": "Watchdog de bots (frecuencia observada vs esperada, 30 días)",
+    "colBot": "Bot",
+    "colExpectedMonth": "Esperado/mes",
+    "colObserved30d": "Observado 30d",
+    "colLastTrade": "Último trade",
+    "colState": "Estado"
+  },
+
   "salud": {
     "daysInState": "{days}d en estado",
     "chipPfExpectancy": "Profit Factor / Expectancy",

@@ -3,7 +3,7 @@ import { createBrowserRouter } from "react-router-dom";
 import AuditoriaPage from "@/routes/placeholders/AuditoriaPage";
 import BotsPage from "@/routes/BotsPage";
 import CuentasEaPage from "@/routes/placeholders/CuentasEaPage";
-import EjecucionPage from "@/routes/placeholders/EjecucionPage";
+import EjecucionPage from "@/routes/EjecucionPage";
 import EscaladoPage from "@/routes/placeholders/EscaladoPage";
 import GraveyardPage from "@/routes/placeholders/GraveyardPage";
 import PipelinePage from "@/routes/PipelinePage";
