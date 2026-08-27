@@ -16,6 +16,7 @@ async def seed_accounts(session: AsyncSession) -> dict[str, Account]:
         server="Darwinex-Live",
         currency="EUR",
         is_demo=False,
+        connector_instance_id="stratos-connector-prod",
         is_active=True,
     )
     quarry = Account(
@@ -25,6 +26,7 @@ async def seed_accounts(session: AsyncSession) -> dict[str, Account]:
         server="Darwinex-Demo",
         currency="EUR",
         is_demo=True,
+        connector_instance_id="stratos-connector-quarry",
         is_active=True,
     )
     session.add_all([prod, quarry])

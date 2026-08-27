@@ -37,6 +37,11 @@ from seed_lib.accounts import seed_accounts
 from seed_lib.bots_pipeline import seed_pipeline_bots
 from seed_lib.bots_production import full_production_roster, seed_production_bots
 from seed_lib.config import profile_for
+from seed_lib.equity_curve import (
+    bulk_insert_equity_snapshots,
+    bulk_insert_heartbeats,
+    generate_equity_snapshots,
+)
 from seed_lib.graveyard import seed_graveyard
 from seed_lib.trades_history import bulk_insert_trades, generate_production_trades
 
@@ -100,13 +105,41 @@ async def run_seed(
             Decimal("30000"),
             rng,
         )
-        n_trades, n_batches = await bulk_insert_trades(session, accounts["prod"], generated, now)
+        n_trades, n_trade_batches = await bulk_insert_trades(
+            session, accounts["prod"], generated, now
+        )
         await session.commit()
-        print(f"[seed] trades: {n_trades} · lotes sellados: {n_batches}")
+        print(f"[seed] trades: {n_trades} · lotes sellados (trades): {n_trade_batches}")
+
+        equity_snapshots = generate_equity_snapshots(
+            accounts["prod"].id,
+            generated,
+            profile.history_start.date(),
+            profile.history_end.date(),
+            Decimal("30000"),
+        )
+        n_equity, n_equity_batches = await bulk_insert_equity_snapshots(
+            session, accounts["prod"], equity_snapshots
+        )
+        await session.commit()
+        print(f"[seed] equity: {n_equity} · lotes sellados (equity): {n_equity_batches}")
+
+        n_batches_total = n_trade_batches + n_equity_batches
+        for account in accounts.values():
+            n_heartbeats, n_hb_batches = await bulk_insert_heartbeats(
+                session, account, profile.history_end
+            )
+            n_batches_total += n_hb_batches
+            print(
+                f"[seed] heartbeats {account.name}: {n_heartbeats} · "
+                f"lotes sellados (heartbeat): {n_hb_batches}"
+            )
+        await session.commit()
+        print(f"[seed] lotes sellados totales: {n_batches_total}")
 
     # Los modulos que faltan se conectan aqui a medida que se construyen
-    # (commits siguientes de G8): equity_curve.py, scenarios.py,
-    # derived_states.py, audit_error.py, header_state.py.
+    # (commits siguientes de G8): scenarios.py, derived_states.py,
+    # audit_error.py, header_state.py.
 
 
 def main() -> None:

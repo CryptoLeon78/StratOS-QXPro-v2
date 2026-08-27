@@ -236,7 +236,7 @@ async def bulk_insert_trades(
         batch_rows.append(
             {
                 "ts": server_ts,
-                "connector_instance_id": "seed-generator",
+                "connector_instance_id": account.connector_instance_id or "seed-generator",
                 "account_id": account.id,
                 "batch_type": "trades",
                 "records": len(day_trades),
