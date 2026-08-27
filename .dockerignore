@@ -1,0 +1,20 @@
+# Contexto de build = raiz del repo (core-engine y frontend necesitan
+# alcanzar hermanos fuera de su propia carpeta -- shared-ingest-seal y
+# doc_app respectivamente, ver Dockerfiles). Sin este fichero, cada build
+# envia TODO lo de abajo al daemon de Docker -- venvs, node_modules,
+# historial git, artefactos de test -- nada de lo cual necesita ninguna
+# imagen. Hallazgo real de G8 (criterio 17) al ampliar el contexto.
+.venv/
+**/node_modules/
+**/__pycache__/
+**/*.pyc
+.git/
+.pytest_cache/
+**/.pytest_cache/
+frontend/dist/
+frontend/coverage/
+frontend/playwright-report/
+frontend/test-results/
+core-engine/htmlcov/
+**/.mypy_cache/
+**/.ruff_cache/
