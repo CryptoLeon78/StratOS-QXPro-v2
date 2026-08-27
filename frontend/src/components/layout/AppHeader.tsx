@@ -106,15 +106,29 @@ export function AppHeader() {
           }
         />
       </div>
-      {!isLoading && data!.data_stale_seconds !== null && (
-        <div className="px-4 pb-3">
-          <Badge variant="warning">
-            {interpolate(uiStrings.header.dataStale, {
-              minutes: Math.round(data!.data_stale_seconds / 60),
-            })}
-          </Badge>
-        </div>
-      )}
+      {/* G9: el badge SIEMPRE ocupa su fila (invisible en vez de ausente
+      cuando no aplica) -- antes se montaba/desmontaba con
+      data_stale_seconds, desplazando verticalmente TODO el contenido de
+      debajo (TabBar + pestaña activa) cada vez que la frescura de los
+      datos cruzaba el umbral entre la captura del baseline de Playwright
+      y la corrida del test -- una carrera de tiempo real que rompio
+      cuentas_ea.spec.ts en CI 2 veces (ver ASSUMPTIONS G9-06/G9-07);
+      ninguna mascara puede compensar un cambio de altura de pagina, solo
+      una altura estable lo resuelve de raiz. */}
+      <div className="px-4 pb-3">
+        <Badge
+          variant="warning"
+          className={
+            isLoading || data!.data_stale_seconds === null ? "invisible" : undefined
+          }
+        >
+          {interpolate(uiStrings.header.dataStale, {
+            minutes: !isLoading && data!.data_stale_seconds !== null
+              ? Math.round(data!.data_stale_seconds / 60)
+              : 0,
+          })}
+        </Badge>
+      </div>
     </header>
   );
 }

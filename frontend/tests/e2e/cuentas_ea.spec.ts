@@ -17,8 +17,13 @@ test("pestana Cuentas/EA: Prod + Quarry, deriva de configuracion, panel TCA pend
   await expect(page.getByText("Deriva de configuración")).toBeVisible();
   await expect(page.getByText("Sin deriva detectada")).toBeVisible();
 
+  // G9: AccountCard.tsx ahora reserva SIEMPRE la altura de la fila de
+  // heartbeat/latencia/uptime (invisible en vez de ausente, ver el propio
+  // componente) -- ya no desplaza la pagina, pero el TEXTO (timestamp real,
+  // latencia, % de uptime) sigue variando entre corridas, asi que se
+  // enmascara igual que el resto de contenido dinamico (headerMask).
   await expect(page).toHaveScreenshot("cuentas_ea.png", {
     maxDiffPixelRatio: 0.02,
-    mask: headerMask(page),
+    mask: [...headerMask(page), page.getByText(/^(Conectado|Desconectado)$/).locator("..")],
   });
 });

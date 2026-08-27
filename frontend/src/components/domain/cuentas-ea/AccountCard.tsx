@@ -35,6 +35,15 @@ export function AccountCard({ account, bots }: { account: AccountRow; bots: BotR
         </Badge>
       </CardHeader>
       <CardContent className="space-y-3">
+        {/* G9: los 3 spans de detalle SIEMPRE ocupan su sitio (invisible en
+        vez de ausentes cuando no aplican) -- montarlos/desmontarlos segun
+        heartbeat?.connected desplazaba verticalmente todo el contenido de
+        abajo (deriva de configuracion, TCA...) cada vez que una cuenta
+        cruzaba de "conectada" a "desconectada" entre la captura del
+        baseline de Playwright y la corrida del test -- carrera de tiempo
+        real que rompio cuentas_ea.spec.ts en CI (ver ASSUMPTIONS
+        G9-06/G9-07); ninguna mascara compensa un cambio de altura de
+        pagina, solo una altura estable lo resuelve de raiz. */}
         <div className="flex items-center gap-2 text-xs">
           <span
             className={`inline-block size-2 rounded-full ${
@@ -44,25 +53,25 @@ export function AccountCard({ account, bots }: { account: AccountRow; bots: BotR
           <span className={heartbeat?.connected ? "text-semantic-success" : "text-text-secondary"}>
             {heartbeat?.connected ? uiStrings.cuentasEa.connected : uiStrings.cuentasEa.disconnected}
           </span>
-          {heartbeat?.last_ts && (
-            <span className="text-text-secondary">
-              {interpolate(uiStrings.cuentasEa.lastHeartbeat, {
-                date: new Date(heartbeat.last_ts).toLocaleString("es-ES", {
-                  timeZone: "Europe/Madrid",
-                }),
-              })}
-            </span>
-          )}
-          {heartbeat?.latency_ms !== null && heartbeat?.latency_ms !== undefined && (
-            <span className="text-text-secondary">
-              {interpolate(uiStrings.cuentasEa.latency, { ms: heartbeat.latency_ms })}
-            </span>
-          )}
-          {heartbeat && (
-            <span className="text-text-secondary">
-              {interpolate(uiStrings.cuentasEa.uptime7d, { pct: formatPercent(heartbeat.uptime_pct_7d) })}
-            </span>
-          )}
+          <span className={`text-text-secondary ${heartbeat?.last_ts ? "" : "invisible"}`}>
+            {interpolate(uiStrings.cuentasEa.lastHeartbeat, {
+              date: heartbeat?.last_ts
+                ? new Date(heartbeat.last_ts).toLocaleString("es-ES", { timeZone: "Europe/Madrid" })
+                : " ",
+            })}
+          </span>
+          <span
+            className={`text-text-secondary ${
+              heartbeat?.latency_ms !== null && heartbeat?.latency_ms !== undefined ? "" : "invisible"
+            }`}
+          >
+            {interpolate(uiStrings.cuentasEa.latency, { ms: heartbeat?.latency_ms ?? 0 })}
+          </span>
+          <span className={`text-text-secondary ${heartbeat ? "" : "invisible"}`}>
+            {interpolate(uiStrings.cuentasEa.uptime7d, {
+              pct: formatPercent(heartbeat?.uptime_pct_7d ?? 0),
+            })}
+          </span>
         </div>
 
         <table className="w-full text-xs">

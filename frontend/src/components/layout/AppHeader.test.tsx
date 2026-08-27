@@ -86,11 +86,18 @@ describe("AppHeader", () => {
     expect(await screen.findByText("DATOS STALE (hace 2 min)")).toBeInTheDocument();
   });
 
-  it("sin data_stale_seconds no muestra el badge DATOS STALE", async () => {
+  it("sin data_stale_seconds el badge DATOS STALE queda invisible pero reserva su espacio", async () => {
+    // G9: invisible (no ausente) a proposito -- desmontar/montar este badge
+    // desplazaba verticalmente todo el contenido de abajo cada vez que la
+    // frescura de los datos cruzaba el umbral entre la captura del
+    // baseline de Playwright y la corrida del test (carrera de tiempo
+    // real que rompio cuentas_ea.spec.ts en CI, ver ASSUMPTIONS G9-06/G9-07).
     mockHeaderSummary({ data_stale_seconds: null });
     renderAppHeader();
 
     await waitFor(() => expect(screen.getByText("179.642,70")).toBeInTheDocument());
-    expect(screen.queryByText(/DATOS STALE/)).not.toBeInTheDocument();
+    const badge = screen.getByText(/DATOS STALE/);
+    expect(badge).toBeInTheDocument();
+    expect(badge).toHaveClass("invisible");
   });
 });
