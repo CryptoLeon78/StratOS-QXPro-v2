@@ -1,7 +1,11 @@
 """PARTE 8: daily_returns, correlation_matrix, historical_var, historical_cvar,
 ols_alpha_beta, monte_carlo_maxdd. Pie de PARTE 8: nominal, ventana vacia,
 un elemento, extremos, reproducibilidad MC por seed, property-based
-(|correlation_matrix| <= 1)."""
+(|correlation_matrix| <= 1).
+
+sortino_ratio (G10, docs/backlog.md): no es formula contractual de PARTE 8
+-- definicion estandar de la industria (semi-desviacion downside), cierra
+parte del gap "Sharpe rolling... panel Metricas completas" de Bots."""
 
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -19,6 +23,7 @@ from core.formulas.portfolio import (
     historical_var,
     monte_carlo_maxdd,
     ols_alpha_beta,
+    sortino_ratio,
 )
 
 
@@ -143,3 +148,30 @@ class TestMonteCarloMaxdd:
     def test_empty_raises(self) -> None:
         with pytest.raises(ValueError, match="vac"):
             monte_carlo_maxdd([], n_sims=100, seed=42)
+
+
+class TestSortinoRatio:
+    def test_nominal_positive_for_upward_drift(self) -> None:
+        returns = pd.Series([0.02, -0.01, 0.03, -0.005, 0.01, -0.02, 0.015])
+        ratio = sortino_ratio(returns, periods_per_year=252)
+        assert ratio > 0
+
+    def test_nominal_negative_for_downward_drift(self) -> None:
+        returns = pd.Series([-0.02, 0.01, -0.03, 0.005, -0.01, 0.02, -0.015])
+        ratio = sortino_ratio(returns, periods_per_year=252)
+        assert ratio < 0
+
+    def test_empty_raises(self) -> None:
+        with pytest.raises(ValueError, match="vac"):
+            sortino_ratio(pd.Series([], dtype=float))
+
+    def test_no_downside_returns_raises(self) -> None:
+        returns = pd.Series([0.01, 0.02, 0.03])
+        with pytest.raises(ValueError, match="downside"):
+            sortino_ratio(returns, target=0.0)
+
+    def test_custom_target(self) -> None:
+        # todos los retornos superan el target de 0.05 -> sin downside
+        returns = pd.Series([0.06, 0.07, 0.08])
+        with pytest.raises(ValueError, match="downside"):
+            sortino_ratio(returns, target=0.05)

@@ -1,4 +1,7 @@
-"""PARTE 8: estadistica de cartera/riesgo."""
+"""PARTE 8: estadistica de cartera/riesgo.
+
+sortino_ratio (G10, docs/backlog.md): no es formula contractual de PARTE 8
+-- definicion estandar de la industria (semi-desviacion downside)."""
 
 from decimal import Decimal
 
@@ -86,6 +89,23 @@ def monte_carlo_maxdd(
         seed=seed,
         n_simulations=n_sims,
     )
+
+
+def sortino_ratio(returns: pd.Series, periods_per_year: int = 252, target: float = 0.0) -> float:
+    """G10: exceso de retorno medio sobre `target` dividido por la
+    desviacion tipica de los retornos POR DEBAJO del target (semi-
+    desviacion downside), anualizado por raiz del tiempo (misma convencion
+    que `historical_var`/`compute_tail_risk`, ASSUMPTIONS G5). Serie vacia
+    o sin retornos por debajo del target -> ValueError (semi-desviacion
+    indefinida, nunca 0/0 silencioso)."""
+    if returns.empty:
+        raise ValueError("sortino_ratio: serie vacia")
+    downside = returns[returns < target] - target
+    if downside.empty:
+        raise ValueError("sortino_ratio: sin retornos por debajo del target (downside)")
+    downside_deviation = float(np.sqrt((downside**2).mean()))
+    mean_excess = float(returns.mean()) - target
+    return mean_excess / downside_deviation * float(periods_per_year**0.5)
 
 
 def ols_alpha_beta(portfolio_monthly: pd.Series, benchmark_monthly: pd.Series) -> AlphaBetaResult:
