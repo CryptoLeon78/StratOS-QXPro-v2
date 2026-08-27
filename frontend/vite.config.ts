@@ -10,6 +10,20 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // G9: los 2 mayores contribuyentes al aviso de "chunk >500kB" de
+        // Rollup desde G7 (docs/backlog.md) -- cada uno en su propio chunk,
+        // separado del bundle principal y de las paginas lazy que los usan
+        // (equity de Resumen/lightweight-charts, Portfolio/recharts).
+        manualChunks: {
+          "lightweight-charts": ["lightweight-charts"],
+          recharts: ["recharts"],
+        },
+      },
+    },
+  },
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],

@@ -31,5 +31,15 @@ export default tseslint.config(
     rules: {
       "react-refresh/only-export-components": "off",
     },
+  },
+  {
+    // router.tsx (G9, code-splitting): React.lazy(() => import(...)) para
+    // las 10 pestanas no-Resumen dispara este aviso porque el modulo no
+    // exporta solo componentes -- es config de rutas, no un componente en
+    // si, nunca se edita en caliente con Fast Refresh de todos modos.
+    files: ["src/routes/router.tsx"],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
   }
 );

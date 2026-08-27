@@ -3,7 +3,8 @@
 
   "app": {
     "title": "Panel Maestro de Portfolio — Copiloto de decisiones · StratOS",
-    "roleBadge": "Ingeniero"
+    "roleBadge": "Ingeniero",
+    "loadingTab": "Cargando…"
   },
 
   "login": {

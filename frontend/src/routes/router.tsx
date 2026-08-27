@@ -1,21 +1,26 @@
+import { lazy } from "react";
 import { createBrowserRouter } from "react-router-dom";
 
-import AuditoriaPage from "@/routes/AuditoriaPage";
-import BotsPage from "@/routes/BotsPage";
-import CuentasEaPage from "@/routes/CuentasEaPage";
-import EjecucionPage from "@/routes/EjecucionPage";
-import EscaladoPage from "@/routes/EscaladoPage";
-import GraveyardPage from "@/routes/GraveyardPage";
-import PipelinePage from "@/routes/PipelinePage";
-import PortfolioPage from "@/routes/PortfolioPage";
-import RiesgoPage from "@/routes/RiesgoPage";
-import SaludPage from "@/routes/SaludPage";
 import LoginPage from "@/routes/LoginPage";
 import ResumenPage from "@/routes/ResumenPage";
 import RootLayout from "@/routes/RootLayout";
 
-// 11 pestanas (PARTE 7): solo Resumen tiene contenido real en G6, el resto
-// son placeholders navegables que G7 sustituye una por unidad de commit.
+// Code-splitting por ruta (G9, docs/backlog.md): Resumen y Login se
+// cargan EAGER (son lo primero que ve cualquier visitante -- lazy-loadearlas
+// solo anadiria un round-trip antes del primer pintado, justo lo contrario
+// de "cabecera <2s", criterio de salida de G6). Las otras 10 pestanas SI
+// se dividen en su propio chunk -- un operador tipico usa Resumen la
+// mayor parte del tiempo, no las 11 a la vez.
+const CuentasEaPage = lazy(() => import("@/routes/CuentasEaPage"));
+const PipelinePage = lazy(() => import("@/routes/PipelinePage"));
+const BotsPage = lazy(() => import("@/routes/BotsPage"));
+const PortfolioPage = lazy(() => import("@/routes/PortfolioPage"));
+const SaludPage = lazy(() => import("@/routes/SaludPage"));
+const RiesgoPage = lazy(() => import("@/routes/RiesgoPage"));
+const EjecucionPage = lazy(() => import("@/routes/EjecucionPage"));
+const EscaladoPage = lazy(() => import("@/routes/EscaladoPage"));
+const GraveyardPage = lazy(() => import("@/routes/GraveyardPage"));
+const AuditoriaPage = lazy(() => import("@/routes/AuditoriaPage"));
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   {
