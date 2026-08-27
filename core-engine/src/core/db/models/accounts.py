@@ -18,7 +18,10 @@ class Account(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String)
     broker: Mapped[str] = mapped_column(String)
-    login: Mapped[str] = mapped_column(String)
+    # UNIQUE (G10, docs/backlog.md): sin esto, resolve_account() por login
+    # podia lanzar MultipleResultsFound (500) en vez de fallar limpio o
+    # resolver deterministico si el seed alguna vez duplicaba un login.
+    login: Mapped[str] = mapped_column(String, unique=True)
     server: Mapped[str] = mapped_column(String)
     currency: Mapped[str] = mapped_column(String(3))
     is_demo: Mapped[bool] = mapped_column(Boolean)

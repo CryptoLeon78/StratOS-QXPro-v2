@@ -9,10 +9,9 @@ from core.db.models.accounts import Account
 
 
 async def resolve_account(session: AsyncSession, account_login: str) -> Account:
-    """`Account.login` no tiene UNIQUE en el esquema G1 (gap real, fuera de
-    alcance de G4 -- ver ASSUMPTIONS/backlog): un seed con logins duplicados
-    haria que `scalar_one_or_none()` lance `MultipleResultsFound` (500), no
-    silenciosamente el primero."""
+    """`Account.login` es UNIQUE desde G10 (migracion aditiva, cierra el gap
+    de G4/ASSUMPTIONS/backlog) -- `scalar_one_or_none()` nunca puede
+    encontrar mas de una fila, la constraint de BBDD lo garantiza."""
     result = await session.execute(select(Account).where(Account.login == account_login))
     account = result.scalar_one_or_none()
     if account is None:
