@@ -68,7 +68,12 @@
     "dismiss": "Descartar",
     "seeEvidence": "Ver evidencia",
     "requiresAction": "Requiere acción ({count})",
-    "emptyState": "Sin decisiones pendientes. El sistema está al día."
+    "emptyState": "Sin decisiones pendientes. El sistema está al día.",
+    "postponeDialogTitle": "Posponer decisión",
+    "postponeDialogLabel": "Posponer hasta",
+    "postponeDialogSubmit": "Confirmar posponer",
+    "postponeDialogCancel": "Cancelar",
+    "instructionPrefix": "MT: "
   },
 
   "bots": {

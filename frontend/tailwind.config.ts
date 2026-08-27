@@ -3,6 +3,7 @@
 // clases resultante (bg-bg-app, text-text-primary, bg-semaphore-naranja) a
 // cambio de cero duplicacion/desincronia con el JSON fuente.
 import type { Config } from "tailwindcss";
+import tailwindcssAnimate from "tailwindcss-animate";
 import tokens from "./src/styles/tokens";
 
 export default {
@@ -21,5 +22,5 @@ export default {
       boxShadow: tokens.shadow,
     },
   },
-  plugins: [],
+  plugins: [tailwindcssAnimate],
 } satisfies Config;
