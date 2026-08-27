@@ -181,6 +181,39 @@ jobs:
           cd mt5-simulator
           pytest -v
 
+  # G9: api-gateway deja de ser el placeholder de G0 (ver ASSUMPTIONS G4-21/
+  # docs/backlog.md) -- primer job de CI para este paquete. Sin servicios
+  # Postgres/Redis: los tests usan fakeredis + httpx.MockTransport, cero
+  # infra real necesaria (mismo criterio que mt5-simulator).
+  lint-and-test-api-gateway:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "api-gateway[dev]"
+
+      - name: Run Ruff (linter & formatter)
+        run: |
+          ruff check api-gateway/
+          ruff format --check api-gateway/
+
+      - name: Run Mypy (strict typechecking)
+        run: |
+          mypy --config-file api-gateway/pyproject.toml api-gateway/src/ --strict
+
+      - name: Run Pytest
+        run: |
+          cd api-gateway
+          pytest -v
+
   test-integration:
     runs-on: ubuntu-latest
     # Criterio de salida de G4 (PARTE 12): unico job que instala los 3
