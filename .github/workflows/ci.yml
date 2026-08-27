@@ -434,6 +434,18 @@ jobs:
           path: frontend/playwright-report/
           retention-days: 7
 
+      # TEMPORAL (G9, diagnostico): playwright.config.ts usa reporter "list"
+      # (consola), playwright-report/ nunca se llena -- test-results/ SI
+      # tiene los PNG actual/expected/diff reales. Revertir cuando se
+      # cierre el hallazgo de cuentas_ea.spec.ts.
+      - name: Upload test-results on failure (temp diagnostic)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: frontend/test-results/
+          retention-days: 7
+
   # Perfil `full` (5,5 anos de historia) para los criterios de PARTE 16
   # que necesitan las cifras/calibraciones reales (ej. criterio 9, Lyra x
   # Phoenix redundante -- no se calibra bajo `ci`, ver ASSUMPTIONS G8).
