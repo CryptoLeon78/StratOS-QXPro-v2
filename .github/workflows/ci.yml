@@ -251,6 +251,16 @@ jobs:
           cd frontend
           npm install
 
+      - name: Lint (ESLint)
+        run: |
+          cd frontend
+          npm run lint
+
+      - name: Unit tests (Vitest)
+        run: |
+          cd frontend
+          npm run test
+
       - name: TypeScript check & Build
         run: |
           cd frontend

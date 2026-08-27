@@ -49,7 +49,6 @@ export function EquityAreaChart({ points }: EquityAreaChartProps) {
       chart.remove();
       chartRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [points]);
 
   return <div ref={containerRef} className="h-64 w-full" />;
