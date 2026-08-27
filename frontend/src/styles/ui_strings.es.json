@@ -6,6 +6,16 @@
     "roleBadge": "Ingeniero"
   },
 
+  "login": {
+    "title": "Panel Maestro de Portfolio",
+    "emailLabel": "Correo",
+    "passwordLabel": "Contraseña",
+    "submit": "Entrar",
+    "emailInvalid": "Introduce un correo válido.",
+    "passwordRequired": "Introduce tu contraseña.",
+    "credentialsInvalid": "Correo o contraseña incorrectos."
+  },
+
   "header": {
     "equity": "EQUITY",
     "pnlDay": "P&L DÍA",
