@@ -2,7 +2,8 @@ import { Bell, Wifi, WifiOff } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/domain/StatCard";
-import { useHeaderSummary } from "@/hooks/queries/useHeaderSummary";
+import { HEADER_SUMMARY_QUERY_KEY, useHeaderSummary } from "@/hooks/queries/useHeaderSummary";
+import { useWsTopic } from "@/hooks/useWsTopic";
 import { decodeJwtPayload } from "@/lib/jwt";
 import { formatAmount, formatPercent, formatSignedAmount } from "@/lib/formatters";
 import { interpolate } from "@/lib/i18n";
@@ -20,6 +21,10 @@ const SEMAPHORE_BADGE_VARIANT: Record<string, "success" | "warning" | "orange"> 
 // el commit del cliente WS lo sustituya por invalidacion via evento).
 export function AppHeader() {
   const { data, isLoading } = useHeaderSummary();
+  // equity/alerts: los 2 topics de PARTE 9.3 que afectan a algun campo del
+  // header (equity_eur/pnl_* vs alerts/pending_decisions).
+  useWsTopic("equity", HEADER_SUMMARY_QUERY_KEY);
+  useWsTopic("alerts", HEADER_SUMMARY_QUERY_KEY);
   const accessToken = useAuthStore((state) => state.accessToken);
   const claims = accessToken ? decodeJwtPayload(accessToken) : null;
   const roleLabel = claims
