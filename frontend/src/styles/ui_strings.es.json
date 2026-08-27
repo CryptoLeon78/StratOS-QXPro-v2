@@ -23,7 +23,17 @@
     "semaphoreGlobal": "SEMÁFORO GLOBAL",
     "mt": "MT",
     "alerts": "ALERTAS",
-    "dataStale": "DATOS STALE (hace {minutes} min)"
+    "dataStale": "DATOS STALE (hace {minutes} min)",
+    "weekMonth": "Sem: {week} · Mes: {month}",
+    "ksInactive": "KS L0: Sin activación",
+    "ksActive": "KS L{level}: nivel activo",
+    "connected": "Conectado",
+    "disconnected": "Desconectado",
+    "openPositions": "{count} pos. abiertas",
+    "pendingDecisions": "{count} decisiones",
+    "roleLabels": {
+      "operator": "Ingeniero"
+    }
   },
 
   "tabs": {

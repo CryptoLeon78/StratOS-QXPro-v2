@@ -1,9 +1,9 @@
 import { Navigate, Outlet } from "react-router-dom";
 
+import { AppHeader } from "@/components/layout/AppHeader";
 import { TabBar } from "@/components/layout/TabBar";
 import { useAuthStore } from "@/stores/authStore";
 
-// AppHeader (6 StatCard) se anade en un commit siguiente de G6.
 export default function RootLayout() {
   const accessToken = useAuthStore((state) => state.accessToken);
   if (!accessToken) {
@@ -12,6 +12,7 @@ export default function RootLayout() {
 
   return (
     <div className="min-h-screen">
+      <AppHeader />
       <TabBar />
       <Outlet />
     </div>
