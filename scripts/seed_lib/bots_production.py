@@ -382,26 +382,31 @@ _FILLER_MARKETS = ("EURUSD", "GBPUSD", "XAUUSD", "US30", "SPX500", "GDAXI", "NDX
 
 def _filler_roster() -> tuple[ProductionBotSpec, ...]:
     fillers: list[ProductionBotSpec] = []
-    # Perfiles reasignados respecto a los nombres "tematicos" originales
-    # (Boreal/Draco/Ofion pasan a MEAN_REVERSION) para acercar el reparto
-    # de capital combinado (18 con nombre + 14 relleno) a la foto macro/
-    # micro del enunciado, dentro de block_tolerance_pp=10 -- verificado
-    # con la agregacion real de core.routers.portfolio, no a ojo.
+    # Nombres deliberadamente DISTINTOS de los ~18 con nombre de arriba Y de
+    # los ~25 de la cantera (bots_pipeline.py: Zephyr/Boreal/Kairos/Lete/
+    # Talos/Eco/Umbra/Draco/Nix/Ceres/Hera/Janus/Tetis/Electra/Ofion/
+    # Cefiro/Palas/Ninfa/Sigma/Delfos/Estige/Vulcano/Helios v2/Ariadna v3) --
+    # hallazgo real durante la implementacion de bots_pipeline.py: la
+    # primera version de este relleno REUTILIZABA por error los nombres
+    # literales de la cantera de PARTE 13, lo que habria creado bots
+    # duplicados de nombre entre produccion y cantera. Perfiles/pesos
+    # identicos a la version anterior (el ajuste de tolerancia ya
+    # verificado sigue siendo valido, solo cambian los nombres).
     plan = [
-        ("Talos AI USTEC", BotProfile.AI_ML, Decimal("3.00")),
-        ("Eco SmartFlow SPX", BotProfile.SMART_MONEY, Decimal("2.00")),
-        ("Kairos Momentum XAG", BotProfile.MOMENTUM, Decimal("2.20")),
-        ("Boreal MeanRev GER40", BotProfile.MEAN_REVERSION, Decimal("2.50")),
-        ("Umbra MeanRev USTEC", BotProfile.MEAN_REVERSION, Decimal("2.10")),
-        ("Draco MeanRev USOIL", BotProfile.MEAN_REVERSION, Decimal("2.30")),
-        ("Nix Scalper GBPUSD", BotProfile.SCALPING, Decimal("1.80")),
-        ("Ceres Momentum EURUSD", BotProfile.MOMENTUM, Decimal("2.10")),
-        ("Hera AI XAG", BotProfile.AI_ML, Decimal("2.40")),
-        ("Janus MeanRev EURUSD", BotProfile.MEAN_REVERSION, Decimal("2.00")),
-        ("Tetis Trend SPX", BotProfile.TREND, Decimal("2.20")),
-        ("Electra SmartFlow GBPUSD", BotProfile.SMART_MONEY, Decimal("1.90")),
-        ("Ofion MeanRev USOIL", BotProfile.MEAN_REVERSION, Decimal("2.00")),
-        ("Vulcano Grid US30", BotProfile.GRID, Decimal("1.70")),
+        ("Iris AI USTEC", BotProfile.AI_ML, Decimal("3.00")),
+        ("Nike SmartFlow SPX", BotProfile.SMART_MONEY, Decimal("2.00")),
+        ("Eos Momentum XAG", BotProfile.MOMENTUM, Decimal("2.20")),
+        ("Thalia MeanRev GER40", BotProfile.MEAN_REVERSION, Decimal("2.50")),
+        ("Circe MeanRev USTEC", BotProfile.MEAN_REVERSION, Decimal("2.10")),
+        ("Calisto MeanRev USOIL", BotProfile.MEAN_REVERSION, Decimal("2.30")),
+        ("Baco Scalper GBPUSD", BotProfile.SCALPING, Decimal("1.80")),
+        ("Pandora Momentum EURUSD", BotProfile.MOMENTUM, Decimal("2.10")),
+        ("Eros AI XAG", BotProfile.AI_ML, Decimal("2.40")),
+        ("Astrea MeanRev EURUSD", BotProfile.MEAN_REVERSION, Decimal("2.00")),
+        ("Deimos Trend SPX", BotProfile.TREND, Decimal("2.20")),
+        ("Fobos SmartFlow GBPUSD", BotProfile.SMART_MONEY, Decimal("1.90")),
+        ("Nyx MeanRev USOIL", BotProfile.MEAN_REVERSION, Decimal("2.00")),
+        ("Hipnos Grid US30", BotProfile.GRID, Decimal("1.70")),
     ]
     for i, (name, profile, capital_pct) in enumerate(plan):
         fillers.append(
