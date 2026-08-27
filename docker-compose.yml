@@ -113,6 +113,24 @@ services:
     ports:
       - "5273:80"
 
+  # Perfil `prod` (G9, PARTE 14): entrypoint unico del Nodo B Linux --
+  # infra/nginx/nginx.conf ya proxea / -> frontend:80 y /api//ws/ ->
+  # api-gateway:8080 (sin cambios desde G0, correcto ahora que el gateway
+  # es real). Solo HTTP (puerto 80) -- el bloque 443/TLS se anade cuando
+  # haya un dominio real y certbot emita el certificado (docs/runbook.md
+  # seccion 3), no antes: un `listen 443 ssl` sin certificado real no
+  # arranca. `docker compose --profile prod up` para activarlo.
+  nginx:
+    image: nginx:1.27-alpine
+    profiles: ["prod"]
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - api-gateway
+    ports:
+      - "80:80"
+
   prometheus:
     image: prom/prometheus:v2.55.1
     profiles: ["observability"]
