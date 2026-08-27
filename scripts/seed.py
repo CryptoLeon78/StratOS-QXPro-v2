@@ -23,8 +23,10 @@ querer.
 import argparse
 import asyncio
 from datetime import UTC, datetime
+from decimal import Decimal
 
 import core.db.models  # noqa: F401  -- registra las 28 tablas en Base.metadata
+import numpy as np
 from core.config import get_settings
 from core.db.base import Base, async_session_factory
 from core.db.models.governance import SystemConfig
@@ -36,6 +38,7 @@ from seed_lib.bots_pipeline import seed_pipeline_bots
 from seed_lib.bots_production import full_production_roster, seed_production_bots
 from seed_lib.config import profile_for
 from seed_lib.graveyard import seed_graveyard
+from seed_lib.trades_history import bulk_insert_trades, generate_production_trades
 
 
 async def _reset_database() -> None:
@@ -57,9 +60,12 @@ async def _already_seeded(profile_name: str) -> bool:
         return row is not None and row.value.get("profile") == profile_name
 
 
-async def run_seed(profile_name: str, *, reset: bool, inject_audit_error: bool) -> None:
+async def run_seed(
+    profile_name: str, *, reset: bool, inject_audit_error: bool, seed: int = 20260101
+) -> None:
     now = datetime.now(UTC)
     profile = profile_for(profile_name, now)
+    rng = np.random.default_rng(seed)
 
     if reset:
         host = get_settings().database_url.split("@")[-1]
@@ -86,9 +92,21 @@ async def run_seed(profile_name: str, *, reset: bool, inject_audit_error: bool) 
             f"cantera: {len(candidates)} · graveyard: {len(graveyard)}"
         )
 
+        generated = generate_production_trades(
+            roster,
+            {name: bot.id for name, bot in bots.items()},
+            profile.history_start.date(),
+            profile.history_end.date(),
+            Decimal("30000"),
+            rng,
+        )
+        n_trades, n_batches = await bulk_insert_trades(session, accounts["prod"], generated, now)
+        await session.commit()
+        print(f"[seed] trades: {n_trades} · lotes sellados: {n_batches}")
+
     # Los modulos que faltan se conectan aqui a medida que se construyen
-    # (commits siguientes de G8): trades_history.py, equity_curve.py,
-    # scenarios.py, derived_states.py, audit_error.py, header_state.py.
+    # (commits siguientes de G8): equity_curve.py, scenarios.py,
+    # derived_states.py, audit_error.py, header_state.py.
 
 
 def main() -> None:
@@ -104,9 +122,17 @@ def main() -> None:
         action="store_true",
         help="Perturba un EquitySnapshot para forzar una discrepancia de auditoria (>0,02%%).",
     )
+    parser.add_argument(
+        "--seed", type=int, default=20260101, help="Semilla determinista del generador."
+    )
     args = parser.parse_args()
     asyncio.run(
-        run_seed(args.profile, reset=args.reset, inject_audit_error=args.inject_audit_error)
+        run_seed(
+            args.profile,
+            reset=args.reset,
+            inject_audit_error=args.inject_audit_error,
+            seed=args.seed,
+        )
     )
 
 
