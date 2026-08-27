@@ -116,6 +116,28 @@
     "impulseSuccess": "Impulso registrado — se evaluará su contrafactual a 7 días."
   },
 
+  "cuentasEa": {
+    "real": "REAL",
+    "demo": "DEMO",
+    "connected": "Conectado",
+    "disconnected": "Desconectado",
+    "lastHeartbeat": "Último heartbeat: {date}",
+    "latency": "Latencia: {ms} ms",
+    "uptime7d": "Uptime 7d: {pct}",
+    "easTitle": "EAs de la cuenta",
+    "colMagic": "Magic",
+    "colBot": "Bot",
+    "colPhaseRole": "Fase/rol",
+    "colEaVersion": "Versión EA",
+    "colModeExpectedReported": "Modo (esperado → reportado)",
+    "colAutotrading": "AutoTrading",
+    "colLastSignal": "Última señal",
+    "driftTitle": "Deriva de configuración",
+    "driftEmpty": "Sin deriva detectada — todos los EAs reportan el modo esperado.",
+    "driftRow": "Bot #{botId} (magic {magic}): esperado {expected}, reportado {reported}",
+    "emptyAccounts": "Sin cuentas registradas todavía."
+  },
+
   "portfolio": {
     "macroTitle": "Estructura macro 40/40/20",
     "microTitle": "Los 6 perfiles (micro)",
