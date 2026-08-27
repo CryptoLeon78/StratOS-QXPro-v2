@@ -75,3 +75,45 @@ class TestAuditSeals:
         response = await api_client.get("/api/v1/audit/seals")
         assert response.status_code == 200
         assert "total_batches" in response.json()
+
+
+class TestAuditContinuityGaps:
+    async def test_reports_a_gap_with_detail(
+        self, api_client: AsyncClient, db_connection: AsyncConnection
+    ) -> None:
+        from core.db.models.market import HeartbeatLog
+
+        session = await _session(db_connection)
+        account = AccountFactory()
+        session.add(account)
+        await session.flush()
+        now = datetime.now(UTC)
+        session.add(
+            HeartbeatLog(
+                ts=now - timedelta(hours=5),
+                connector_instance_id="c1",
+                account_id=account.id,
+                latency_ms=50,
+                status="ok",
+            )
+        )
+        session.add(
+            HeartbeatLog(
+                ts=now - timedelta(hours=1),
+                connector_instance_id="c1",
+                account_id=account.id,
+                latency_ms=50,
+                status="ok",
+            )
+        )
+        await session.commit()
+
+        response = await api_client.get("/api/v1/audit/continuity-gaps", params={"days": 1})
+        assert response.status_code == 200
+        row = next(r for r in response.json() if r["account_id"] == account.id)
+        assert len(row["gaps"]) == 1
+        assert row["gaps"][0]["duration_minutes"] == 240.0
+
+    async def test_no_gaps_for_dense_heartbeats(self, api_client: AsyncClient) -> None:
+        response = await api_client.get("/api/v1/audit/continuity-gaps", params={"days": 1})
+        assert response.status_code == 200

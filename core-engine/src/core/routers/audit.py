@@ -1,11 +1,16 @@
 """PARTE 9.2: `GET /api/v1/audit/status` + `POST /audit/run` + `GET
 /audit/seals` -- pestaña Auditoria (7.11). Reutiliza `audit.py`
-(core/services/, ya existe, G5)."""
+(core/services/, ya existe, G5).
+
+`GET /audit/continuity-gaps` (G10, docs/backlog.md): `compute_send_
+continuity()` ya calculaba `gaps` con detalle por tramo (desde G5) -- solo
+`coverage_pct` se exponia (via `/execution/heartbeat`), sin ruta que
+devolviera el detalle. No es una formula nueva, solo faltaba el wiring."""
 
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from redis.asyncio import Redis
 from sqlalchemy import select
@@ -21,6 +26,7 @@ from core.services.audit import (
     SealsSummary,
     compute_reconciliation,
     compute_seals_summary,
+    compute_send_continuity,
     run_audit_daily,
 )
 
@@ -39,6 +45,18 @@ class ReconciliationResponse(BaseModel):
     breached: bool
 
     model_config = {"from_attributes": True}
+
+
+class ContinuityGapResponse(BaseModel):
+    start: datetime
+    end: datetime
+    duration_minutes: float
+
+
+class ContinuityGapsResponse(BaseModel):
+    account_id: int
+    coverage_pct: float
+    gaps: list[ContinuityGapResponse]
 
 
 class SealsSummaryResponse(BaseModel):
@@ -83,3 +101,28 @@ async def audit_run(
 @router.get("/seals", response_model=SealsSummaryResponse)
 async def audit_seals(session: AsyncSession = Depends(get_session)) -> SealsSummary:
     return await compute_seals_summary(session)
+
+
+@router.get("/continuity-gaps", response_model=list[ContinuityGapsResponse])
+async def audit_continuity_gaps(
+    days: int = Query(default=_AUDIT_CONFIG.continuity_window_days),
+    session: AsyncSession = Depends(get_session),
+) -> list[ContinuityGapsResponse]:
+    now = datetime.now(UTC)
+    account_ids = (await session.execute(select(Account.id))).scalars().all()
+    result = []
+    for account_id in account_ids:
+        continuity = await compute_send_continuity(session, account_id, _AUDIT_CONFIG, days, now)
+        result.append(
+            ContinuityGapsResponse(
+                account_id=continuity.account_id,
+                coverage_pct=continuity.coverage_pct,
+                gaps=[
+                    ContinuityGapResponse(
+                        start=gap.start, end=gap.end, duration_minutes=gap.duration_minutes
+                    )
+                    for gap in continuity.gaps
+                ],
+            )
+        )
+    return result
