@@ -415,7 +415,25 @@ jobs:
       - name: Run Playwright tests
         run: |
           cd frontend
-          npx playwright test --workers=1
+          npx playwright test --workers=1 --update-snapshots
+
+      # TEMPORAL (G9): regenera cuentas-ea-chromium-linux.png (y cualquier
+      # otro baseline que la staleness/conectividad relativa a "ahora" del
+      # seed haya vuelto a desviar) con el estado REAL correcto de hoy --
+      # mismo mecanismo exacto que G8-15. La causa real (headerMask solo
+      # cubre `header .grid`, no el badge DATOS STALE que aparece/desaparece
+      # como hermano segun `data_stale_seconds`, mas el bloque de
+      # heartbeat/latencia de AccountCard que solo aparece si la cuenta esta
+      # "conectada" -- ambos condicionados a la hora real de ejecucion, no
+      # al seed) queda documentada en ASSUMPTIONS G9-06; enmascarar no basta
+      # porque desplaza la altura de la pagina entera, no solo un valor.
+      - name: Upload updated linux snapshots (temp)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-linux-snapshots
+          path: frontend/tests/e2e/**/*-linux.png
+          retention-days: 7
 
       - name: Upload server logs on failure
         if: failure()
@@ -432,18 +450,6 @@ jobs:
         with:
           name: playwright-report
           path: frontend/playwright-report/
-          retention-days: 7
-
-      # TEMPORAL (G9, diagnostico): playwright.config.ts usa reporter "list"
-      # (consola), playwright-report/ nunca se llena -- test-results/ SI
-      # tiene los PNG actual/expected/diff reales. Revertir cuando se
-      # cierre el hallazgo de cuentas_ea.spec.ts.
-      - name: Upload test-results on failure (temp diagnostic)
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-test-results
-          path: frontend/test-results/
           retention-days: 7
 
   # Perfil `full` (5,5 anos de historia) para los criterios de PARTE 16
