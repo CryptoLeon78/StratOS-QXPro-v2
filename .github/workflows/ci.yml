@@ -382,19 +382,7 @@ jobs:
       - name: Run Playwright tests
         run: |
           cd frontend
-          npx playwright test --workers=1 --update-snapshots
-
-      # TEMPORAL (G8): genera los baselines -linux.png que faltan, usando el
-      # entorno real de CI en vez de una aproximacion local con Docker (que
-      # no reproducia fielmente la red del runner). Se revierte en cuanto se
-      # descarguen y commiteen los PNG generados -- ver ASSUMPTIONS G8-15.
-      - name: Upload generated linux snapshots (temp)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-linux-snapshots
-          path: frontend/tests/e2e/**/*-linux.png
-          retention-days: 7
+          npx playwright test --workers=1
 
       - name: Upload server logs on failure
         if: failure()
