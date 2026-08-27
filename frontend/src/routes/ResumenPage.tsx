@@ -1,8 +1,11 @@
-import uiStrings from "@/styles/ui_strings.es.json";
+import { EquityCard } from "@/components/domain/EquityCard";
 
-// Esqueleto de ruta (commit "router esqueleto") -- el contenido real (6
-// StatCard, curva de equity, panel de decisiones, panel de pipeline) se
-// construye en los commits siguientes de G6.
+// Panel "Requiere accion" y panel "Pipeline" se anaden en commits
+// siguientes de G6.
 export default function ResumenPage() {
-  return <div className="p-4 text-text-secondary">{uiStrings.tabs.resumen}</div>;
+  return (
+    <div className="p-4">
+      <EquityCard />
+    </div>
+  );
 }

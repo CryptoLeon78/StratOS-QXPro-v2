@@ -50,6 +50,18 @@
     "auditoria": "Auditoría"
   },
 
+  "equityCard": {
+    "title": "Equity del portfolio (todos los bots)",
+    "maxDrawdownPeriod": "DD máx. periodo: {pct}",
+    "ranges": {
+      "30d": "30 días",
+      "90d": "90 días",
+      "180d": "180 días",
+      "1y": "1 año",
+      "all": "Todo"
+    }
+  },
+
   "decisionCard": {
     "confirm": "Confirmar",
     "postpone": "Posponer",
