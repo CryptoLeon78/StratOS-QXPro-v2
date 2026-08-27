@@ -1,8 +1,6 @@
 import { apiFetch } from "@/api/client";
 
-// Espejo 1:1 de core/routers/health.py::HealthRow. Win Rate drift/Payoff/
-// Duracion media NO existen (sin formula, docs/backlog.md) -- no se piden
-// aqui.
+// Espejo 1:1 de core/routers/health.py::HealthRow.
 export interface HealthRow {
   bot_id: number;
   magic_number: number;
@@ -19,6 +17,10 @@ export interface HealthRow {
   dd_bot_pct: string;
   dd_contract_pct: string;
   page_hinkley_triggered: boolean;
+  win_rate_drift: number;
+  payoff: number | null;
+  avg_trade_duration_min: number | null;
+  sharpe_rolling: number;
 }
 
 export function getHealthBots(): Promise<HealthRow[]> {

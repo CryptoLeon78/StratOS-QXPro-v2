@@ -6,12 +6,13 @@ import { interpolate } from "@/lib/i18n";
 import uiStrings from "@/styles/ui_strings.es.json";
 import type { HealthRow } from "@/api/endpoints/health";
 
-// PARTE 7.6: tarjeta de Salud por bot. Solo 3 de los "chips" de la captura
-// tienen dato real (PF/Expectancy rolling, DD rolling, Racha de perdidas)
-// -- Sharpe rolling/Win Rate drift/Payoff/Duracion media NO tienen formula
-// (docs/backlog.md, gap ya documentado en G5), se omiten en vez de
-// mostrarse vacios. PH: solo existe `page_hinkley_triggered` (bool), no un
-// valor numerico como el "PH 1.3" de la captura -- se muestra Si/No (ADR).
+// PARTE 7.6: tarjeta de Salud por bot. Las 7 chips de la captura con dato
+// real (Sharpe rolling/PF-Expectancy/Win Rate drift/Payoff/Duracion media/
+// DD rolling/Racha de perdidas) -- las 4 ultimas cerradas en G10
+// (docs/backlog.md, formulas/trading.py + services/semaphore_sweep.py::
+// assemble_health_chips). PH: solo existe `page_hinkley_triggered` (bool),
+// no un valor numerico como el "PH 1.3" de la captura -- se muestra Si/No
+// (ADR, unica desviacion visual que queda de esta tarjeta).
 function instructionFor(
   state: string,
   magicNumber: number,
@@ -42,9 +43,13 @@ export function HealthCard({ bot }: { bot: HealthRow }) {
       </CardHeader>
       <CardContent className="space-y-2">
         <div className="flex flex-wrap gap-1.5">
+          <Badge variant="outline">{uiStrings.salud.chipSharpeRolling}</Badge>
           <Badge variant="outline">{uiStrings.salud.chipPfExpectancy}</Badge>
-          <Badge variant="outline">{uiStrings.salud.chipDdRolling}</Badge>
+          <Badge variant="outline">{uiStrings.salud.chipWinRateDrift}</Badge>
+          <Badge variant="outline">{uiStrings.salud.chipPayoff}</Badge>
+          <Badge variant="outline">{uiStrings.salud.chipAvgTradeDuration}</Badge>
           <Badge variant="outline">{uiStrings.salud.chipLossStreak}</Badge>
+          <Badge variant="outline">{uiStrings.salud.chipDdRolling}</Badge>
           <Badge variant={bot.page_hinkley_triggered ? "danger" : "outline"}>
             {interpolate(uiStrings.salud.chipPageHinkley, {
               value: bot.page_hinkley_triggered ? "Sí" : "No",

@@ -201,7 +201,11 @@
 
   "salud": {
     "daysInState": "{days}d en estado",
+    "chipSharpeRolling": "Sharpe rolling",
     "chipPfExpectancy": "Profit Factor / Expectancy",
+    "chipWinRateDrift": "Win Rate drift",
+    "chipPayoff": "Payoff (AvgWin/AvgLoss)",
+    "chipAvgTradeDuration": "Duración media",
     "chipDdRolling": "DD rolling",
     "chipLossStreak": "Máx. pérdidas consecutivas",
     "chipPageHinkley": "PH {value}",

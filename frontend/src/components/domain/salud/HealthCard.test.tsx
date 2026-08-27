@@ -33,6 +33,10 @@ const baseBot: HealthRow = {
   dd_bot_pct: "1.30",
   dd_contract_pct: "3.90",
   page_hinkley_triggered: false,
+  win_rate_drift: -0.05,
+  payoff: 1.2,
+  avg_trade_duration_min: 240,
+  sharpe_rolling: 0.8,
 };
 
 function mockInstructions() {
@@ -69,5 +73,15 @@ describe("HealthCard", () => {
     renderCard({ ...baseBot, page_hinkley_triggered: true });
 
     expect(await screen.findByText("PH Sí")).toBeInTheDocument();
+  });
+
+  it("muestra las 4 chips rodantes cerradas en G10 (Sharpe/Win Rate drift/Payoff/Duracion)", async () => {
+    mockInstructions();
+    renderCard(baseBot);
+
+    expect(await screen.findByText("Sharpe rolling")).toBeInTheDocument();
+    expect(screen.getByText("Win Rate drift")).toBeInTheDocument();
+    expect(screen.getByText("Payoff (AvgWin/AvgLoss)")).toBeInTheDocument();
+    expect(screen.getByText("Duración media")).toBeInTheDocument();
   });
 });
