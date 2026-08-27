@@ -160,5 +160,8 @@
   },
   "tail_risk_breach__assumption": "G5: PARTE 7.7 solo da el texto literal del caso OK; el texto de incumplimiento es diseño propio, mismo tono que las instrucciones de kill-switch/semáforo.",
 
-  "ui_strings_catalog": "frontend/src/styles/ui_strings.es.json"
+  "ui_strings_catalog": "frontend/src/styles/ui_strings.es.json",
+
+  "screenshot_similarity_max_diff_ratio": 0.02,
+  "screenshot_similarity__assumption": "G6: PARTE 11.1 dice 'umbral de similitud estructural en config' sin dar el valor. 0.02 (2% de pixeles distintos permitidos) propuesto en el spec minimo de Playwright de Resumen (frontend/tests/e2e/resumen.spec.ts) -- a confirmar por el operador antes de que G7/G8 lo reutilicen para las 10 pestanas restantes."
 }

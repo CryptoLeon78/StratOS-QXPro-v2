@@ -13,5 +13,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
+    // tests/e2e/ es Playwright (otro test runner, otra API de test.*),
+    // no Vitest -- excluir para que no se ejecuten como si fueran uno.
+    exclude: ["node_modules/**", "tests/e2e/**"],
   },
 });
