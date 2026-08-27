@@ -178,7 +178,46 @@
 
   "pipeline": {
     "promoteTo": "Promover a F{phase}",
-    "moveTo": "Mover a…"
+    "kill": "Matar",
+    "addCandidate": "+ Candidato",
+    "paperZone": "PAPER",
+    "capitalRealZone": "CAPITAL REAL",
+    "banner": "F1 → F7: de paper a capital real",
+    "columns": {
+      "F1": "F1 · Ideación y prototipado",
+      "F2": "F2 · Filtrado de robustez",
+      "F3": "F3 · Validación estadística",
+      "F4": "F4 · Forward testing",
+      "F5": "F5 · Incubación OOS",
+      "F6": "F6 · Staging (10% sizing)",
+      "F7": "F7 · Producción (champion)"
+    },
+    "gateDetail": "Detalle del gate",
+    "gate": "Gate: {passed}/{total} criterios",
+    "daysInPhase": "{days}d en fase",
+    "provisional": "PROVISIONAL",
+    "decisionEta": "Decisión habilitada en ~{days} días",
+    "criteria": {
+      "profit_factor": "Profit Factor",
+      "expectancy_r": "Expectancy (R)",
+      "sharpe": "Sharpe",
+      "max_dd_pct": "Max DD",
+      "sample": "Muestra (trades)",
+      "incubation": "Incubación (días)",
+      "frequency": "Trades/semana"
+    },
+    "killDialogTitle": "Autopsia — {bot}",
+    "causeLabel": "Causa",
+    "autopsyLabel": "Autopsia",
+    "lessonLabel": "Lección aprendida",
+    "killSubmit": "Confirmar y archivar",
+    "killCancel": "Cancelar",
+    "createDialogTitle": "Añadir candidato",
+    "createBotLabel": "Bot",
+    "createSubmit": "Añadir a F1",
+    "createCancel": "Cancelar",
+    "emptyColumn": "Sin candidatos.",
+    "manualPromoteOnly": "Ascenso manual solo F1-F3; F4+ es solo lectura del gate automático."
   },
 
   "graveyard": {
