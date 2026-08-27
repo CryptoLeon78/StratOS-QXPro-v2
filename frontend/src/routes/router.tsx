@@ -5,7 +5,7 @@ import BotsPage from "@/routes/BotsPage";
 import CuentasEaPage from "@/routes/placeholders/CuentasEaPage";
 import EjecucionPage from "@/routes/EjecucionPage";
 import EscaladoPage from "@/routes/EscaladoPage";
-import GraveyardPage from "@/routes/placeholders/GraveyardPage";
+import GraveyardPage from "@/routes/GraveyardPage";
 import PipelinePage from "@/routes/PipelinePage";
 import PortfolioPage from "@/routes/PortfolioPage";
 import RiesgoPage from "@/routes/RiesgoPage";
