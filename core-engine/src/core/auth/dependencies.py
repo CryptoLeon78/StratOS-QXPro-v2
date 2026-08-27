@@ -1,13 +1,16 @@
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.auth.jwt import decode_token
+from core.auth.revocation import is_revoked
 from core.config import Settings, get_settings
 from core.db.base import get_session
 from core.db.models.governance import User
+from core.redis import get_redis
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
@@ -22,12 +25,15 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme),
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
+    redis: Redis = Depends(get_redis),
 ) -> User:
     try:
         payload = decode_token(token, settings)
     except jwt.InvalidTokenError as exc:
         raise _UNAUTHORIZED from exc
     if payload.type != "access":
+        raise _UNAUTHORIZED
+    if await is_revoked(redis, payload.jti):
         raise _UNAUTHORIZED
     user = (await session.execute(select(User).where(User.id == payload.sub))).scalar_one_or_none()
     if user is None:
