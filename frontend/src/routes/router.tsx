@@ -8,7 +8,7 @@ import EscaladoPage from "@/routes/placeholders/EscaladoPage";
 import GraveyardPage from "@/routes/placeholders/GraveyardPage";
 import PipelinePage from "@/routes/placeholders/PipelinePage";
 import PortfolioPage from "@/routes/PortfolioPage";
-import RiesgoPage from "@/routes/placeholders/RiesgoPage";
+import RiesgoPage from "@/routes/RiesgoPage";
 import SaludPage from "@/routes/SaludPage";
 import LoginPage from "@/routes/LoginPage";
 import ResumenPage from "@/routes/ResumenPage";
