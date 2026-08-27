@@ -1,0 +1,38 @@
+# Modo pequeña escala (PARTE 14/M9): "No necesitas 32 bots, necesitas el
+# protocolo. El tamaño llega después."
+#
+# ESTO ES SOLO UN DOCUMENTO DE REFERENCIA (decisión G9, ver ASSUMPTIONS):
+# el sistema NO lo lee ni cambia de comportamiento en caliente al
+# arrancar con esta config presente -- DEPLOYMENT_PROFILE=small_scale
+# (Settings, PARTE 10.1) sigue sin consumidor real. Migrar un despliegue
+# de verdad a este modo es un procedimiento manual (docs/runbook.md,
+# sección "Modo pequeña escala"): reconfigurar SystemConfig/thresholds a
+# mano con estos valores, no cambiar una variable de entorno y reiniciar.
+
+capital_inicial_eur: 5000
+
+bots:
+  count: 3
+  perfiles:
+    - tendencial
+    - reversion
+    - libre
+
+correlacion:
+  ventana_dias: 90
+  rechazo_por_encima_de: 0.5 # par de bots correlacionados >0,5 -> revisar/descartar
+
+riesgo:
+  riesgo_por_operacion_pct: 0.5
+
+semaforo:
+  modelo: simple # 2 estados (VERDE/NARANJA), sin AMARILLO intermedio -- 3
+  # bots no dan suficiente muestra para distinguir "revisar 50%" de "parar":
+  # con 32 bots la media hace de colchón estadístico, con 3 no.
+
+killswitch:
+  escalera_dd_pct: [8, 12, 15] # 3 niveles, no los 4 del modo completo (8/12/15/20)
+
+revision:
+  dominical_minutos: 20
+  retiro: solo_primer_domingo
