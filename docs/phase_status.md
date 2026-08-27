@@ -2,11 +2,39 @@
 
 > Se actualiza SIEMPRE al cerrar trabajo (regla de continuidad entre sesiones). Al abrir sesión, leer esto + `CLAUDE.md` + `ASSUMPTIONS.md` antes de proponer nada.
 
-## Fase actual: G9 — Hardening (sin empezar)
+## Proyecto completo: G0–G9 cerradas
 
-G8 cerrada y confirmada en CI real en esta sesión (ver abajo). G9 (PARTE 12) es la última fase: hardening de despliegue — no arrancada, sin plan todavía.
+G9 (Hardening) era la última fase de PARTE 12 — con su cierre, el proyecto entero (G0-G9) queda cerrado. No hay fase actual: cualquier trabajo futuro es mantenimiento/nuevas features sobre un sistema completo, no una fase del plan original.
 
 ## Fases cerradas
+
+### G9 — Hardening (cerrada, CI verde 9/9)
+
+**Estado**: 24 commits, pusheados en 7 tandas (una por checkpoint de grupos relacionados, más 3 rondas extra de diagnóstico/fix cuando `e2e-playwright` volvió a romper tras el push del grupo (j) por un motivo no relacionado con G9 — ver hallazgo 7 abajo), cada tanda confirmada con CI real antes de continuar a la siguiente — mismo estándar que G8. Todos los grupos previstos en el plan (a-j) completos. **Última confirmación: CI verde 9/9 real, run [`33102455615`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33102455615)**.
+
+**Los 3 items que el backlog de G4-G8 ya había prometido "para G9-hardening" están resueltos**: `api-gateway/` real (proxy transparente + rate-limit + WS broker, deja de ser el placeholder de G0) · revocación de JWT vía denylist Redis (rotación de refresh + `POST /auth/logout`) · code-splitting del bundle de frontend (1.007kB→329kB, sin aviso de Rollup). Más la línea literal de G9: backups `pg_dump`+WAL (verificados de verdad contra Postgres real) · rotación de API keys (documentación, ya soportado desde G4) · playbook de alertas · `config/small_scale.yaml` · `docs/runbook.md` completo · ADRs cerrados (0007 nuevo, primero de arquitectura).
+
+**7 bugs reales encontrados y corregidos, todos verificados contra infraestructura real (no simulados)**:
+1. WS broker del gateway no propagaba el código de cierre real de core-engine (1008 con token inválido) — el cliente veía siempre el 1000 genérico.
+2. `pydantic-settings` sin declarar en `api-gateway/pyproject.toml` — pasaba en el venv compartido del repo, rompía en CI (instalación aislada) y en un venv aislado real que se usó para reproducirlo antes de repushear.
+3. `pg_restore` ignora 6 FK constraints sobre hypertables comprimidas de TimescaleDB (`trade`/`equity_snapshot`/`heartbeat_log`) — los datos restauran al 100%, esas FK se reaplican a mano (SQL exacto en el runbook); el script ahora lo señala explícito en vez de quedar "verde" en silencio.
+4. `frontend/Dockerfile` nunca fijaba `VITE_API_BASE_URL`/`VITE_WS_BASE_URL` en tiempo de build — la imagen de producción arrancaba con los defaults de desarrollo (`http://localhost:8100`) horneados en el JS, rotos para cualquier visitante real.
+5. El nginx interno del contenedor `frontend` no tenía `try_files $uri /index.html` — cualquier ruta de React Router navegada directa devolvía 404. (Los bugs 4/5 solo salieron a la luz al levantar `docker compose --profile prod up` de punta a punta con un navegador real por primera vez desde que existen los Dockerfiles — G8-13 solo había verificado que los builds compilaban, nunca el runtime del bundle servido.)
+6. `scripts/seed.py::bulk_insert_heartbeats` anclaba el último heartbeat al `now` del INICIO del script completo, no al momento real de inserción — con `header_heartbeat_stale_after_s=120` real (no se toca) y un job `e2e-playwright` que fácilmente supera esos 120s antes de llegar a `cuentas_ea.spec.ts`, el heartbeat nacía con parte de su presupuesto de frescura ya gastado. Causaba que el badge "DATOS STALE" y el estado "Conectado/Desconectado" de las cuentas cambiaran de presencia entre la captura del baseline y la corrida del test — un desplazamiento de layout que ninguna máscara puede compensar (probado y descartado). Mitigado (no eliminado del todo, ver hallazgo 7) anclando al momento real de inserción.
+7. **`headerMask` (helpers.ts) enmascara solo `header .grid`, no el badge "DATOS STALE"** (hermano del grid, no dentro) — causa raíz del hallazgo 6 a nivel de test. Diagnosticado con los PNG reales de CI (`test-results/`, no el reporte HTML — `playwright.config.ts` usa `reporter: "list"`, `playwright-report/` nunca se llena). Confirmado con evidencia directa que esto es un problema de CARRERA DE TIEMPO real, no solo teórico: un intento de regenerar los 11 baselines vía CI dio los 11 ficheros byte-idénticos a los ya commiteados — esa corrida coincidió por pura casualidad con el estado guardado. **Riesgo residual aceptado, no resuelto de raíz** (arreglo completo es test-infra/producto, fuera de "Hardening") — ver `ASSUMPTIONS.md` G9-06 y `docs/backlog.md`.
+
+**1 desviación de arquitectura documentada formalmente**: PROMPT_MAESTRO PARTE 3 especifica que `api-gateway`↔`core-engine` debería usar un "token de servicio" propio; se construyó y verificó un proxy pass-through más simple (reenvía el JWT del usuario intacto, sin `JWT_SECRET` en el gateway) — decisión confirmada con el operador, documentada en `docs/adr/0007-gateway-sin-token-de-servicio.md` (primer ADR de arquitectura del proyecto, los 6 anteriores eran de fidelidad visual).
+
+**Verificado end-to-end de verdad, con navegador real, contra la topología de producción completa** (`docker compose --profile prod build/up`: core-engine+worker+scheduler+api-gateway+frontend+nginx+postgres+redis, los 4 servicios con Dockerfile propio construidos de cero): login real por `http://localhost/` → dashboard Resumen completo con datos reales → navegación directa a `/portfolio` sin 404 → WS a través de nginx con un cliente real → consola sin errores. Además: backup/restore de Postgres real (4.6MB, recuentos de filas confirmados) y todo el flujo HTTP/WS del gateway verificado contra `core-engine` real antes de tocar Docker.
+
+**Caveats reales, no ocultados**:
+- Instalación de los 2 nodos (Windows+MT5/Linux+certbot) escrita a spec en `docs/runbook.md`, **no ejecutada contra infraestructura real** en ninguna sesión (mismo patrón que `install_service.ps1` desde G4) — ni un VPS real, ni un terminal MT5 real, ni un dominio real han existido en este proyecto.
+- `config/small_scale.yaml` es un documento de referencia sin efecto en el sistema (decisión ya tomada con el operador, no wireado en runtime).
+- `e2e-playwright` tiene un riesgo residual conocido de flakiness puntual (hallazgo 6/7 arriba) mitigado pero no eliminado — si vuelve a romper por el mismo motivo en el futuro (screenshot-diff de `cuentas_ea` u otra pestaña con contenido sensible al badge de staleness), no es una regresión de código: es la misma carrera de tiempo ya documentada, y el remedio ya conocido es regenerar el baseline afectado.
+
+Detalle completo (7 decisiones/hallazgos numerados) en `ASSUMPTIONS.md` G9-00 a G9-06.
+
+### G8 — Seed + E2E (cerrada, CI verde 9/9)
 
 ### G8 — Seed + E2E (cerrada, CI verde 9/9)
 
@@ -81,4 +109,5 @@ Pendiente para más adelante (no bloquea G6): investigar el déficit de cobertur
 Repo git independiente en `https://github.com/CryptoLeon78/StratOS-QXPro-v2` (privado), `.mcp.json` operativo, `docker compose up -d postgres redis` healthy, CI verde, `config/thresholds.seed.json` (61 claves), scaffolds de `core-engine`/`api-gateway`/`frontend`. Detalle en `ASSUMPTIONS.md` G0-01 a G0-14.
 
 ## Fases futuras (PARTE 12)
-G9 Hardening.
+
+Ninguna — G0 a G9 es el plan completo, ya cerrado. Trabajo futuro (nuevas features, bugs reales que aparezcan en operación, ADRs revisados si cambian las circunstancias que los motivaron) se planifica cuando llegue, fuera del marco de fases G0-G9.
