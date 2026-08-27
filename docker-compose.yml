@@ -92,8 +92,15 @@ services:
   api-gateway:
     build: ./api-gateway
     env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      CORE_ENGINE_URL: http://core-engine:8000
+      CORE_ENGINE_WS_URL: ws://core-engine:8000
     depends_on:
-      - core-engine
+      core-engine:
+        condition: service_started
+      redis:
+        condition: service_healthy
     ports:
       - "8180:8080"
 
