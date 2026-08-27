@@ -57,6 +57,7 @@ from seed_lib.scenarios import (
     seed_impulses,
     seed_news_events,
 )
+from seed_lib.test_user import seed_test_user
 from seed_lib.trades_history import bulk_insert_trades, generate_production_trades
 
 
@@ -105,10 +106,13 @@ async def run_seed(
         bots = await seed_production_bots(session, accounts["prod"], roster, now)
         candidates = await seed_pipeline_bots(session, accounts["prod"], accounts["quarry"], now)
         graveyard = await seed_graveyard(session, accounts["prod"], now)
+        test_user = await seed_test_user(session, now)
         await session.commit()
+        user_status = f"sembrado ({test_user.email})" if test_user else "no configurado"
         print(
             f"[seed] cuentas: {list(accounts)} · bots produccion: {len(bots)} · "
-            f"cantera: {len(candidates)} · graveyard: {len(graveyard)}"
+            f"cantera: {len(candidates)} · graveyard: {len(graveyard)} · "
+            f"usuario Playwright: {user_status}"
         )
 
         generated = generate_production_trades(

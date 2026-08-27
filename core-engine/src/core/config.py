@@ -50,8 +50,15 @@ class Settings(BaseSettings):
     # decidiera que el frontend habla DIRECTO con core-engine, sin
     # api-gateway de por medio -- ASSUMPTIONS G6-00). Sin esto, el navegador
     # bloquea toda peticion desde el dev server de Vite (origen distinto).
+    # :5175 (ademas de :5173): puerto que usa el harness Playwright de G8
+    # (`frontend/playwright.config.ts`, deliberadamente distinto de :5173
+    # para no chocar con una instancia de `npm run dev` ya abierta) -- bug
+    # real encontrado en G8: sin este origen, todo login/fetch del harness
+    # E2E fallaba por CORS (enmascarado en la UI como "credenciales
+    # incorrectas", ver ASSUMPTIONS G8).
     cors_allowed_origins: str = Field(
-        default="http://localhost:5173", validation_alias="CORS_ALLOWED_ORIGINS"
+        default="http://localhost:5173,http://localhost:5175",
+        validation_alias="CORS_ALLOWED_ORIGINS",
     )
 
 
