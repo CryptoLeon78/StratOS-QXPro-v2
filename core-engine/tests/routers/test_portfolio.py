@@ -92,3 +92,10 @@ class TestPortfolioCorrelations:
         response = await api_client.get("/api/v1/portfolio/correlations")
         assert response.status_code == 200
         assert response.json() == []
+
+
+class TestPortfolioBenchmark:
+    async def test_no_equity_data_returns_null(self, api_client: AsyncClient) -> None:
+        response = await api_client.get("/api/v1/portfolio/benchmark")
+        assert response.status_code == 200
+        assert response.json() is None

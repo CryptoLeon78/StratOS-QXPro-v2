@@ -42,6 +42,14 @@ class Settings(BaseSettings):
     news_source_url: str = Field(default="", validation_alias="NEWS_SOURCE_URL")
     benchmark_provider: str = Field(default="csv", validation_alias="BENCHMARK_PROVIDER")
     benchmark_symbol: str = Field(default="^SPX", validation_alias="BENCHMARK_SYMBOL")
+    # G10 (docs/backlog.md): benchmark_provider="csv" ya estaba declarado
+    # desde G0/G1 sin que nada lo consumiera -- services/benchmark.py es el
+    # primer consumidor real. None (default) -> el servicio resuelve la
+    # ruta contra la raiz del repo (mismo criterio que _REPO_ROOT_ENV_FILE);
+    # Path | None en vez de una ruta ya resuelta como default para que un
+    # BENCHMARK_CSV_PATH vacio en .env no se coerciones a Path(""), que
+    # apuntaria al cwd en vez de caer al default real.
+    benchmark_csv_path: Path | None = Field(default=None, validation_alias="BENCHMARK_CSV_PATH")
 
     operator_email: str = Field(default="", validation_alias="OPERATOR_EMAIL")
     operator_password_hash: str = Field(default="", validation_alias="OPERATOR_PASSWORD_HASH")

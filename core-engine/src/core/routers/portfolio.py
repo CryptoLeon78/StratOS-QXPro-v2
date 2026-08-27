@@ -3,9 +3,12 @@
 `profile_block_map` reflejan 1:1 `config/thresholds.seed.json` (10.3,
 mismo patron de defaults-como-invocabilidad que `state_machines/types.py`,
 G3, y `services/ums.py`, G5). `/correlations` lee las filas ya persistidas
-por `correlations.py::run_correlation_job` (G5), no recalcula nada."""
+por `correlations.py::run_correlation_job` (G5), no recalcula nada.
 
-from datetime import datetime
+`GET /portfolio/benchmark` (G10, docs/backlog.md): "¿Añade valor real el
+portfolio?" -- `services/benchmark.py` (nuevo)."""
+
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends
@@ -14,10 +17,16 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.auth.dependencies import get_current_user
+from core.config import get_settings
 from core.db.base import get_session
 from core.db.enums import PipelinePhase
 from core.db.models.accounts import Bot
 from core.db.models.governance import CorrelationMatrix
+from core.services.benchmark import (
+    compare_to_benchmark,
+    load_sp500_monthly,
+    portfolio_monthly_returns,
+)
 
 router = APIRouter(
     prefix="/api/v1/portfolio", tags=["portfolio"], dependencies=[Depends(get_current_user)]
@@ -52,6 +61,20 @@ class AllocationRow(BaseModel):
     real_pct: float
     delta_pct: float
     bot_count: int
+
+
+class BenchmarkComparisonResponse(BaseModel):
+    n_months: int
+    cagr_portfolio: float
+    cagr_benchmark: float
+    alpha: float
+    beta: float
+    t_stat: float
+    p_value: float
+    information_ratio: float
+    batting_average: float
+    up_capture: float | None
+    down_capture: float | None
 
 
 class CorrelationRow(BaseModel):
@@ -111,6 +134,19 @@ async def portfolio_blocks(session: AsyncSession = Depends(get_session)) -> list
 async def portfolio_profiles(session: AsyncSession = Depends(get_session)) -> list[AllocationRow]:
     allocations = await _active_bot_allocations(session)
     return _aggregate(allocations, PROFILE_TARGET)
+
+
+@router.get("/benchmark", response_model=BenchmarkComparisonResponse | None)
+async def portfolio_benchmark(
+    session: AsyncSession = Depends(get_session),
+) -> BenchmarkComparisonResponse | None:
+    settings = get_settings()
+    portfolio = await portfolio_monthly_returns(session, datetime.now(UTC))
+    benchmark = load_sp500_monthly(settings.benchmark_csv_path)
+    result = compare_to_benchmark(portfolio, benchmark)
+    if result is None:
+        return None
+    return BenchmarkComparisonResponse.model_validate(result, from_attributes=True)
 
 
 @router.get("/correlations", response_model=list[CorrelationRow])
