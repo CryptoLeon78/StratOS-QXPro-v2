@@ -43,6 +43,16 @@ from seed_lib.equity_curve import (
     generate_equity_snapshots,
 )
 from seed_lib.graveyard import seed_graveyard
+from seed_lib.scenarios import (
+    DEAD_BOT_NAME,
+    RUNAWAY_BOT_NAME,
+    apply_missing_sl_scenario,
+    apply_watchdog_scenarios,
+    insert_orphan_trades,
+    normalize_recent_frequency,
+    seed_impulses,
+    seed_news_events,
+)
 from seed_lib.trades_history import bulk_insert_trades, generate_production_trades
 
 
@@ -105,6 +115,10 @@ async def run_seed(
             Decimal("30000"),
             rng,
         )
+        generated = apply_watchdog_scenarios(generated, bots, now)
+        generated = normalize_recent_frequency(
+            generated, roster, bots, {DEAD_BOT_NAME, RUNAWAY_BOT_NAME}, now
+        )
         n_trades, n_trade_batches = await bulk_insert_trades(
             session, accounts["prod"], generated, now
         )
@@ -137,9 +151,19 @@ async def run_seed(
         await session.commit()
         print(f"[seed] lotes sellados totales: {n_batches_total}")
 
+        n_orphans = await insert_orphan_trades(session, accounts["prod"], now)
+        await apply_missing_sl_scenario(session, accounts["prod"], bots["Selene MeanRev XAG"], now)
+        n_impulses = await seed_impulses(session, bots, now)
+        n_news = await seed_news_events(session, now)
+        await session.commit()
+        print(
+            f"[seed] escenarios: huerfanos={n_orphans} · posicion sin SL=1 · "
+            f"impulsos={n_impulses} · noticias={n_news}"
+        )
+
     # Los modulos que faltan se conectan aqui a medida que se construyen
-    # (commits siguientes de G8): scenarios.py, derived_states.py,
-    # audit_error.py, header_state.py.
+    # (commits siguientes de G8): derived_states.py, audit_error.py,
+    # header_state.py.
 
 
 def main() -> None:
