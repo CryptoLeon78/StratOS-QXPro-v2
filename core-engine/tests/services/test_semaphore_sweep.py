@@ -170,6 +170,7 @@ class TestAssembleHealthChips:
         chips = await assemble_health_chips(db_session, bot, baseline, SWEEP_CONFIG)  # type: ignore[arg-type]
         # win rate rodante = 3/4 = 0.75; baseline 0.5 -> drift = 0.25
         assert chips.win_rate_drift == pytest.approx(0.25)
+        assert chips.win_rate_rolling == pytest.approx(0.75)
         assert chips.payoff is not None and chips.payoff > 0
         assert chips.avg_trade_duration_min == pytest.approx(30.0)
         assert chips.sharpe_rolling != 0.0
@@ -187,6 +188,7 @@ class TestAssembleHealthChips:
 
         chips = await assemble_health_chips(db_session, bot, baseline, SWEEP_CONFIG)  # type: ignore[arg-type]
         assert chips.win_rate_drift == 0.0
+        assert chips.win_rate_rolling == pytest.approx(baseline.win_rate)
         assert chips.payoff is None
         assert chips.avg_trade_duration_min is None
         assert chips.sharpe_rolling == 0.0

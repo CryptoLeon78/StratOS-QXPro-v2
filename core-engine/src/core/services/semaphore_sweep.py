@@ -96,9 +96,14 @@ class HealthChips:
     """G10 (docs/backlog.md): chips rodantes de la pestaña Salud que no
     forman parte de `SemaphoreMetrics` (no las consume la maquina de
     estado, solo la vista) -- Win Rate drift, Payoff, Duracion media,
-    Sharpe rolling."""
+    Sharpe rolling. `win_rate_rolling` = `baseline.win_rate + win_rate_drift`
+    (identico algebraicamente a recalcularlo desde cero, reutiliza el
+    mismo dato ya calculado) -- para la fila "Win Rate" de la tabla
+    Rolling vs Baseline de Bots (7.4), que necesita el valor bruto, no
+    solo el delta."""
 
     win_rate_drift: float
+    win_rate_rolling: float
     payoff: float | None
     avg_trade_duration_min: float | None
     sharpe_rolling: float
@@ -136,6 +141,7 @@ async def assemble_health_chips(
 
     return HealthChips(
         win_rate_drift=drift,
+        win_rate_rolling=baseline.win_rate + drift,
         payoff=payoff,
         avg_trade_duration_min=avg_duration,
         sharpe_rolling=sharpe,
