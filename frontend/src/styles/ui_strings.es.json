@@ -62,6 +62,13 @@
     }
   },
 
+  "pipelinePanel": {
+    "title": "Pipeline",
+    "prefixGo": "GO",
+    "prefixOverstay": "OVERSTAY",
+    "prefixNaranja": "NARANJA"
+  },
+
   "decisionCard": {
     "confirm": "Confirmar",
     "postpone": "Posponer",
