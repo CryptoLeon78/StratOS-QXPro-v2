@@ -2,11 +2,34 @@
 
 > Se actualiza SIEMPRE al cerrar trabajo (regla de continuidad entre sesiones). Al abrir sesión, leer esto + `CLAUDE.md` + `ASSUMPTIONS.md` antes de proponer nada.
 
-## Proyecto completo: G0–G9 cerradas
+## Fase actual: G10 — Cierre de huecos de negocio (docs/backlog.md) — EN CURSO, pausada por el operador
 
-G9 (Hardening) era la última fase de PARTE 12 — con su cierre, el proyecto entero (G0-G9) queda cerrado. No hay fase actual: cualquier trabajo futuro es mantenimiento/nuevas features sobre un sistema completo, no una fase del plan original.
+G0-G9 (PARTE 12, plan original) están cerradas — ver más abajo. G10 es trabajo nuevo, fuera de ese plan, iniciado a petición del operador para abordar el backlog de huecos de negocio acumulado en G4-G9 (plan aprobado, `~/.claude/plans/immutable-bouncing-cascade.md`).
 
-## Fases cerradas
+**Backend cerrado (grupos a-l), CI verde 9/9 en cada checkpoint, último run [`33120563244`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33120563244)**. ~13 commits, todos TDD-first donde aplica (rojo confirmado antes de implementar), verificados contra Postgres/Redis reales:
+- (a) Esquema: `Account.login` UNIQUE · `instrument_spec` (real desde SQX vía `spread_sqx`) · `symbol_currency`.
+- (b) 7 fórmulas nuevas (Sortino/Calmar/Ulcer/RecoveryFactor/WinRateDrift/Payoff/AvgTradeDuration), 100% cobertura.
+- (c) `services/bot_equity.py` — curva de P&L por bot + posiciones abiertas.
+- (d) `Trade.r_multiple` — backfill real (15.944 trades) + wiring en ingest. Overflow real de columna corregido (`NUMERIC(8,4)→(12,4)`, hypertable comprimida).
+- (e) `services/fx.py` — conversión real a EUR de exposición (sin FxRate poblado todavía, servicio funcional y probado).
+- (f) `services/news.py` — News Shield retrospectivo (trades en ventana de noticias).
+- (g) 5 endpoints aditivos (posiciones abiertas, MC histórico, episodio kill-switch, equity/balance de cuenta). "Graveyard fecha de inicio" investigado y confirmado irresoluble sin tabla de histórico nueva.
+- (h) `services/ums.py` — evolución mensual real (trades/retorno/max DD).
+- (i) `GET /audit/continuity-gaps` — tramos sin envío detallados.
+- (j) `services/benchmark.py` — Portfolio vs S&P500 (CAGR/alfa/beta/IR/Batting/Capture).
+- (k) Pipeline Backtest vs Forward — investigado, gap real confirmado (sin ingest de backtest, fuera de alcance).
+- (l) `EaState.sizing_pct` + deriva de sizing — backend a spec, no verificado contra EA real.
+
+**Detalle completo de las 14 decisiones/hallazgos en `ASSUMPTIONS.md` G10-00 a G10-13.**
+
+**Pendiente (pausado a petición del operador — "backend es un punto de corte natural, el frontend es otro modo de trabajo")**:
+- (m) ~9 commits de wiring frontend (Salud, Bots, Riesgo, Portfolio, Escalado, Graveyard, Auditoría, Cuentas/EA) — cada uno: leer captura de referencia → implementar → verificar en vivo en navegador con `core-engine` real levantado → screenshot-diff.
+- (n) Vista `/dominical` nueva (diseño derivado, sin captura) — **requiere aprobación explícita del operador antes de cerrar la fase**, mismo criterio que Cuentas/EA en G7.
+- (o) Cierre: `scan_hardcoding` completo sobre todo lo tocado, `docs/backlog.md` final, PHASE REPORT.
+
+**Al retomar**: releer este bloque + `ASSUMPTIONS.md` G10-00 a G10-13 + `docs/backlog.md` (ya actualizado con cada gap resuelto/investigado) antes de continuar con (m). El plan aprobado completo sigue en `~/.claude/plans/immutable-bouncing-cascade.md`.
+
+## Fases cerradas (G0-G9, PARTE 12, plan original)
 
 ### G9 — Hardening (cerrada, CI verde 9/9)
 
@@ -109,4 +132,4 @@ Repo git independiente en `https://github.com/CryptoLeon78/StratOS-QXPro-v2` (pr
 
 ## Fases futuras (PARTE 12)
 
-Ninguna — G0 a G9 es el plan completo, ya cerrado. Trabajo futuro (nuevas features, bugs reales que aparezcan en operación, ADRs revisados si cambian las circunstancias que los motivaron) se planifica cuando llegue, fuera del marco de fases G0-G9.
+Ninguna dentro de PARTE 12 — G0 a G9 era el plan original completo, ya cerrado. G10 (ver arriba, en curso) es trabajo nuevo fuera de ese marco. Trabajo futuro más allá de G10 (nuevas features, bugs reales que aparezcan en operación, ADRs revisados si cambian las circunstancias que los motivaron) se planifica cuando llegue.
