@@ -2,7 +2,11 @@
 Riesgo (7.7, "News Shield"). Las ventanas de exclusion son
 `[ts - blackout_before_min, ts + blackout_after_min]` (NewsEvent, ya
 migrada en G1); "bots afectados" = bots cuyo `market` contiene la divisa
-del evento (heuristica simple: EURUSD contiene EUR y USD)."""
+del evento (heuristica simple: EURUSD contiene EUR y USD).
+
+`GET /shield/trades` (G10, docs/backlog.md): retrospectivo, cruza trades
+YA ejecutados contra esas mismas ventanas via `services/news.py` --
+distinto de `/shield` (que mira hacia adelante)."""
 
 from datetime import UTC, datetime, timedelta
 from typing import Literal
@@ -18,10 +22,12 @@ from core.db.base import get_session
 from core.db.enums import NewsImpact
 from core.db.models.accounts import Bot
 from core.db.models.governance import NewsEvent
+from core.services.news import trades_in_news_window
 
 router = APIRouter(prefix="/api/v1/news", tags=["news"], dependencies=[Depends(get_current_user)])
 
 _SHIELD_DEFAULT_HOURS = 48  # news_shield_default_hours, thresholds.seed.json
+_SHIELD_TRADES_DEFAULT_DAYS = 30  # docs/backlog.md: "Trades en ventana de noticias (30 dias)"
 
 
 class NewsShieldRow(BaseModel):
@@ -71,11 +77,36 @@ async def _shield_rows(session: AsyncSession, hours: int) -> list[NewsShieldRow]
     return rows
 
 
+class TradeInNewsWindowResponse(BaseModel):
+    trade_id: int
+    symbol: str
+    bot_name: str | None
+    open_time: datetime
+    close_time: datetime | None
+    news_event_id: int
+    news_title: str
+    news_ts: datetime
+
+    model_config = {"from_attributes": True}
+
+
 @router.get("/shield", response_model=list[NewsShieldRow])
 async def news_shield(
     hours: int = Query(default=_SHIELD_DEFAULT_HOURS), session: AsyncSession = Depends(get_session)
 ) -> list[NewsShieldRow]:
     return await _shield_rows(session, hours)
+
+
+@router.get("/shield/trades", response_model=list[TradeInNewsWindowResponse])
+async def news_shield_trades(
+    days: int = Query(default=_SHIELD_TRADES_DEFAULT_DAYS),
+    session: AsyncSession = Depends(get_session),
+) -> list[TradeInNewsWindowResponse]:
+    now = datetime.now(UTC)
+    matches = await trades_in_news_window(
+        session, window_start=now - timedelta(days=days), window_end=now
+    )
+    return [TradeInNewsWindowResponse.model_validate(m) for m in matches]
 
 
 @router.get("/shield/windows", response_model=None)

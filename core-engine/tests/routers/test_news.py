@@ -1,11 +1,12 @@
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
-from core.db.enums import NewsImpact
+from core.db.enums import NewsImpact, TradeType
 from core.db.models.governance import NewsEvent
-from tests.factories import AccountFactory, BotFactory
+from tests.factories import AccountFactory, BotFactory, IngestBatchFactory, TradeFactory
 
 
 async def _session(db_connection: AsyncConnection) -> AsyncSession:
@@ -108,3 +109,59 @@ class TestNewsShieldWindows:
         )
         assert response.status_code == 200
         assert response.text.startswith("start,end,currency,title")
+
+
+class TestNewsShieldTrades:
+    async def test_flags_a_trade_open_during_a_news_window(
+        self, api_client: AsyncClient, db_connection: AsyncConnection
+    ) -> None:
+        session = await _session(db_connection)
+        account = AccountFactory()
+        session.add(account)
+        await session.flush()
+        bot = BotFactory(account_id=account.id)
+        session.add(bot)
+        await session.flush()
+        batch = IngestBatchFactory(account_id=account.id)
+        session.add(batch)
+        await session.flush()
+        news_ts = datetime.now(UTC) - timedelta(hours=2)
+        session.add(
+            NewsEvent(
+                ts=news_ts,
+                currency="EUR",
+                impact=NewsImpact.HIGH,
+                title="NFP",
+                source="ics",
+                blackout_before_min=30,
+                blackout_after_min=30,
+            )
+        )
+        session.add(
+            TradeFactory(
+                bot_id=bot.id,
+                account_id=account.id,
+                magic_number=bot.magic_number,
+                symbol="EURUSD",
+                type=TradeType.BUY,
+                volume=Decimal("1.00"),
+                profit=Decimal("10.00"),
+                open_time=news_ts - timedelta(minutes=10),
+                close_time=news_ts + timedelta(minutes=5),
+                close_price=Decimal("1.1"),
+                ingest_batch_id=batch.id,
+            )
+        )
+        await session.commit()
+
+        response = await api_client.get("/api/v1/news/shield/trades", params={"days": 1})
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body) == 1
+        assert body[0]["symbol"] == "EURUSD"
+        assert body[0]["news_title"] == "NFP"
+
+    async def test_no_matching_trades_returns_empty(self, api_client: AsyncClient) -> None:
+        response = await api_client.get("/api/v1/news/shield/trades", params={"days": 30})
+        assert response.status_code == 200
+        assert response.json() == []
