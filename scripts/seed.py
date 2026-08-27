@@ -35,6 +35,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from seed_lib.accounts import seed_accounts
+from seed_lib.audit_error import inject_audit_error as apply_audit_error_injection
 from seed_lib.bots_pipeline import seed_pipeline_bots
 from seed_lib.bots_production import full_production_roster, seed_production_bots
 from seed_lib.config import profile_for
@@ -45,6 +46,7 @@ from seed_lib.equity_curve import (
     generate_equity_snapshots,
 )
 from seed_lib.graveyard import seed_graveyard
+from seed_lib.header_state import verify_header_state
 from seed_lib.scenarios import (
     DEAD_BOT_NAME,
     RUNAWAY_BOT_NAME,
@@ -163,6 +165,11 @@ async def run_seed(
             f"impulsos={n_impulses} · noticias={n_news}"
         )
 
+        if inject_audit_error:
+            await apply_audit_error_injection(session, accounts["prod"])
+            await session.commit()
+            print("[seed] --inject-audit-error: EquitySnapshot perturbado")
+
         redis = get_redis_client()
         await run_all_sweeps(session, redis, now)
         print(
@@ -171,8 +178,19 @@ async def run_seed(
         )
         await redis.aclose()
 
-    # Los modulos que faltan se conectan aqui a medida que se construyen
-    # (commits siguientes de G8): audit_error.py, header_state.py.
+        await verify_header_state(session, accounts["prod"], inject_audit_error=inject_audit_error)
+
+        # Marca de idempotencia que `_already_seeded()` lee -- sin esta fila,
+        # una segunda corrida sin --reset nunca detectaria un seed ya hecho
+        # (hallazgo real: el check ya existia pero nada lo escribia).
+        session.add(
+            SystemConfig(
+                key="seed_profile",
+                value={"profile": profile.name, "seeded_at": now.isoformat()},
+                updated_at=now,
+            )
+        )
+        await session.commit()
 
 
 def main() -> None:
