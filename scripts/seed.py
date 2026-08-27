@@ -147,9 +147,23 @@ async def run_seed(
         print(f"[seed] equity: {n_equity} · lotes sellados (equity): {n_equity_batches}")
 
         n_batches_total = n_trade_batches + n_equity_batches
+        # datetime.now(UTC) FRESCO aqui, no `profile.history_end` (el `now`
+        # anclado al INICIO del script, hace G9-06/ASSUMPTIONS): el ultimo
+        # heartbeat es lo que header.py/execution.py comparan contra la hora
+        # real de cada request para decidir "conectado"/"DATOS STALE"
+        # (umbral header_heartbeat_stale_after_s=120, real y deliberadamente
+        # ajustado, PARTE 16 -- no se toca). El resto del seed (huerfanos,
+        # impulsos, sweeps, verificacion) sigue corriendo DESPUES de este
+        # punto, y el job completo de e2e-playwright (arranque de
+        # servidores, instalar Chromium, 12 specs en serie) tarda varios
+        # minutos mas -- anclar al inicio del script dejaba el heartbeat ya
+        # a mitad de camino de quedarse stale antes de que Playwright
+        # llegara a consultarlo. Anclar a la insercion real (mas tarde,
+        # mas fresco) no elimina la carrera de tiempo del todo pero la
+        # reduce al minimo posible sin tocar el umbral de negocio.
         for account in accounts.values():
             n_heartbeats, n_hb_batches = await bulk_insert_heartbeats(
-                session, account, profile.history_end
+                session, account, datetime.now(UTC)
             )
             n_batches_total += n_hb_batches
             print(
