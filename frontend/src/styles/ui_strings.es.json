@@ -143,6 +143,22 @@
     "emptyState": "Sin bots activos (F7/Producción) todavía."
   },
 
+  "escalado": {
+    "currentPhaseTitle": "Fase UMS actual",
+    "readyToAdvance": "Listo para subir de fase UMS (métricas sostenidas).",
+    "notReady": "Sin ascenso de fase disponible todavía.",
+    "phasesTableTitle": "Las 6 fases UMS",
+    "colFase": "Fase",
+    "colEquity": "Equity",
+    "colRiesgoOp": "Riesgo/op",
+    "colKelly": "Kelly",
+    "monthlyEvolutionTitle": "Evolución mensual",
+    "colMes": "Mes",
+    "colSharpe": "Sharpe",
+    "emptyMonthly": "Sin historial de fases UMS todavía.",
+    "emptyCurrentPhase": "Sin fase UMS registrada todavía."
+  },
+
   "ejecucion": {
     "heartbeatTitle": "Heartbeat",
     "terminalReporting": "Terminal reportando",
