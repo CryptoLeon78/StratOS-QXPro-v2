@@ -30,6 +30,7 @@ import numpy as np
 from core.config import get_settings
 from core.db.base import Base, async_session_factory
 from core.db.models.governance import SystemConfig
+from core.redis import get_redis_client
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -37,6 +38,7 @@ from seed_lib.accounts import seed_accounts
 from seed_lib.bots_pipeline import seed_pipeline_bots
 from seed_lib.bots_production import full_production_roster, seed_production_bots
 from seed_lib.config import profile_for
+from seed_lib.derived_states import run_all_sweeps
 from seed_lib.equity_curve import (
     bulk_insert_equity_snapshots,
     bulk_insert_heartbeats,
@@ -161,9 +163,16 @@ async def run_seed(
             f"impulsos={n_impulses} · noticias={n_news}"
         )
 
+        redis = get_redis_client()
+        await run_all_sweeps(session, redis, now)
+        print(
+            "[seed] sweeps reales: correlaciones/semaforo/kill-switch/"
+            "watchdog/auditoria/impulsos/gate"
+        )
+        await redis.aclose()
+
     # Los modulos que faltan se conectan aqui a medida que se construyen
-    # (commits siguientes de G8): derived_states.py, audit_error.py,
-    # header_state.py.
+    # (commits siguientes de G8): audit_error.py, header_state.py.
 
 
 def main() -> None:

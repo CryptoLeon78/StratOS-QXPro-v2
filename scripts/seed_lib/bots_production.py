@@ -6,17 +6,29 @@ distribucion macro 40/40/20 (foto real ~45,7/32,6/21,7) y micro 30/25/15/
 ajustado al decimal (seria una ingenieria fragil sobre datos de relleno).
 
 `underperformance_factor`: multiplicador que trades_history.py aplica a
-los trades MAS RECIENTES de un bot (no al historico completo) para que,
-cuando el sweep real de semaforo (derived_states.py) evalue PF/expectancy
-rodante contra el baseline, el bot caiga en AMARILLO/NARANJA por si solo
--- nunca se escribe `semaphore_state` a mano. 1.0 = sin degradacion
-reciente (se queda VERDE)."""
+los trades MAS RECIENTES de un bot (no al historico completo) para acercar
+su P&L reciente al objetivo. NO es lo bastante fuerte por si solo para
+tumbar `pf_rolling` (profit factor = ganancias/perdidas, insensible a un
+simple escalado proporcional que preserva el signo) por debajo del umbral
+`pf_orange` real -- verificado contra `services/semaphore_sweep.py` real:
+Poseidon con factor 0.60 seguia dando pf_rolling=5,76 (sanisimo). Por eso
+Poseidon/Vega llevan ADEMAS `initial_semaphore_state`/
+`initial_state_days_ago`: PARTE 13 los da como HECHOS NARRATIVOS de
+PARTIDA ("Poseidon... 12 dias en naranja", "Vega... amarillo 6 dias"), no
+como algo que un generador puramente estadistico (sin modelo de rachas
+reales) pueda re-derivar de forma fiable desde cero. El punto de PARTIDA
+es dato de seed (igual que baseline/capital/magic ya lo son) -- la
+TRANSICION final la sigue derivando el sweep real (derived_states.py):
+Poseidon avanza AMARILLO->NARANJA porque `days_in_amarillo(20) >=
+orange_days(15)` (regla real de `state_machines/semaphore.py`); Vega se
+queda en AMARILLO porque sus `dias=6 < 15` y su PF/DD no fuerzan el salto
+-- ninguno de los dos veredictos FINALES se escribe a mano."""
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 
-from core.db.enums import BaselineSource, BotProfile, BotRole, PipelinePhase
+from core.db.enums import BaselineSource, BotProfile, BotRole, PipelinePhase, SemaphoreState
 from core.db.models.accounts import Account, Baseline, Bot
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,6 +53,8 @@ class ProductionBotSpec:
     expected_trades_30d: int
     dd_contract_pct: Decimal
     underperformance_factor: float = 1.0
+    initial_semaphore_state: SemaphoreState = SemaphoreState.VERDE
+    initial_state_days_ago: int = 0
 
 
 # Magics de los 18 bots con dato literal en PARTE 13; el resto (relleno)
@@ -118,6 +132,8 @@ PRODUCTION_ROSTER: tuple[ProductionBotSpec, ...] = (
         expected_trades_30d=44,
         dd_contract_pct=Decimal("4.0"),
         underperformance_factor=0.55,
+        initial_semaphore_state=SemaphoreState.AMARILLO,
+        initial_state_days_ago=6,  # literal PARTE 13: "amarillo 6 dias"
     ),
     ProductionBotSpec(
         "Orion Breakout XAU",
@@ -371,6 +387,13 @@ PRODUCTION_ROSTER: tuple[ProductionBotSpec, ...] = (
         expected_trades_30d=11,
         dd_contract_pct=Decimal("3.9"),
         underperformance_factor=0.60,
+        initial_semaphore_state=SemaphoreState.AMARILLO,
+        # >orange_days(15): el sweep real la avanza a NARANJA en esta misma
+        # pasada (regla `days_in_amarillo >= orange_days`,
+        # state_machines/semaphore.py) -- crea tambien la Decision
+        # Confirmar/Posponer/Descartar pendiente que pide el criterio 2,
+        # porque la transicion ocurre DURANTE el seed, no antes.
+        initial_state_days_ago=20,
     ),
 )
 
@@ -443,6 +466,12 @@ async def seed_production_bots(
     correlaciones) puedan referenciar bots por nombre sin volver a consultar."""
     bots_by_name: dict[str, Bot] = {}
     for spec in roster:
+        entered_state_at = now - timedelta(days=spec.initial_state_days_ago)
+        sizing_current_pct = (
+            Decimal("50.00")
+            if spec.initial_semaphore_state == SemaphoreState.AMARILLO
+            else Decimal("100.00")
+        )
         bot = Bot(
             account_id=account.id,
             magic_number=spec.magic_number,
@@ -453,11 +482,12 @@ async def seed_production_bots(
             role=BotRole.CHAMPION,
             slot=f"{spec.profile.value.lower()}-{spec.market.lower()}",
             pipeline_phase=PipelinePhase.F7,
-            entered_state_at=now,
+            semaphore_state=spec.initial_semaphore_state,
+            entered_state_at=entered_state_at,
             capital_allocated_pct=spec.capital_pct,
             risk_per_trade_pct=Decimal("0.500"),
             sizing_multiplier=Decimal("1.00"),
-            sizing_current_pct=Decimal("100.00"),
+            sizing_current_pct=sizing_current_pct,
             kelly_fraction=Decimal("0.25"),
             created_at=now,
         )

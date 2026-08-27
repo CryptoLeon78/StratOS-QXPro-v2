@@ -32,6 +32,19 @@ TOTAL_TARGET_TRADES_PER_YEAR = 2_800  # ~15.486 trades / 5.53 anos -- ver ASSUMP
 COMMON_FACTOR_LOADING = 1.0
 IDIO_TO_COMMON_STD_RATIO = 0.85  # ~0.16 corr media medida contra el job real, ver ASSUMPTIONS G8
 
+# bots_production.py::seed_production_bots -- Bot.risk_per_trade_pct=0.500
+# es literal e identico para los 32 (no varia por spec). r_multiple =
+# profit / (capital_base * RISK_PER_TRADE_PCT/100): aproximacion de "R" sin
+# SL/tick real por simbolo (services/semaphore_sweep.py ya documenta que
+# Trade.r_multiple nunca lo calcula el ingest real -- si se deja NULL en
+# el seed, expectancy_r()/loss_streak()/page_hinkley() siempre caen al
+# valor conservador 0/0/False para TODOS los bots, disparando AMARILLO en
+# los 32 por igual via el chequeo `exp_rolling < exp_warn*exp_baseline`
+# (0.0 siempre es menor que un umbral positivo) -- hallazgo real,
+# verificado contra el sweep real tras el primer intento sin r_multiple,
+# ver ASSUMPTIONS G8).
+RISK_PER_TRADE_PCT = 0.5
+
 # PARTE 13: "Lyra Scalper EURUSD ... correlacion 0,52 con Phoenix Scalper
 # SPX" (criterio de aceptacion 9: par marcado redundante). El factor comun
 # de portfolio por si solo no basta para acercar UN par especifico a un
@@ -51,6 +64,7 @@ class GeneratedTrade:
     open_time: datetime
     close_time: datetime
     profit: Decimal
+    r_multiple: Decimal = Decimal("0")
 
 
 def trading_days(start: date, end: date) -> list[date]:
@@ -161,6 +175,7 @@ def generate_production_trades(
     for spec in roster:
         weight = float(spec.capital_pct) / total_weight
         capital_base = float(total_capital) * weight
+        risk_amount = capital_base * (RISK_PER_TRADE_PCT / 100.0)
         bot_id = bot_ids_by_name[spec.name]
         expected_trades_month = max(0.3, spec.expected_trades_30d * frequency_scale)
         in_extra_pair = spec.name in EXTRA_CORRELATED_PAIR
@@ -190,7 +205,15 @@ def generate_production_trades(
             trade_days = [month_days[i] for i in day_indices]
             for share, day in zip(per_trade_shares, trade_days, strict=True):
                 idio_component = rng.normal(0.0, idio_std_per_trade)
-                profit = Decimal(str(round(target_month_pnl * share + idio_component, 2)))
+                profit_f = target_month_pnl * share + idio_component
+                profit = Decimal(str(round(profit_f, 2)))
+                # column_types.py::RMultiple = Numeric(8,4) -- clamp para no
+                # desbordar la columna con un swing extremo del factor extra
+                # de correlacion (EXTRA_PAIR_LOADING) ni mostrar un R
+                # irrealmente grande (r_multiple es una aproximacion, ver
+                # RISK_PER_TRADE_PCT arriba, no un valor de mercado real).
+                r_raw = profit_f / risk_amount if risk_amount else 0.0
+                r_multiple = Decimal(str(round(max(-20.0, min(20.0, r_raw)), 4)))
                 open_dt = datetime.combine(day, datetime.min.time(), tzinfo=UTC) + timedelta(
                     minutes=int(rng.integers(480, 1020))
                 )
@@ -204,6 +227,7 @@ def generate_production_trades(
                         open_time=open_dt,
                         close_time=close_dt,
                         profit=profit,
+                        r_multiple=r_multiple,
                     )
                 )
     return trades
@@ -271,7 +295,7 @@ async def bulk_insert_trades(
                     "profit": t.profit,
                     "commission": Decimal("0"),
                     "swap": Decimal("0"),
-                    "r_multiple": None,
+                    "r_multiple": t.r_multiple,
                     "ingest_batch_id": batch_id,
                     "ingested_at": now,
                 }
