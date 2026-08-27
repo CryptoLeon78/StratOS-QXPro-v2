@@ -115,7 +115,7 @@ export function AppHeader() {
       cuentas_ea.spec.ts en CI 2 veces (ver ASSUMPTIONS G9-06/G9-07);
       ninguna mascara puede compensar un cambio de altura de pagina, solo
       una altura estable lo resuelve de raiz. */}
-      <div className="px-4 pb-3">
+      <div className="px-4 pb-3" data-testid="data-stale-badge">
         <Badge
           variant="warning"
           className={
