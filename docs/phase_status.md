@@ -2,21 +2,28 @@
 
 > Se actualiza SIEMPRE al cerrar trabajo (regla de continuidad entre sesiones). Al abrir sesión, leer esto + `CLAUDE.md` + `ASSUMPTIONS.md` antes de proponer nada.
 
-## Fase actual: G8 — Seed + E2E
+## Fase actual: G9 — Hardening (sin empezar)
 
-**Estado**: 18/18 commits completos localmente, todos los criterios verificados end-to-end contra infraestructura real (Postgres/Redis/Docker/navegador). **Pendiente de `git push` y confirmación de CI verde** — no pusheado en esta sesión (acción que requiere confirmación explícita del operador). Plan aprobado en `C:\Users\Ivan SQX\.claude\plans\immutable-bouncing-cascade.md`. G7 cerrado en sesión previa (14/14 commits), CI verde 7/7 (run [`33048222928`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33048222928)).
-
-**Los 17 criterios de aceptación de PARTE 16 están verificados** (detalle completo en el PHASE REPORT de cierre). Resumen: `scripts/seed.py` completo y auto-verificado (`--profile full|ci`, `--inject-audit-error`) · 9 tests nuevos de aceptación (`test_g8_acceptance_criteria.py`, 9/9 verde en ambos perfiles) · 11 specs de Playwright (12 tests, 12/12 verde en ejecución serial) · 2 jobs de CI nuevos (`e2e-playwright`/`e2e-acceptance-full`) · `docker compose up` + seed verificado y timado de verdad (~101s, <10min).
-
-**6 bugs reales encontrados y corregidos en esta fase** (no simulados, todos verificados contra infraestructura real): `Trade.r_multiple` nunca poblado disparaba AMARILLO en los 32 bots de producción (`ASSUMPTIONS` G8-07) · `_already_seeded()` nunca escribía su propia marca de idempotencia (G8-08) · CORS bloqueaba el harness E2E completo, enmascarado como "credenciales incorrectas" (G8-11) · 3 bugs distintos en los Dockerfiles de `core-engine`/`frontend` — primera vez que se construían, ninguno compilaba (G8-13).
-
-**Hallazgo real documentado, no corregido** (G8-07): 28/32 bots de producción caen en AMARILLO en el sweep de semáforo (vía `loss_streak`/`page_hinkley` sobre el historial COMPLETO de 400-600 trades, no una ventana reciente) — desajuste real entre la calibración de `semaphore_sweep.py` y los 5,5 años densos que exige el seed. No bloquea ningún criterio (solo Poseidón/Vega tienen estado exigido literalmente); tocarlo es lógica de G3/G5 ya cerrada, fuera de alcance sin autorización del operador.
-
-**"Vista dominical" (criterio 14) confirmada ausente como superficie de UI** — mismo tratamiento que la UI de checklist (ya documentado, decisión de fase): construirla es frontend nuevo, fuera de "Seed + E2E". Entrada en `docs/backlog.md`.
-
-**Commits** (`279a308`..`92d7596`, 18 en total): estructura `seed_lib/`+CLI → `accounts`+`bots_production` → fix nombres → `bots_pipeline`+`graveyard` → `trades_history` → `equity_curve` → `scenarios` → `derived_states` → `audit_error`+`header_state` → 2× `docs: phase_status` intermedios → `sp500_monthly.csv`+test → fix `normalize_recent_frequency` → `test_g8_acceptance_criteria.py` → harness Playwright completo → CI jobs → README → fix Docker.
+G8 cerrada y confirmada en CI real en esta sesión (ver abajo). G9 (PARTE 12) es la última fase: hardening de despliegue — no arrancada, sin plan todavía.
 
 ## Fases cerradas
+
+### G8 — Seed + E2E (cerrada, CI verde 9/9)
+
+**Estado**: 21 commits, pusheado y confirmado con **3 runs reales de GitHub Actions** tras el push inicial (no solo verificación local). El primer push (`4f7cbf5`+`c3da7d0`..) destapó 3 bugs reales que la verificación local no había visto — los 3 corregidos y confirmados con CI verde 9/9 en el run [`33078966721`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33078966721):
+1. **`test-backend` rompía** (9 fallos, `relation "bot" does not exist`) — `test_g8_acceptance_criteria.py` se conecta directo a `stratos` sin migrar en ese job; local llevaba la BBDD ya migrada toda la sesión, el runner limpio lo destapó. Fix: `--ignore` en `test-backend` (G8-14).
+2. **`e2e-playwright` sin baselines `-linux.png`** — los 11 capturados en esta sesión son `-win32.png` (Windows), el runner es `ubuntu-latest`. Generados vía el propio CI real (`--update-snapshots` temporal + `upload-artifact`, 2 pushes, `gh run download`, revertido) — un intento previo de replicarlo con Docker local (`host.docker.internal`) conectaba pero el login nunca renderizaba, causa no diagnosticada, abandonado por no ser el entorno real (G8-15).
+3. **2 bugs reales en los specs de Playwright**, enmascarados hasta entonces por el fallo de snapshot en TODOS los tests: `flujo_operativo.spec.ts` apuntaba a "Hipnos" (solo dispara `Alert`, nunca `Decision`) en vez de "Poseidón" (sí genera `Decision` confirmable vía el sweep real); `portfolio.spec.ts` asertaba la calibración de correlación a ~0,16 que solo aplica bajo `--profile full`, pero el job siembra `--profile ci` (G8-15).
+
+**Los 17 criterios de aceptación de PARTE 16 están verificados**: `scripts/seed.py` completo y auto-verificado (`--profile full|ci`, `--inject-audit-error`) · 9 tests de aceptación (`test_g8_acceptance_criteria.py`, 9/9 verde en CI real, perfil `full`) · 11 specs de Playwright (12 tests, 12/12 verde en CI real, perfil `ci`) · 2 jobs de CI nuevos (`e2e-playwright`/`e2e-acceptance-full`) · `docker compose up` + seed timado de verdad (~101s, <10min).
+
+**9 bugs reales en total encontrados y corregidos en esta fase** (6 en verificación local + 3 solo visibles en CI real — ver arriba): `Trade.r_multiple` nunca poblado disparaba AMARILLO en los 32 bots de producción (G8-07) · `_already_seeded()` nunca escribía su propia marca de idempotencia (G8-08) · CORS bloqueaba el harness E2E completo (G8-11) · 3 bugs en los Dockerfiles de `core-engine`/`frontend` (G8-13) · los 3 de CI real de arriba (G8-14/G8-15).
+
+**Hallazgo real documentado, no corregido** (G8-07): 28/32 bots de producción caen en AMARILLO en el sweep de semáforo — desajuste real entre la calibración de `semaphore_sweep.py` y los 5,5 años densos que exige el seed. No bloquea ningún criterio; fuera de alcance sin autorización del operador.
+
+**"Vista dominical" (criterio 14) confirmada ausente como superficie de UI** — mismo tratamiento que la UI de checklist: construirla es frontend nuevo, fuera de "Seed + E2E". Entrada en `docs/backlog.md`.
+
+Detalle completo (15 decisiones/hallazgos) en `ASSUMPTIONS.md` G8-00 a G8-15.
 
 ### G7 — Frontend pestañas 2–11 (cerrada, CI verde 7/7)
 
