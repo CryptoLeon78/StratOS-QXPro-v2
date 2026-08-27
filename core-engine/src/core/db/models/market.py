@@ -31,7 +31,17 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from core.db import sa_enums
 from core.db.base import Base
-from core.db.column_types import DrawdownPct, FxRateValue, Money, Price, RMultiple, Volume
+from core.db.column_types import (
+    DrawdownPct,
+    FxRateValue,
+    Money,
+    PointValue,
+    Price,
+    RMultiple,
+    TickSize,
+    TickValue,
+    Volume,
+)
 from core.db.enums import TradeType
 
 
@@ -163,3 +173,23 @@ class EaState(Base):
     news_windows: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
     ingest_batch_id: Mapped[int] = mapped_column(ForeignKey("ingest_batch.id"))
     last_ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class InstrumentSpec(Base):
+    """G10 (docs/backlog.md): tick_size/tick_value/point_value por simbolo,
+    medidos de verdad contra MT5 -- importados de `user/data/data.db`
+    (INSTRUMENTS de SQX) via `scripts/import_instrument_specs.py`, que
+    reutiliza `Apps_entorno_SQX/spread_sqx` (app propia ya en produccion
+    para esto), no inventados. `tick_value = POINTVALUE * TICKSIZE`
+    (`spread_sqx/unidades.py::pointvalue_desde_mt5`, invertido). Base de
+    `formulas/trading.py::r_multiple()` (PARTE 8) -- sin fila para un
+    simbolo, `r_multiple` de sus trades se queda NULL (no se inventa)."""
+
+    __tablename__ = "instrument_spec"
+
+    symbol: Mapped[str] = mapped_column(String, primary_key=True)
+    tick_size: Mapped[Decimal] = mapped_column(TickSize)
+    tick_value: Mapped[Decimal] = mapped_column(TickValue)
+    point_value: Mapped[Decimal] = mapped_column(PointValue)
+    source: Mapped[str] = mapped_column(String)
+    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
