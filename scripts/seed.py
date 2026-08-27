@@ -32,8 +32,10 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from seed_lib.accounts import seed_accounts
+from seed_lib.bots_pipeline import seed_pipeline_bots
 from seed_lib.bots_production import full_production_roster, seed_production_bots
 from seed_lib.config import profile_for
+from seed_lib.graveyard import seed_graveyard
 
 
 async def _reset_database() -> None:
@@ -76,13 +78,17 @@ async def run_seed(profile_name: str, *, reset: bool, inject_audit_error: bool) 
         accounts = await seed_accounts(session)
         roster = full_production_roster()
         bots = await seed_production_bots(session, accounts["prod"], roster, now)
+        candidates = await seed_pipeline_bots(session, accounts["prod"], accounts["quarry"], now)
+        graveyard = await seed_graveyard(session, accounts["prod"], now)
         await session.commit()
-        print(f"[seed] cuentas: {list(accounts)} · bots de produccion: {len(bots)}")
+        print(
+            f"[seed] cuentas: {list(accounts)} · bots produccion: {len(bots)} · "
+            f"cantera: {len(candidates)} · graveyard: {len(graveyard)}"
+        )
 
     # Los modulos que faltan se conectan aqui a medida que se construyen
-    # (commits siguientes de G8): bots_pipeline.py, graveyard.py,
-    # trades_history.py, equity_curve.py, scenarios.py, derived_states.py,
-    # audit_error.py, header_state.py.
+    # (commits siguientes de G8): trades_history.py, equity_curve.py,
+    # scenarios.py, derived_states.py, audit_error.py, header_state.py.
 
 
 def main() -> None:
