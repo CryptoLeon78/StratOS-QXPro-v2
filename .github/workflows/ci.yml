@@ -265,3 +265,199 @@ jobs:
         run: |
           cd frontend
           npm run build
+
+  # G8 (PARTE 12, "Seed + E2E"): siembra --profile ci --reset (rapido,
+  # ~4 meses de historia) contra Postgres/Redis reales, arranca
+  # core-engine (uvicorn) + frontend (vite) de verdad, y corre el harness
+  # Playwright completo (11 specs) contra ambos. --workers=1: el
+  # screenshot-diff es sensible a contencion de CPU bajo paralelismo alto
+  # (hallazgo real de G8, ver ASSUMPTIONS.md/backlog.md) -- retries:2 ya
+  # esta en playwright.config.ts para el resto de flakiness transitoria.
+  e2e-playwright:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: timescale/timescaledb:2.17.2-pg16
+        env:
+          POSTGRES_DB: stratos
+          POSTGRES_USER: stratos_user
+          POSTGRES_PASSWORD: stratos_secret_2026
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://stratos_user:stratos_secret_2026@localhost:5432/stratos
+      APP_DATABASE_URL: postgresql+asyncpg://stratos_app:stratos_app_secret_2026@localhost:5432/stratos
+      APP_DB_PASSWORD: stratos_app_secret_2026
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET: ci-test-jwt-secret
+      INGEST_API_KEYS: ci-test-ingest-key
+      PLAYWRIGHT_TEST_EMAIL: e2e-ci@stratos.local
+      PLAYWRIGHT_TEST_PASSWORD: ci-test-password-2026
+      PLAYWRIGHT_BASE_URL: http://localhost:5175
+      VITE_API_BASE_URL: http://localhost:8100
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: frontend/package.json
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e shared-ingest-seal
+          pip install -e "core-engine[dev]"
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm install
+
+      - name: Migrate database
+        run: |
+          cd core-engine
+          python -m alembic -c alembic.ini upgrade head
+
+      - name: Seed --profile ci --reset
+        run: |
+          PYTHONPATH="core-engine/src:scripts" python scripts/seed.py --profile ci --reset
+
+      - name: Start core-engine (background)
+        run: |
+          nohup python -m uvicorn --app-dir core-engine/src core.main:app --port 8100 \
+            > uvicorn.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8100/health && break
+            sleep 1
+          done
+          curl -sf http://localhost:8100/health
+
+      - name: Start frontend (background)
+        run: |
+          cd frontend
+          nohup npx vite --port 5175 --strictPort > ../vite.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:5175/ && break
+            sleep 1
+          done
+          curl -sf http://localhost:5175/
+
+      - name: Install Playwright browsers
+        run: |
+          cd frontend
+          npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        run: |
+          cd frontend
+          npx playwright test --workers=1
+
+      - name: Upload server logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-server-logs
+          path: |
+            uvicorn.log
+            vite.log
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
+
+  # Perfil `full` (5,5 anos de historia) para los criterios de PARTE 16
+  # que necesitan las cifras/calibraciones reales (ej. criterio 9, Lyra x
+  # Phoenix redundante -- no se calibra bajo `ci`, ver ASSUMPTIONS G8).
+  # Job aparte de e2e-playwright porque sembrar `full` es notablemente mas
+  # lento que `ci` (no comparten seed, cada uno siembra el suyo).
+  e2e-acceptance-full:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: timescale/timescaledb:2.17.2-pg16
+        env:
+          POSTGRES_DB: stratos
+          POSTGRES_USER: stratos_user
+          POSTGRES_PASSWORD: stratos_secret_2026
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://stratos_user:stratos_secret_2026@localhost:5432/stratos
+      APP_DATABASE_URL: postgresql+asyncpg://stratos_app:stratos_app_secret_2026@localhost:5432/stratos
+      APP_DB_PASSWORD: stratos_app_secret_2026
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET: ci-test-jwt-secret
+      INGEST_API_KEYS: ci-test-ingest-key
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e shared-ingest-seal
+          pip install -e "core-engine[dev]"
+
+      - name: Migrate database
+        run: |
+          cd core-engine
+          python -m alembic -c alembic.ini upgrade head
+
+      - name: Seed --profile full --reset
+        run: |
+          PYTHONPATH="core-engine/src:scripts" python scripts/seed.py --profile full --reset
+
+      - name: Run acceptance criteria tests
+        run: |
+          cd core-engine
+          pytest tests/e2e/test_g8_acceptance_criteria.py -v
