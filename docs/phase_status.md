@@ -4,26 +4,17 @@
 
 ## Fase actual: G8 — Seed + E2E
 
-**Estado**: en curso, plan aprobado por el operador (`C:\Users\Ivan SQX\.claude\plans\immutable-bouncing-cascade.md`). G7 cerrado en sesión previa (14/14 commits), pusheado y con CI verde 7/7 (run [`33048222928`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33048222928)).
+**Estado**: 18/18 commits completos localmente, todos los criterios verificados end-to-end contra infraestructura real (Postgres/Redis/Docker/navegador). **Pendiente de `git push` y confirmación de CI verde** — no pusheado en esta sesión (acción que requiere confirmación explícita del operador). Plan aprobado en `C:\Users\Ivan SQX\.claude\plans\immutable-bouncing-cascade.md`. G7 cerrado en sesión previa (14/14 commits), CI verde 7/7 (run [`33048222928`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33048222928)).
 
-**Commits reales de G8 hasta ahora** (de los ~17 previstos) — `scripts/seed.py` está COMPLETO y corre de punta a punta con auto-verificación:
-1. `279a308` estructura `seed_lib/` + CLI `seed.py`
-2. `59442fd` `accounts.py` + `bots_production.py` + baselines
-3. `b717f4d` fix: renombra bots de relleno (colisión de nombres con cantera)
-4. `3a27835` `bots_pipeline.py` (cantera F1-F6) + `graveyard.py`
-5. `7805a75` `trades_history.py` — generador determinista + bulk insert sellado
-6. `71aaf03` `equity_curve.py` — EquitySnapshot diaria + heartbeats sellados
-7. `81ce29d` `scenarios.py` — huérfanos, bot muerto/desbocado, impulsos, noticias, SL
-8. `0793d24` `derived_states.py` — invoca los sweeps reales del portfolio
-9. `4e5d280` `audit_error.py` + `header_state.py` — cierre y auto-verificación del seed
+**Los 17 criterios de aceptación de PARTE 16 están verificados** (detalle completo en el PHASE REPORT de cierre). Resumen: `scripts/seed.py` completo y auto-verificado (`--profile full|ci`, `--inject-audit-error`) · 9 tests nuevos de aceptación (`test_g8_acceptance_criteria.py`, 9/9 verde en ambos perfiles) · 11 specs de Playwright (12 tests, 12/12 verde en ejecución serial) · 2 jobs de CI nuevos (`e2e-playwright`/`e2e-acceptance-full`) · `docker compose up` + seed verificado y timado de verdad (~101s, <10min).
 
-**Verificado contra Postgres real tras el commit 9** (`python scripts/seed.py --profile full --reset [--inject-audit-error]`, ambos casos pasan `verify_header_state`): 32 bots producción + 24 cantera + 9 graveyard · ~15.850 trades (objetivo 15.486) · DD 2,56% (objetivo 4,8%, aproximado, ASSUMPTIONS G8-04) · 14/68 meses negativos · retorno medio 2,63% (objetivo 2,69%) · correlación media 0,16 · par Lyra×Phoenix 0,50 redundante=True (criterio 9) · reconciliación contable exacta sin injectar (`discrepancy_pct=0`, criterio 6) y rota con `--inject-audit-error` (Alert CRITICA real) · 89.359 lotes sellados de 137.296 objetivo (~65%, gap conocido, ASSUMPTIONS G8-05) · **Poseidón NARANJA + Decision Confirmar/Posponer/Descartar pendiente con instrucción literal correcta (criterio 2)** · Sigma MR=GO / Estige-Palas-Helios=HOLD (criterio 10) · watchdog 29/32 OK + Hipnos=DEAD + Baco=RUNAWAY forzados (criterio 7, aproximado) · idempotencia (`--reset` ausente + seed ya hecho → no-op) verificada.
+**6 bugs reales encontrados y corregidos en esta fase** (no simulados, todos verificados contra infraestructura real): `Trade.r_multiple` nunca poblado disparaba AMARILLO en los 32 bots de producción (`ASSUMPTIONS` G8-07) · `_already_seeded()` nunca escribía su propia marca de idempotencia (G8-08) · CORS bloqueaba el harness E2E completo, enmascarado como "credenciales incorrectas" (G8-11) · 3 bugs distintos en los Dockerfiles de `core-engine`/`frontend` — primera vez que se construían, ninguno compilaba (G8-13).
 
-**Hallazgo real documentado, no corregido** (ASSUMPTIONS G8-07): 28/32 bots de producción caen en AMARILLO en el sweep de semáforo (vía `loss_streak`/`page_hinkley` sobre el historial COMPLETO de 400-600 trades, no una ventana reciente) — desajuste real entre la calibración de `semaphore_sweep.py` (pensada para un historial de producción normal) y los 5,5 años densos que exige el seed. No bloquea ningún criterio de PARTE 16 (solo Poseidón/Vega tienen estado exigido literalmente); corregirlo tocaría lógica de G3/G5 ya cerrada, fuera de alcance de G8 sin autorización del operador.
+**Hallazgo real documentado, no corregido** (G8-07): 28/32 bots de producción caen en AMARILLO en el sweep de semáforo (vía `loss_streak`/`page_hinkley` sobre el historial COMPLETO de 400-600 trades, no una ventana reciente) — desajuste real entre la calibración de `semaphore_sweep.py` y los 5,5 años densos que exige el seed. No bloquea ningún criterio (solo Poseidón/Vega tienen estado exigido literalmente); tocarlo es lógica de G3/G5 ya cerrada, fuera de alcance sin autorización del operador.
 
-**Pendiente** (orden del plan): `scripts/data/sp500_monthly.csv` a 66 meses → suite de criterios de aceptación (`test_g8_acceptance_criteria.py`) → specs Playwright (pipeline/graveyard/7 pestañas restantes/vista dominical/flujo operativo) → 2 jobs CI nuevos → README/backlog/ASSUMPTIONS de cierre → PHASE REPORT.
+**"Vista dominical" (criterio 14) confirmada ausente como superficie de UI** — mismo tratamiento que la UI de checklist (ya documentado, decisión de fase): construirla es frontend nuevo, fuera de "Seed + E2E". Entrada en `docs/backlog.md`.
 
-**Nota de higiene del working tree**: hay cambios ajenos a G8 sin commitear en `doc_app/` (6 ficheros borrados, movidos por el operador a otra carpeta según el propio `docs/backlog.md`) y ruido no rastreado bajo `.github/workflows/` (`bin/`, `micromamba/`, `rcc*.yaml*`, `temp/` — artefactos de alguna herramienta externa, no generados por esta sesión). Ninguno de los dos se ha tocado ni commiteado desde aquí — no pertenecen a G8 y `doc_app\` está bloqueado para el agente (regla de comportamiento §7).
+**Commits** (`279a308`..`92d7596`, 18 en total): estructura `seed_lib/`+CLI → `accounts`+`bots_production` → fix nombres → `bots_pipeline`+`graveyard` → `trades_history` → `equity_curve` → `scenarios` → `derived_states` → `audit_error`+`header_state` → 2× `docs: phase_status` intermedios → `sp500_monthly.csv`+test → fix `normalize_recent_frequency` → `test_g8_acceptance_criteria.py` → harness Playwright completo → CI jobs → README → fix Docker.
 
 ## Fases cerradas
 
