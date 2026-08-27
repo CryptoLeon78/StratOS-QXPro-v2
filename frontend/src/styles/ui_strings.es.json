@@ -85,7 +85,35 @@
   },
 
   "bots": {
-    "impulseButton": "Tengo el impulso de intervenir"
+    "impulseButton": "Tengo el impulso de intervenir",
+    "searchPlaceholder": "Buscar…",
+    "emptySearch": "Sin bots que coincidan con la búsqueda.",
+    "emptySelection": "Selecciona un bot de la lista.",
+    "daysInPhase": "{days}d en fase",
+    "rollingVsBaselineTitle": "Rolling vs Baseline (alpha decay)",
+    "colBaseline": "Baseline",
+    "colRolling": "Rolling",
+    "rowProfitFactor": "Profit Factor",
+    "rowExpectancy": "Expectancy",
+    "rowLossStreak": "Racha de pérdidas",
+    "rowDdRolling": "DD rolling / contrato",
+    "semaphoreHistoryTitle": "Historial de semáforo",
+    "emptySemaphoreHistory": "Sin transiciones de semáforo registradas.",
+    "contributionTitle": "Contribución al portfolio",
+    "sizingObjetivo": "Sizing objetivo",
+    "impulseDialogTitle": "Diario de impulsos — {bot}",
+    "impulseDescriptionLabel": "Descripción del impulso",
+    "impulseActionLabel": "Acción deseada",
+    "impulseActions": {
+      "PAUSE_BOT": "Pausar bot",
+      "CLOSE_POSITION": "Cerrar posición",
+      "INCREASE_RISK": "Aumentar riesgo",
+      "DECREASE_RISK": "Reducir riesgo",
+      "OTHER": "Otro"
+    },
+    "impulseSubmit": "Registrar impulso",
+    "impulseCancel": "Cancelar",
+    "impulseSuccess": "Impulso registrado — se evaluará su contrafactual a 7 días."
   },
 
   "portfolio": {

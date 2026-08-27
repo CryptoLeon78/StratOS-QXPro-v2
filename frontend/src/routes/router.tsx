@@ -1,7 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 
 import AuditoriaPage from "@/routes/placeholders/AuditoriaPage";
-import BotsPage from "@/routes/placeholders/BotsPage";
+import BotsPage from "@/routes/BotsPage";
 import CuentasEaPage from "@/routes/placeholders/CuentasEaPage";
 import EjecucionPage from "@/routes/placeholders/EjecucionPage";
 import EscaladoPage from "@/routes/placeholders/EscaladoPage";
