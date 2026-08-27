@@ -19,11 +19,16 @@ test("flujo operativo: confirmar decision, firmar checklist, registrar impulso",
 }) => {
   await login(page);
 
-  // 1. Confirmar una decision pendiente desde Resumen.
-  const hipnosCard = page.locator(".border-l-accent-primary").filter({ hasText: "Hipnos" });
-  await expect(hipnosCard.getByRole("button", { name: "Confirmar" })).toBeVisible();
-  await hipnosCard.getByRole("button", { name: "Confirmar" }).click();
-  await expect(hipnosCard).toHaveCount(0);
+  // 1. Confirmar una decision pendiente desde Resumen. Poseidón Trend GER40
+  // es quien realmente genera una Decision confirmable (bots_production.py:
+  // el sweep real la avanza AMARILLO->NARANJA, requires_confirmation=True en
+  // semaphore.py) -- Hipnos Grid US30 solo dispara un Alert de watchdog
+  // (services/watchdog.py), nunca una Decision; usar su nombre aqui era un
+  // error de este spec, corregido tras verlo fallar en CI real (G8).
+  const poseidonCard = page.locator(".border-l-accent-primary").filter({ hasText: "Poseidón" });
+  await expect(poseidonCard.getByRole("button", { name: "Confirmar" })).toBeVisible();
+  await poseidonCard.getByRole("button", { name: "Confirmar" }).click();
+  await expect(poseidonCard).toHaveCount(0);
 
   // 2. Firmar un item de checklist dominical -- sin UI (hallazgo real de
   // planificacion de G8, ASSUMPTIONS), vía la API real reutilizando la
