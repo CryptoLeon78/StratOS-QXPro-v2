@@ -88,6 +88,33 @@
     "impulseButton": "Tengo el impulso de intervenir"
   },
 
+  "portfolio": {
+    "macroTitle": "Estructura macro 40/40/20",
+    "microTitle": "Los 6 perfiles (micro)",
+    "microFootnote": "Los objetivos por perfil son los de la formación (30/25/15/10/10/10). Los slots libres indican dónde puede entrar un Challenger.",
+    "correlationsTitle": "Matriz de correlaciones (P&L diario)",
+    "correlationsMedia": "media {value}",
+    "colBloque": "Bloque",
+    "colObjetivo": "Objetivo",
+    "colReal": "Real",
+    "colDelta": "Δ",
+    "colBots": "Bots",
+    "blocks": {
+      "CONVEXO": "Convexo (Tendencia)",
+      "CONCAVO": "Cóncavo (Reversión)",
+      "HIBRIDO": "Híbrido / Especial"
+    },
+    "profiles": {
+      "TREND": "Trend Following",
+      "MEAN_REVERSION": "Reversión",
+      "MOMENTUM": "Momentum",
+      "SMART_MONEY": "Smart Money",
+      "GRID_SCALPING": "Grid / Scalping",
+      "AI_ML": "ML / IA"
+    },
+    "emptyState": "Sin bots activos (F7/Producción) todavía."
+  },
+
   "riesgo": {
     "copyWindows": "Copiar ventanas",
     "killswitchNote": "El panel avisa e instruye; la ejecución de cierres vive en MetaTrader"

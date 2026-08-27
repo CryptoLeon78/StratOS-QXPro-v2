@@ -22,6 +22,14 @@ const percentFormatter = new Intl.NumberFormat("es-ES", {
   maximumFractionDigits: 1,
 });
 
+// Delta en puntos porcentuales (p.ej. Δ de Portfolio/Escalado): 1 decimal,
+// signo siempre visible, sin separador de miles (nunca llega a 4 cifras).
+const signedDeltaFormatter = new Intl.NumberFormat("es-ES", {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+  signDisplay: "always",
+});
+
 export function formatAmount(value: number | string): string {
   return numberFormatter.format(Number(value));
 }
@@ -32,4 +40,8 @@ export function formatSignedAmount(value: number | string): string {
 
 export function formatPercent(value: number | string): string {
   return `${percentFormatter.format(Number(value))}%`;
+}
+
+export function formatSignedDelta(value: number | string): string {
+  return signedDeltaFormatter.format(Number(value));
 }
