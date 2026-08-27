@@ -28,16 +28,50 @@ class UmsPhaseDef:
     equity_min: Decimal
     equity_max: Decimal | None
     kelly_fraction: Decimal
+    risk_per_trade_pct_min: Decimal | None = None
+    risk_per_trade_pct_max: Decimal | None = None
+    risk_note: str | None = None
 
 
 # Refleja 1:1 `ums_phases` de config/thresholds.seed.json (tabla 7.9) -- el
 # JSON es la fuente unica (P11), esto es solo para invocabilidad sin cargar
 # el fichero completo (mismo patron que state_machines/types.py, G3).
 DEFAULT_UMS_PHASES: tuple[UmsPhaseDef, ...] = (
-    UmsPhaseDef(1, "Validacion Personal", Decimal("0"), Decimal("5000"), Decimal("0.5")),
-    UmsPhaseDef(2, "Track Record", Decimal("5000"), Decimal("25000"), Decimal("0.5")),
-    UmsPhaseDef(3, "Portfolio Maduro", Decimal("25000"), Decimal("100000"), Decimal("0.33")),
-    UmsPhaseDef(4, "Semi-Profesional", Decimal("100000"), Decimal("500000"), Decimal("0.25")),
+    UmsPhaseDef(
+        1,
+        "Validacion Personal",
+        Decimal("0"),
+        Decimal("5000"),
+        Decimal("0.5"),
+        risk_note="micro-lotes",
+    ),
+    UmsPhaseDef(
+        2,
+        "Track Record",
+        Decimal("5000"),
+        Decimal("25000"),
+        Decimal("0.5"),
+        risk_per_trade_pct_min=Decimal("1.0"),
+        risk_per_trade_pct_max=Decimal("1.5"),
+    ),
+    UmsPhaseDef(
+        3,
+        "Portfolio Maduro",
+        Decimal("25000"),
+        Decimal("100000"),
+        Decimal("0.33"),
+        risk_per_trade_pct_min=Decimal("0.5"),
+        risk_per_trade_pct_max=Decimal("1.0"),
+    ),
+    UmsPhaseDef(
+        4,
+        "Semi-Profesional",
+        Decimal("100000"),
+        Decimal("500000"),
+        Decimal("0.25"),
+        risk_per_trade_pct_min=Decimal("0.3"),
+        risk_per_trade_pct_max=Decimal("0.7"),
+    ),
     UmsPhaseDef(5, "Semi-Institucional", Decimal("500000"), Decimal("1000000"), Decimal("0.2")),
     UmsPhaseDef(6, "Institucional", Decimal("1000000"), None, Decimal("0.2")),
 )

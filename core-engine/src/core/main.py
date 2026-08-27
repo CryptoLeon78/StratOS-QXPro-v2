@@ -13,6 +13,7 @@ from core.routers.audit import router as audit_router
 from core.routers.bots import router as bots_router
 from core.routers.cemetery import router as cemetery_router
 from core.routers.checklists import router as checklists_router
+from core.routers.config import router as config_router
 from core.routers.decisions import router as decisions_router
 from core.routers.execution import router as execution_router
 from core.routers.header import router as header_router
@@ -66,6 +67,7 @@ app.include_router(scaling_router)
 app.include_router(audit_router)
 app.include_router(withdrawals_router)
 app.include_router(checklists_router)
+app.include_router(config_router)
 app.include_router(ws_router)
 
 
