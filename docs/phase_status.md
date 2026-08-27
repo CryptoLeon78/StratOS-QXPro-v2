@@ -2,9 +2,13 @@
 
 > Se actualiza SIEMPRE al cerrar trabajo (regla de continuidad entre sesiones). Al abrir sesión, leer esto + `CLAUDE.md` + `ASSUMPTIONS.md` antes de proponer nada.
 
-## Fase actual: G7 — Frontend resto de pestañas
+## Fase actual: G8 — Seed + E2E
 
-**Estado**: implementación completa (14/14 commits locales), **pendiente de 2 confirmaciones del operador antes del cierre formal**: (1) aprobación explícita de la pestaña Cuentas/EA (diseño derivado, sin captura de referencia — criterio de salida literal de PARTE 12); (2) push a `origin/main` + confirmación de CI verde (no hecho todavía en esta sesión).
+**Estado**: sin empezar. G7 cerrado en esta sesión (14/14 commits), pusheado y con CI verde 7/7 (run [`33048222928`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33048222928)). Ambas confirmaciones del operador obtenidas: Cuentas/EA aprobada tal cual (diseño derivado, PARTE 7.2), push + CI verde confirmado.
+
+## Fases cerradas
+
+### G7 — Frontend pestañas 2–11 (cerrada, CI verde 7/7)
 
 Las 10 pestañas (Portfolio, Salud, Riesgo, Bots, Pipeline, Ejecución, Escalado, Graveyard, Auditoría, Cuentas/EA) tienen contenido real, cada una verificada en vivo contra `core-engine` real con datos de prueba sembrados vía scripts desechables (nunca commiteados). Prerequisito: nuevo router `core/routers/config.py` (solo lectura, expone la escalera Kill-Switch, las 6 fases UMS, los umbrales del gate y las instrucciones de semáforo — ninguno tenía endpoint antes de G7).
 
@@ -17,11 +21,10 @@ Las 10 pestañas (Portfolio, Salud, Riesgo, Bots, Pipeline, Ejecución, Escalado
 **Caveats reales, no ocultados**:
 - Bundle de producción sube a ~1 MB (311 kB gzip) con `recharts` añadido para Portfolio — code-splitting sigue siendo tarea de G9.
 - Screenshot-diff automatizado de las 10 pestañas nuevas queda para G8 (mismo patrón que G6: el spec mínimo de Playwright no está wireado en CI todavía) — la verificación visual de G7 fue manual en vivo, no automatizada.
-- CI **no confirmado todavía** en esta sesión — pendiente de push.
+
+CI verde run [`33048222928`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33048222928) — los 7 jobs.
 
 Detalle completo (11 decisiones/hallazgos) en `ASSUMPTIONS.md` G7-00 a G7-11.
-
-## Fases cerradas
 
 ### G6 — Frontend shell + pestaña Resumen (cerrada, CI verde 7/7)
 Stack de PARTE 4 instalado sobre el scaffold de G0: Tailwind v3 (theme generado 1:1 desde `design_tokens.json`) · shadcn/ui vendorizado y adaptado a tokens (8 componentes: button/card/badge/collapsible/input/label/form/dialog) · TanStack Query + Zustand + react-router-dom v7 (Data Router) · React Hook Form + Zod · Lightweight Charts v5 (equity) · Vitest+RTL+MSW + ESLint 10 + Playwright. Router de 11 pestañas + `/login` (solo Resumen con contenido real, las otras 10 placeholders navegables para G7). Login JWT completo (RHF+Zod, `authStore` con persist, `api/client.ts` con refresh-on-401 deduplicado). `AppHeader` con las 6 StatCard reales + WS (`/ws/equity`+`/ws/alerts`, reconexión con backoff, fallback a polling 5s ya existente). Pestaña Resumen completa: card de equity + selector de rango + panel "Requiere acción" (DecisionCard+PostponeDialog+mutations) + panel Pipeline (contadores F1-F7 + novedades).
@@ -61,4 +64,4 @@ Pendiente para más adelante (no bloquea G6): investigar el déficit de cobertur
 Repo git independiente en `https://github.com/CryptoLeon78/StratOS-QXPro-v2` (privado), `.mcp.json` operativo, `docker compose up -d postgres redis` healthy, CI verde, `config/thresholds.seed.json` (61 claves), scaffolds de `core-engine`/`api-gateway`/`frontend`. Detalle en `ASSUMPTIONS.md` G0-01 a G0-14.
 
 ## Fases futuras (PARTE 12)
-G8 Seed + E2E · G9 Hardening.
+G9 Hardening.
