@@ -4,11 +4,13 @@ from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.enums import TradeType
+from core.db.models.market import FxRate
 from core.services.risk import (
     ExposureRow,
     RiskServiceConfig,
     compute_exposure,
     compute_tail_risk,
+    exposure_pnl_eur,
     exposure_subtotals_by_currency,
 )
 from tests.factories import AccountFactory, BotFactory, IngestBatchFactory, TradeFactory
@@ -223,3 +225,52 @@ async def test_exposure_subtotals_by_currency_groups_native_units(db_session: As
     assert subtotals["USD"].pnl == Decimal("25")
     assert subtotals["EUR"].pnl == Decimal("10")
     assert "ZZZUNKNOWN" not in subtotals  # sin divisa, fuera del agrupado (no inventado)
+
+
+async def test_exposure_pnl_eur_converts_using_real_fx_rates(db_session: AsyncSession) -> None:
+    db_session.add(  # type: ignore[attr-defined]
+        FxRate(ts=datetime.now(UTC), base="USD", quote="EUR", rate=Decimal("0.90"))
+    )
+    await db_session.flush()  # type: ignore[attr-defined]
+
+    rows = [
+        ExposureRow(
+            symbol="EURUSD",
+            net_volume=Decimal("1"),
+            gross_volume=Decimal("1"),
+            pnl=Decimal("10"),
+            currency="EUR",
+        ),
+        ExposureRow(
+            symbol="XAUUSD",
+            net_volume=Decimal("1"),
+            gross_volume=Decimal("1"),
+            pnl=Decimal("100"),
+            currency="USD",
+        ),
+        ExposureRow(
+            symbol="ZZZUNKNOWN",
+            net_volume=Decimal("1"),
+            gross_volume=Decimal("1"),
+            pnl=Decimal("50"),
+            currency=None,
+        ),
+    ]
+    result = await exposure_pnl_eur(db_session, rows)  # type: ignore[arg-type]
+    assert result.pnl_eur == Decimal("100.00")  # 10 EUR + (100 USD * 0.90)
+    assert result.unconverted_currencies == frozenset()
+
+
+async def test_exposure_pnl_eur_reports_currencies_without_a_rate(db_session: AsyncSession) -> None:
+    rows = [
+        ExposureRow(
+            symbol="GBPUSD",
+            net_volume=Decimal("1"),
+            gross_volume=Decimal("1"),
+            pnl=Decimal("20"),
+            currency="GBP",
+        ),
+    ]
+    result = await exposure_pnl_eur(db_session, rows)  # type: ignore[arg-type]
+    assert result.pnl_eur == Decimal("0")
+    assert result.unconverted_currencies == frozenset({"GBP"})

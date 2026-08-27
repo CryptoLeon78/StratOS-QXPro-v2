@@ -16,6 +16,7 @@ from core.db.enums import TradeType
 from core.db.models.accounts import Account
 from core.db.models.market import EquitySnapshot, SymbolCurrency, Trade
 from core.formulas.portfolio import daily_returns, historical_cvar, historical_var
+from core.services.fx import EurConvertedExposure, eur_converted_pnl
 
 _TRADING_DAYS_PER_MONTH = 21.0
 _TRADING_DAYS_PER_YEAR = 252.0
@@ -190,3 +191,18 @@ def exposure_subtotals_by_currency(rows: list[ExposureRow]) -> dict[str, Exposur
         )
         for currency, (net, gross, pnl) in subtotals.items()
     }
+
+
+async def exposure_pnl_eur(session: AsyncSession, rows: list[ExposureRow]) -> EurConvertedExposure:
+    """P&L de exposicion convertido a EUR de verdad (`services/fx.py`,
+    G10) -- a diferencia de `exposure_subtotals_by_currency` (unidad
+    nativa, sin convertir). Filas sin `currency` (symbol_currency no las
+    cubre) quedan fuera por completo, ni siquiera entran en
+    `unconverted_currencies` (esa lista es solo para divisas conocidas sin
+    tasa disponible, un concepto distinto)."""
+    pnl_by_currency: dict[str, Decimal] = {}
+    for row in rows:
+        if row.currency is None:
+            continue
+        pnl_by_currency[row.currency] = pnl_by_currency.get(row.currency, Decimal("0")) + row.pnl
+    return await eur_converted_pnl(session, pnl_by_currency)

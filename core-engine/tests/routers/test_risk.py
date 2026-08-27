@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
 from core.db.enums import TradeType
 from core.db.models.governance import MonteCarloRun
+from core.db.models.market import FxRate
 from tests.factories import (
     AccountFactory,
     BotFactory,
@@ -133,6 +134,56 @@ class TestRiskExposure:
         usd = next(r for r in response.json() if r["currency"] == "USD")
         assert Decimal(usd["gross_volume"]) >= Decimal("3.00")
         assert Decimal(usd["pnl"]) >= Decimal("20.00")
+
+
+class TestRiskExposureEur:
+    async def test_converts_using_real_fx_rate_and_reports_unconvertible(
+        self, api_client: AsyncClient, db_connection: AsyncConnection
+    ) -> None:
+        session = await _session(db_connection)
+        account = AccountFactory()
+        session.add(account)
+        await session.flush()
+        bot = BotFactory(account_id=account.id)
+        session.add(bot)
+        await session.flush()
+        batch = IngestBatchFactory(account_id=account.id)
+        session.add(batch)
+        await session.flush()
+        session.add(FxRate(ts=datetime.now(UTC), base="USD", quote="EUR", rate=Decimal("0.90")))
+        session.add(
+            TradeFactory(
+                bot_id=bot.id,
+                account_id=account.id,
+                magic_number=bot.magic_number,
+                symbol="XAUUSD",
+                type=TradeType.BUY,
+                volume=Decimal("1.00"),
+                profit=Decimal("100.00"),
+                close_time=None,
+                ingest_batch_id=batch.id,
+            )
+        )
+        session.add(
+            TradeFactory(
+                bot_id=bot.id,
+                account_id=account.id,
+                magic_number=bot.magic_number,
+                symbol="GBPUSD",
+                type=TradeType.BUY,
+                volume=Decimal("1.00"),
+                profit=Decimal("20.00"),
+                close_time=None,
+                ingest_batch_id=batch.id,
+            )
+        )
+        await session.commit()
+
+        response = await api_client.get("/api/v1/risk/exposure/eur")
+        assert response.status_code == 200
+        body = response.json()
+        assert Decimal(body["pnl_eur"]) == Decimal("90.00")  # 100 USD * 0.90, GBP sin tasa
+        assert body["unconverted_currencies"] == ["GBP"]
 
 
 class TestRiskMontecarlo:

@@ -18,6 +18,7 @@ from core.services.risk import (
     RiskServiceConfig,
     compute_exposure,
     compute_tail_risk,
+    exposure_pnl_eur,
     exposure_subtotals_by_currency,
 )
 
@@ -59,6 +60,11 @@ class ExposureCurrencySubtotalResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ExposureEurResponse(BaseModel):
+    pnl_eur: Decimal
+    unconverted_currencies: list[str]
+
+
 class MonteCarloResponse(BaseModel):
     bot_id: int
     ts: datetime
@@ -91,6 +97,16 @@ async def risk_exposure_by_currency(
     rows = await compute_exposure(session)
     subtotals = exposure_subtotals_by_currency(rows)
     return [ExposureCurrencySubtotalResponse.model_validate(s) for s in subtotals.values()]
+
+
+@router.get("/exposure/eur", response_model=ExposureEurResponse)
+async def risk_exposure_eur(session: AsyncSession = Depends(get_session)) -> ExposureEurResponse:
+    rows = await compute_exposure(session)
+    result = await exposure_pnl_eur(session, rows)
+    return ExposureEurResponse(
+        pnl_eur=result.pnl_eur,
+        unconverted_currencies=sorted(result.unconverted_currencies),
+    )
 
 
 @router.get("/montecarlo", response_model=MonteCarloResponse | None)
