@@ -1,8 +1,17 @@
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
+
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
 from core.db.enums import SemaphoreState
-from tests.factories import AccountFactory, BotFactory, EaStateFactory, IngestBatchFactory
+from tests.factories import (
+    AccountFactory,
+    BotFactory,
+    EaStateFactory,
+    EquitySnapshotFactory,
+    IngestBatchFactory,
+)
 
 
 async def _session(db_connection: AsyncConnection) -> AsyncSession:
@@ -22,6 +31,36 @@ class TestListAccounts:
         response = await api_client.get("/api/v1/accounts")
         assert response.status_code == 200
         assert len(response.json()) == 1
+        assert response.json()[0]["equity"] is None  # sin snapshot -- no inventado
+
+    async def test_includes_the_latest_equity_snapshot(
+        self, api_client: AsyncClient, db_connection: AsyncConnection
+    ) -> None:
+        session = await _session(db_connection)
+        account = AccountFactory()
+        session.add(account)
+        await session.flush()
+        now = datetime.now(UTC)
+        session.add(
+            EquitySnapshotFactory(
+                account_id=account.id,
+                ts=now - timedelta(hours=1),
+                equity=Decimal("9000"),
+                balance=Decimal("9000"),
+            )
+        )
+        session.add(
+            EquitySnapshotFactory(
+                account_id=account.id, ts=now, equity=Decimal("9500"), balance=Decimal("9400")
+            )
+        )
+        await session.commit()
+
+        response = await api_client.get("/api/v1/accounts")
+        assert response.status_code == 200
+        row = next(r for r in response.json() if r["id"] == account.id)
+        assert Decimal(row["equity"]) == Decimal("9500")  # el mas reciente, no el mas viejo
+        assert Decimal(row["balance"]) == Decimal("9400")
 
 
 class TestListEas:

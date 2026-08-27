@@ -1,5 +1,8 @@
 """PARTE 9.2: `GET /api/v1/bots` + `/{id}` + `/{id}/semaphore-history` --
-pestaña Bots (7.4, layout maestro-detalle). Query directa."""
+pestaña Bots (7.4, layout maestro-detalle). Query directa.
+
+`/{id}/open-positions` (G10, docs/backlog.md): reutiliza
+`services/bot_equity.py::bot_open_positions()` (G10 tambien)."""
 
 from datetime import datetime
 from decimal import Decimal
@@ -12,9 +15,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.auth.dependencies import get_current_user
 from core.db.base import get_session
-from core.db.enums import BotProfile, BotRole, PipelinePhase, SemaphoreState
+from core.db.enums import BotProfile, BotRole, PipelinePhase, SemaphoreState, TradeType
 from core.db.models.accounts import Bot
 from core.db.models.decisions import SemaphoreTransition
+from core.services.bot_equity import bot_open_positions
 
 router = APIRouter(prefix="/api/v1/bots", tags=["bots"], dependencies=[Depends(get_current_user)])
 
@@ -43,6 +47,21 @@ class BotResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class OpenPositionRow(BaseModel):
+    id: int
+    ticket_mt5: int
+    symbol: str
+    type: TradeType
+    open_time: datetime
+    volume: Decimal
+    open_price: Decimal
+    sl: Decimal | None
+    tp: Decimal | None
+    profit: Decimal
+
+    model_config = {"from_attributes": True}
+
+
 class SemaphoreHistoryRow(BaseModel):
     id: int
     ts: datetime
@@ -67,6 +86,17 @@ async def get_bot(bot_id: int, session: AsyncSession = Depends(get_session)) -> 
     if bot is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "bot no encontrado")
     return bot
+
+
+@router.get("/{bot_id}/open-positions", response_model=list[OpenPositionRow])
+async def open_positions(
+    bot_id: int, session: AsyncSession = Depends(get_session)
+) -> list[OpenPositionRow]:
+    bot = await session.get(Bot, bot_id)
+    if bot is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "bot no encontrado")
+    trades = await bot_open_positions(session, bot_id)
+    return [OpenPositionRow.model_validate(t) for t in trades]
 
 
 @router.get("/{bot_id}/semaphore-history", response_model=list[SemaphoreHistoryRow])

@@ -219,3 +219,59 @@ class TestRiskMontecarlo:
         response = await api_client.get("/api/v1/risk/montecarlo", params={"bot_id": 999999})
         assert response.status_code == 200
         assert response.json() is None
+
+
+class TestRiskMontecarloHistory:
+    async def test_returns_all_runs_most_recent_first(
+        self, api_client: AsyncClient, db_connection: AsyncConnection
+    ) -> None:
+        session = await _session(db_connection)
+        account = AccountFactory()
+        session.add(account)
+        await session.flush()
+        bot = BotFactory(account_id=account.id)
+        session.add(bot)
+        await session.flush()
+        older = datetime.now(UTC) - timedelta(days=30)
+        newer = datetime.now(UTC)
+        session.add(
+            MonteCarloRun(
+                bot_id=bot.id,
+                ts=older,
+                n_simulations=300,
+                dd_p50=Decimal("2.3"),
+                dd_p75=Decimal("3.0"),
+                dd_p95=Decimal("3.9"),
+                dd_contract_pct=Decimal("3.9"),
+                seed=1,
+            )
+        )
+        session.add(
+            MonteCarloRun(
+                bot_id=bot.id,
+                ts=newer,
+                n_simulations=300,
+                dd_p50=Decimal("2.5"),
+                dd_p75=Decimal("3.2"),
+                dd_p95=Decimal("4.1"),
+                dd_contract_pct=Decimal("4.1"),
+                seed=2,
+            )
+        )
+        await session.commit()
+
+        response = await api_client.get(
+            "/api/v1/risk/montecarlo/history", params={"bot_id": bot.id}
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body) == 2
+        assert body[0]["seed"] == 2  # mas reciente primero
+        assert body[1]["seed"] == 1
+
+    async def test_no_runs_returns_empty_list(self, api_client: AsyncClient) -> None:
+        response = await api_client.get(
+            "/api/v1/risk/montecarlo/history", params={"bot_id": 999999}
+        )
+        assert response.status_code == 200
+        assert response.json() == []

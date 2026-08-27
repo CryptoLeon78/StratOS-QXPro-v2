@@ -19,6 +19,7 @@ from core.redis import get_redis
 from core.services.killswitch_sweep import (
     KillSwitchSweepConfig,
     compute_portfolio_dd_pct,
+    current_episode_stats,
     current_killswitch_level,
 )
 from core.state_machines.killswitch import (
@@ -39,6 +40,8 @@ class KillSwitchStatusResponse(BaseModel):
     level: int
     portfolio_dd_pct: Decimal | None
     instruction_text: str | None
+    episode_max_dd_pct: Decimal | None
+    episode_duration_seconds: float | None
 
 
 async def _status(session: AsyncSession, now: datetime) -> KillSwitchStatusResponse:
@@ -51,8 +54,13 @@ async def _status(session: AsyncSession, now: datetime) -> KillSwitchStatusRespo
         3: _KS_CONFIG.instruction_l3,
         4: _KS_CONFIG.instruction_l4,
     }
+    episode = await current_episode_stats(session, now)
     return KillSwitchStatusResponse(
-        level=level, portfolio_dd_pct=dd_pct, instruction_text=instructions[level]
+        level=level,
+        portfolio_dd_pct=dd_pct,
+        instruction_text=instructions[level],
+        episode_max_dd_pct=episode.max_dd_pct if episode is not None else None,
+        episode_duration_seconds=episode.duration.total_seconds() if episode is not None else None,
     )
 
 

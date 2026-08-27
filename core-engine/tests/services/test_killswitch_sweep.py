@@ -4,9 +4,11 @@ from decimal import Decimal
 import fakeredis
 from sqlalchemy import select
 
+from core.db.models.decisions import KillSwitchEvent
 from core.services.killswitch_sweep import (
     KillSwitchSweepConfig,
     compute_portfolio_dd_pct,
+    current_episode_stats,
     sweep_portfolio,
 )
 from core.state_machines.types import KillSwitchConfig
@@ -124,3 +126,100 @@ class TestSweepPortfolio:
         )
         assert rows == []
         await redis.aclose()
+
+
+class TestCurrentEpisodeStats:
+    async def test_no_events_returns_none(self, db_session: object) -> None:
+        assert await current_episode_stats(db_session, datetime.now(UTC)) is None  # type: ignore[arg-type]
+
+    async def test_latest_level_zero_returns_none(self, db_session: object) -> None:
+        now = datetime.now(UTC)
+        db_session.add(  # type: ignore[attr-defined]
+            KillSwitchEvent(
+                ts=now - timedelta(hours=1),
+                level=0,
+                portfolio_dd_pct=Decimal("2"),
+                actions={},
+                instruction_text="",
+            )
+        )
+        await db_session.flush()  # type: ignore[attr-defined]
+        assert await current_episode_stats(db_session, now) is None  # type: ignore[arg-type]
+
+    async def test_computes_max_dd_and_duration_of_the_active_episode(
+        self, db_session: object
+    ) -> None:
+        now = datetime.now(UTC)
+        started = now - timedelta(hours=3)
+        db_session.add(  # type: ignore[attr-defined]
+            KillSwitchEvent(
+                ts=started,
+                level=1,
+                portfolio_dd_pct=Decimal("8"),
+                actions={},
+                instruction_text="",
+            )
+        )
+        db_session.add(  # type: ignore[attr-defined]
+            KillSwitchEvent(
+                ts=started + timedelta(hours=1),
+                level=2,
+                portfolio_dd_pct=Decimal("12"),
+                actions={},
+                instruction_text="",
+            )
+        )
+        db_session.add(  # type: ignore[attr-defined]
+            KillSwitchEvent(
+                ts=now,
+                level=2,
+                portfolio_dd_pct=Decimal("10"),  # bajo del pico, pero max sigue siendo 12
+                actions={},
+                instruction_text="",
+            )
+        )
+        await db_session.flush()  # type: ignore[attr-defined]
+
+        stats = await current_episode_stats(db_session, now)  # type: ignore[arg-type]
+        assert stats is not None
+        assert stats.max_dd_pct == Decimal("12")
+        assert stats.started_at == started
+        assert stats.duration == timedelta(hours=3)
+
+    async def test_stops_at_the_last_level_zero_boundary(self, db_session: object) -> None:
+        now = datetime.now(UTC)
+        db_session.add(  # type: ignore[attr-defined]
+            KillSwitchEvent(
+                ts=now - timedelta(days=10),
+                level=3,
+                portfolio_dd_pct=Decimal("15"),  # episodio VIEJO, ya cerrado
+                actions={},
+                instruction_text="",
+            )
+        )
+        db_session.add(  # type: ignore[attr-defined]
+            KillSwitchEvent(
+                ts=now - timedelta(days=5),
+                level=0,  # desescalado -- cierra el episodio viejo
+                portfolio_dd_pct=Decimal("1"),
+                actions={},
+                instruction_text="",
+                confirmed_by="operator@test",
+            )
+        )
+        started = now - timedelta(hours=1)
+        db_session.add(  # type: ignore[attr-defined]
+            KillSwitchEvent(
+                ts=started,
+                level=1,
+                portfolio_dd_pct=Decimal("9"),
+                actions={},
+                instruction_text="",
+            )
+        )
+        await db_session.flush()  # type: ignore[attr-defined]
+
+        stats = await current_episode_stats(db_session, now)  # type: ignore[arg-type]
+        assert stats is not None
+        assert stats.max_dd_pct == Decimal("9")  # NO el 15 del episodio viejo
+        assert stats.started_at == started

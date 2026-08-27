@@ -1,8 +1,13 @@
 """PARTE 9.2: `GET /api/v1/accounts` + `/{id}/eas` + `/drift` -- pestaña
 Cuentas/EA (7.2, diseño derivado sin captura). `/drift` reutiliza
-`config_drift.py::compute_drift` (ya existe, G5)."""
+`config_drift.py::compute_drift` (ya existe, G5).
+
+`equity`/`balance`/`free_margin`/`margin_level` en `AccountResponse` (G10,
+docs/backlog.md): el `EquitySnapshot` mas reciente por `account_id` (ya
+existe, G1) -- `None` si la cuenta nunca ha reportado un snapshot."""
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -13,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.auth.dependencies import get_current_user
 from core.db.base import get_session
 from core.db.models.accounts import Account
-from core.db.models.market import EaState
+from core.db.models.market import EaState, EquitySnapshot
 from core.services.config_drift import compute_drift
 
 router = APIRouter(
@@ -30,8 +35,11 @@ class AccountResponse(BaseModel):
     currency: str
     is_demo: bool
     is_active: bool
-
-    model_config = {"from_attributes": True}
+    equity: Decimal | None
+    balance: Decimal | None
+    free_margin: Decimal | None
+    margin_level: float | None
+    equity_ts: datetime | None
 
 
 class EaStateResponse(BaseModel):
@@ -58,8 +66,41 @@ class DriftRowResponse(BaseModel):
 
 
 @router.get("", response_model=list[AccountResponse])
-async def list_accounts(session: AsyncSession = Depends(get_session)) -> list[Account]:
-    return list((await session.execute(select(Account))).scalars().all())
+async def list_accounts(session: AsyncSession = Depends(get_session)) -> list[AccountResponse]:
+    accounts = (await session.execute(select(Account))).scalars().all()
+    latest_by_account = {
+        snapshot.account_id: snapshot
+        for snapshot in (
+            await session.execute(
+                select(EquitySnapshot)
+                .distinct(EquitySnapshot.account_id)
+                .order_by(EquitySnapshot.account_id, EquitySnapshot.ts.desc())
+            )
+        )
+        .scalars()
+        .all()
+    }
+    result = []
+    for account in accounts:
+        snapshot = latest_by_account.get(account.id)
+        result.append(
+            AccountResponse(
+                id=account.id,
+                name=account.name,
+                broker=account.broker,
+                login=account.login,
+                server=account.server,
+                currency=account.currency,
+                is_demo=account.is_demo,
+                is_active=account.is_active,
+                equity=snapshot.equity if snapshot else None,
+                balance=snapshot.balance if snapshot else None,
+                free_margin=snapshot.free_margin if snapshot else None,
+                margin_level=snapshot.margin_level if snapshot else None,
+                equity_ts=snapshot.ts if snapshot else None,
+            )
+        )
+    return result
 
 
 @router.get("/drift", response_model=list[DriftRowResponse])

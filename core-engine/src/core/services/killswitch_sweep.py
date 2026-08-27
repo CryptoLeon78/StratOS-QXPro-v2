@@ -55,6 +55,43 @@ async def current_killswitch_level(session: AsyncSession) -> int:
     return last if last is not None else 0
 
 
+@dataclass(frozen=True)
+class KillSwitchEpisodeStats:
+    max_dd_pct: Decimal
+    started_at: datetime
+    duration: timedelta
+
+
+async def current_episode_stats(
+    session: AsyncSession, now: datetime
+) -> KillSwitchEpisodeStats | None:
+    """G10 (docs/backlog.md): MAX DD y DURACION del episodio de
+    kill-switch ACTIVO -- la racha ininterrumpida de eventos `level>0` mas
+    reciente, terminando en el ultimo evento y empezando justo despues del
+    ultimo desescalado a `level=0` (o desde el principio del historial, si
+    nunca hubo uno). Nivel actual 0, o sin eventos -- sin episodio activo,
+    `None`."""
+    events = (
+        (await session.execute(select(KillSwitchEvent).order_by(KillSwitchEvent.ts.desc())))
+        .scalars()
+        .all()
+    )
+    if not events or events[0].level == 0:
+        return None
+
+    episode = []
+    for event in events:
+        if event.level == 0:
+            break
+        episode.append(event)
+
+    max_dd_pct = max(event.portfolio_dd_pct for event in episode)
+    started_at = min(event.ts for event in episode)
+    return KillSwitchEpisodeStats(
+        max_dd_pct=max_dd_pct, started_at=started_at, duration=now - started_at
+    )
+
+
 async def sweep_portfolio(
     session: AsyncSession,
     redis: Redis,

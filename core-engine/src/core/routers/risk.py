@@ -121,3 +121,22 @@ async def risk_montecarlo(
             .limit(1)
         )
     ).scalar_one_or_none()
+
+
+@router.get("/montecarlo/history", response_model=list[MonteCarloResponse])
+async def risk_montecarlo_history(
+    bot_id: int, session: AsyncSession = Depends(get_session)
+) -> list[MonteCarloRun]:
+    """G10 (docs/backlog.md): TODAS las runs del bot, mas recientes primero
+    -- a diferencia de `/montecarlo`, que solo devuelve la ultima."""
+    return list(
+        (
+            await session.execute(
+                select(MonteCarloRun)
+                .where(MonteCarloRun.bot_id == bot_id)
+                .order_by(MonteCarloRun.ts.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )

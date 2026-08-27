@@ -12,3 +12,11 @@ La captura de referencia muestra un rango de fechas por tarjeta ("2021-03-01 →
 
 - Se pierde la noción visual de "cuánto duró" el bot en el sistema antes de ser retirado.
 - Si en el futuro se decide persistir la fecha de alta original en `CemeteryEntry` (columna nueva, migración aditiva) o exponerla cruzando con el histórico de `PipelineCandidate`, este ADR queda obsoleto.
+
+## Actualización G10 (investigado, sigue sin resolverse)
+
+Se revisó el código real de `routers/pipeline.py::promote_candidate` esperando poder cruzar `CemeteryEntry.bot_id` con `PipelineCandidate.entered_phase_at` para recuperar la fecha de entrada a F1. Hallazgo: `entered_phase_at` se **sobrescribe** en cada promoción manual (`candidate.entered_phase_at = datetime.now(UTC)`, línea 132) — no es un histórico, es "fecha de la última transición de fase", que para un bot archivado tras pasar por varias fases NO es su fecha de entrada a F1. No existe ninguna tabla de histórico de transiciones de pipeline (a diferencia de `SemaphoreTransition`/`UmsPhaseLog`, que sí son append-only) — el dato de "cuándo entró a F1" está genuinamente perdido para cualquier bot que haya sido promovido al menos una vez, no solo "difícil de exponer".
+
+`Bot.created_at` se descartó como sustituto: no todos los bots pasan por F1-F7 (los de producción pueden sembrarse directamente), así que usarlo como "fecha de inicio" sería incorrecto para ese subconjunto — mismo criterio de "no inventar" que rige el resto del proyecto.
+
+Esta ADR sigue vigente: solo se muestra `retired_at`. Resolverlo de verdad exigiría una tabla nueva de histórico de fases (migración + lógica de escritura en cada transición, sin datos históricos que backfillear) — fuera de alcance de un endpoint aditivo, candidato a fase futura si el operador lo prioriza.

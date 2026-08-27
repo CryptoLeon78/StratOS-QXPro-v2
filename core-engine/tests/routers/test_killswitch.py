@@ -21,6 +21,40 @@ class TestKillswitchStatus:
         assert response.status_code == 200
         assert response.json()["level"] == 0
         assert response.json()["instruction_text"] is None
+        assert response.json()["episode_max_dd_pct"] is None
+        assert response.json()["episode_duration_seconds"] is None
+
+    async def test_active_episode_reports_max_dd_and_duration(
+        self, api_client: AsyncClient, db_connection: AsyncConnection
+    ) -> None:
+        session = await _session(db_connection)
+        started = datetime.now(UTC) - timedelta(hours=2)
+        session.add(
+            KillSwitchEvent(
+                ts=started,
+                level=1,
+                portfolio_dd_pct=Decimal("9"),
+                actions={},
+                instruction_text="",
+            )
+        )
+        session.add(
+            KillSwitchEvent(
+                ts=started + timedelta(hours=1),
+                level=2,
+                portfolio_dd_pct=Decimal("13"),
+                actions={},
+                instruction_text="",
+            )
+        )
+        await session.commit()
+
+        response = await api_client.get("/api/v1/killswitch/status")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["level"] == 2
+        assert Decimal(body["episode_max_dd_pct"]) == Decimal("13")
+        assert body["episode_duration_seconds"] >= timedelta(hours=2).total_seconds()
 
 
 class TestConfirmDeescalation:
