@@ -1,6 +1,7 @@
 """PARTE 9.1: `POST /ingest/ea_state` -- espejo del ultimo estado conocido
 por EA (UPSERT real, PK account+magic)."""
 
+from decimal import Decimal
 from typing import Any
 
 from httpx import AsyncClient
@@ -99,3 +100,41 @@ async def test_tampered_seal_is_rejected(
 
     response = await ingest_client.post("/ingest/ea_state", json=payload, headers=HEADERS)
     assert response.status_code == 422
+
+
+async def test_sizing_pct_is_persisted_when_reported(
+    ingest_client: AsyncClient, db_connection: AsyncConnection
+) -> None:
+    account = AccountFactory()
+    async with _session(db_connection) as session:
+        session.add(account)
+        await session.commit()
+
+    ea = _ea(118231, "1.0.0", True)
+    ea["sizing_pct"] = "75.50"
+    payload = _sealed_ea_state_payload(account.login, [ea])
+    response = await ingest_client.post("/ingest/ea_state", json=payload, headers=HEADERS)
+    assert response.status_code == 200
+
+    async with _session(db_connection) as session2:
+        state = await session2.get(EaState, (account.id, 118231))
+        assert state is not None
+        assert state.sizing_pct == Decimal("75.50")
+
+
+async def test_sizing_pct_defaults_to_none_when_not_reported(
+    ingest_client: AsyncClient, db_connection: AsyncConnection
+) -> None:
+    account = AccountFactory()
+    async with _session(db_connection) as session:
+        session.add(account)
+        await session.commit()
+
+    payload = _sealed_ea_state_payload(account.login, [_ea(118231, "1.0.0", True)])
+    response = await ingest_client.post("/ingest/ea_state", json=payload, headers=HEADERS)
+    assert response.status_code == 200
+
+    async with _session(db_connection) as session2:
+        state = await session2.get(EaState, (account.id, 118231))
+        assert state is not None
+        assert state.sizing_pct is None

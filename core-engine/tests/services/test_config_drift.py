@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from decimal import Decimal
 
 import fakeredis
 from sqlalchemy import select
@@ -16,7 +17,13 @@ async def _account(db_session: object) -> object:
     return account
 
 
-async def _ea_state(db_session: object, account: object, magic: int, mode: str) -> None:
+async def _ea_state(
+    db_session: object,
+    account: object,
+    magic: int,
+    mode: str,
+    sizing_pct: Decimal | None = None,
+) -> None:
     batch = IngestBatchFactory(account_id=account.id)  # type: ignore[attr-defined]
     db_session.add(batch)  # type: ignore[attr-defined]
     await db_session.flush()  # type: ignore[attr-defined]
@@ -25,6 +32,7 @@ async def _ea_state(db_session: object, account: object, magic: int, mode: str) 
             account_id=account.id,  # type: ignore[attr-defined]
             magic_number=magic,
             mode=mode,
+            sizing_pct=sizing_pct,
             ingest_batch_id=batch.id,
         )
     )
@@ -119,3 +127,47 @@ class TestRunDriftCheck:
         ).scalar_one()
         assert alert.level == AlertLevel.CRITICA
         await redis.aclose()
+
+
+class TestSizingDrift:
+    async def test_reported_sizing_differs_from_bot_is_drift(self, db_session: object) -> None:
+        account = await _account(db_session)
+        bot = BotFactory(  # type: ignore[call-arg]
+            account_id=account.id, sizing_current_pct=Decimal("50.00")
+        )
+        db_session.add(bot)  # type: ignore[attr-defined]
+        await db_session.flush()  # type: ignore[attr-defined]
+        await _ea_state(db_session, account, bot.magic_number, "REAL", sizing_pct=Decimal("100.00"))
+
+        rows = await compute_drift(db_session)  # type: ignore[arg-type]
+        row = next(r for r in rows if r.bot_id == bot.id)
+        assert row.sizing_drift is True
+        assert row.expected_sizing_pct == Decimal("50.00")
+        assert row.reported_sizing_pct == Decimal("100.00")
+
+    async def test_reported_sizing_matching_bot_is_not_drift(self, db_session: object) -> None:
+        account = await _account(db_session)
+        bot = BotFactory(  # type: ignore[call-arg]
+            account_id=account.id, sizing_current_pct=Decimal("50.00")
+        )
+        db_session.add(bot)  # type: ignore[attr-defined]
+        await db_session.flush()  # type: ignore[attr-defined]
+        await _ea_state(db_session, account, bot.magic_number, "REAL", sizing_pct=Decimal("50.00"))
+
+        rows = await compute_drift(db_session)  # type: ignore[arg-type]
+        row = next(r for r in rows if r.bot_id == bot.id)
+        assert row.sizing_drift is False
+
+    async def test_ea_not_reporting_sizing_is_not_comparable(self, db_session: object) -> None:
+        # el EA/conector real no manda sizing_pct todavia (G10) -- no se
+        # inventa una comparacion cuando no hay dato reportado.
+        account = await _account(db_session)
+        bot = BotFactory(account_id=account.id)  # type: ignore[call-arg]
+        db_session.add(bot)  # type: ignore[attr-defined]
+        await db_session.flush()  # type: ignore[attr-defined]
+        await _ea_state(db_session, account, bot.magic_number, "REAL", sizing_pct=None)
+
+        rows = await compute_drift(db_session)  # type: ignore[arg-type]
+        row = next(r for r in rows if r.bot_id == bot.id)
+        assert row.sizing_drift is None
+        assert row.reported_sizing_pct is None

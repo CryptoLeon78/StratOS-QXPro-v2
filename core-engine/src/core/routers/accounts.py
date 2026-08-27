@@ -49,6 +49,7 @@ class EaStateResponse(BaseModel):
     autotrading: bool
     schedule_filter: dict[str, Any] | None
     news_windows: list[Any] | None
+    sizing_pct: Decimal | None
     last_ingested_at: datetime
 
     model_config = {"from_attributes": True}
@@ -61,6 +62,9 @@ class DriftRowResponse(BaseModel):
     expected_mode: str
     reported_mode: str
     drift: bool
+    expected_sizing_pct: Decimal
+    reported_sizing_pct: Decimal | None
+    sizing_drift: bool | None
 
     model_config = {"from_attributes": True}
 

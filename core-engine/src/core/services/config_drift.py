@@ -3,15 +3,18 @@
 el modo esperado (derivado de `Bot.semaphore_state`: NARANJA -> PAPER,
 cualquier otro -> REAL) contra `EaState.mode` (G4, ultimo estado reportado).
 
-Hueco real de esquema (documentar, no corregir aqui): el payload de
-`POST /ingest/ea_state` (PARTE 9.1) no reporta el sizing aplicado por el
-EA, solo `mode`/`autotrading`/`schedule_filter`/`news_windows` -- el "sizing
-aplicado vs sizing_current_pct" que describe 7.2 no es computable con el
-contrato de ingesta actual. Este modulo solo cubre deriva de MODO."""
+Deriva de SIZING (G10, docs/backlog.md): `EaState.sizing_pct` (columna
+nueva, opcional) vs `Bot.sizing_current_pct`. El conector/EA real NO
+manda `sizing_pct` todavia (`mt5-connector/src/connector/protocol.py`,
+sin cambios en G10) -- `sizing_drift` queda en `None` (no comparable, ni
+"sin deriva") mientras el EA no lo reporte, nunca se inventa una
+comparacion contra un dato ausente. Backend construido a spec, no
+verificado contra hardware real (mismo patron que G4)."""
 
 import json
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 
 from redis.asyncio import Redis
 from sqlalchemy import select
@@ -34,6 +37,9 @@ class ConfigDriftRow:
     expected_mode: str
     reported_mode: str
     drift: bool
+    expected_sizing_pct: Decimal
+    reported_sizing_pct: Decimal | None
+    sizing_drift: bool | None
 
 
 @dataclass(frozen=True)
@@ -62,6 +68,10 @@ async def compute_drift(session: AsyncSession) -> list[ConfigDriftRow]:
 
         expected = _expected_mode(bot.semaphore_state)
         reported = ea_state.mode.upper()
+        reported_sizing = ea_state.sizing_pct
+        sizing_drift = (
+            reported_sizing != bot.sizing_current_pct if reported_sizing is not None else None
+        )
         rows.append(
             ConfigDriftRow(
                 bot_id=bot.id,
@@ -70,6 +80,9 @@ async def compute_drift(session: AsyncSession) -> list[ConfigDriftRow]:
                 expected_mode=expected,
                 reported_mode=reported,
                 drift=expected != reported,
+                expected_sizing_pct=bot.sizing_current_pct,
+                reported_sizing_pct=reported_sizing,
+                sizing_drift=sizing_drift,
             )
         )
     return rows

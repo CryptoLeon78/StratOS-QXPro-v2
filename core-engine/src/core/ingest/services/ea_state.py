@@ -38,6 +38,7 @@ async def ingest_ea_state(
             autotrading=ea.autotrading,
             schedule_filter=ea.schedule_filter,
             news_windows=ea.news_windows,
+            sizing_pct=ea.sizing_pct,
             ingest_batch_id=batch.id,
             last_ingested_at=now,
         )
@@ -49,6 +50,7 @@ async def ingest_ea_state(
                 "autotrading": ea.autotrading,
                 "schedule_filter": ea.schedule_filter,
                 "news_windows": ea.news_windows,
+                "sizing_pct": ea.sizing_pct,
                 "ingest_batch_id": batch.id,
                 "last_ingested_at": now,
             },

@@ -22,6 +22,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    Numeric,
     PrimaryKeyConstraint,
     String,
     UniqueConstraint,
@@ -159,7 +160,14 @@ class EaState(Base):
     """G4/ASSUMPTIONS: `POST /ingest/ea_state` (PARTE 9.1) alimenta la
     pestaña Cuentas/EA (7.2, diseño derivado) -- espejo del ULTIMO estado
     reportado por EA, no una serie temporal (por eso PK compuesta simple,
-    UPSERT en cada ingesta, no INSERT append-only)."""
+    UPSERT en cada ingesta, no INSERT append-only).
+
+    `sizing_pct` (G10, docs/backlog.md): campo NUEVO, opcional -- el
+    contrato real de PARTE 9.1 no lo pide todavia, el conector/EA actual
+    (`mt5-connector/src/connector/protocol.py`, sin cambios en G10) no lo
+    envia. Escrito a spec para que `config_drift.py` pueda comparar sizing
+    aplicado vs esperado EL DIA que el EA lo reporte -- no verificable
+    contra hardware real en este entorno, mismo patron que G4."""
 
     __tablename__ = "ea_state"
     __table_args__ = (PrimaryKeyConstraint("account_id", "magic_number"),)
@@ -171,6 +179,7 @@ class EaState(Base):
     autotrading: Mapped[bool] = mapped_column(Boolean)
     schedule_filter: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     news_windows: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+    sizing_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     ingest_batch_id: Mapped[int] = mapped_column(ForeignKey("ingest_batch.id"))
     last_ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 

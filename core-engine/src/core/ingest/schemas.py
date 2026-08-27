@@ -158,6 +158,10 @@ class EaStateIn(_Strict):
     autotrading: bool
     schedule_filter: dict[str, Any] | None = None
     news_windows: list[dict[str, Any]] | None = None
+    # G10 (docs/backlog.md): opcional -- el conector/EA real no lo manda
+    # todavia (mt5-connector/src/connector/protocol.py, sin cambios en
+    # G10), no verificable sin hardware real (mismo patron que G4).
+    sizing_pct: LaxDecimal | None = None
 
 
 class EaStateIngestRequest(_Strict):
