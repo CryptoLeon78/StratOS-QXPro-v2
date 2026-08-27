@@ -115,6 +115,15 @@
     "emptyState": "Sin bots activos (F7/Producción) todavía."
   },
 
+  "salud": {
+    "daysInState": "{days}d en estado",
+    "chipPfExpectancy": "Profit Factor / Expectancy",
+    "chipDdRolling": "DD rolling",
+    "chipLossStreak": "Máx. pérdidas consecutivas",
+    "chipPageHinkley": "PH {value}",
+    "emptyState": "Sin bots con baseline asignado todavía."
+  },
+
   "riesgo": {
     "copyWindows": "Copiar ventanas",
     "killswitchNote": "El panel avisa e instruye; la ejecución de cierres vive en MetaTrader"

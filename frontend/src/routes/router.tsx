@@ -9,7 +9,7 @@ import GraveyardPage from "@/routes/placeholders/GraveyardPage";
 import PipelinePage from "@/routes/placeholders/PipelinePage";
 import PortfolioPage from "@/routes/PortfolioPage";
 import RiesgoPage from "@/routes/placeholders/RiesgoPage";
-import SaludPage from "@/routes/placeholders/SaludPage";
+import SaludPage from "@/routes/SaludPage";
 import LoginPage from "@/routes/LoginPage";
 import ResumenPage from "@/routes/ResumenPage";
 import RootLayout from "@/routes/RootLayout";
