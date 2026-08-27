@@ -83,7 +83,14 @@ jobs:
           INGEST_API_KEYS: ci-test-ingest-key
         run: |
           cd core-engine
-          pytest -v
+          # test_g8_acceptance_criteria.py necesita una BBDD ya sembrada por
+          # scripts/seed.py (lee "stratos" directo, no el sandbox stratos_test
+          # que crea tests/conftest.py para el resto de la suite) -- ese
+          # sembrado es tarea del job e2e-acceptance-full, no de este job.
+          # Hallazgo real: sin este --ignore, el push que introdujo el archivo
+          # rompio test-backend (9 fallos, "relation bot does not exist" --
+          # "stratos" nunca se migra en este job).
+          pytest -v --ignore=tests/e2e/test_g8_acceptance_criteria.py
 
   lint-mt5-connector:
     runs-on: ubuntu-latest
