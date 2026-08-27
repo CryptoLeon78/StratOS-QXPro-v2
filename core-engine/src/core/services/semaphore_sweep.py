@@ -25,7 +25,15 @@ from core.db.enums import PipelinePhase
 from core.db.models.accounts import Baseline, Bot
 from core.db.models.market import Trade
 from core.formulas.monitoring import page_hinkley
-from core.formulas.trading import expectancy_r, loss_streak, rolling_profit_factor
+from core.formulas.trading import (
+    avg_trade_duration,
+    expectancy_r,
+    loss_streak,
+    payoff_ratio,
+    rolling_profit_factor,
+    rolling_sharpe,
+    win_rate_drift,
+)
 from core.state_machines.semaphore import apply_semaphore_transition, evaluate_semaphore_transition
 from core.state_machines.types import SemaphoreConfig, SemaphoreMetrics
 
@@ -80,6 +88,57 @@ async def assemble_semaphore_metrics(
         page_hinkley_triggered=ph_triggered,
         dd_bot_pct=dd_bot_pct,
         dd_contract_pct=baseline.dd_contract_pct,
+    )
+
+
+@dataclass(frozen=True)
+class HealthChips:
+    """G10 (docs/backlog.md): chips rodantes de la pestaña Salud que no
+    forman parte de `SemaphoreMetrics` (no las consume la maquina de
+    estado, solo la vista) -- Win Rate drift, Payoff, Duracion media,
+    Sharpe rolling."""
+
+    win_rate_drift: float
+    payoff: float | None
+    avg_trade_duration_min: float | None
+    sharpe_rolling: float
+
+
+async def assemble_health_chips(
+    session: AsyncSession, bot: Bot, baseline: Baseline, sweep_config: SemaphoreSweepConfig
+) -> HealthChips:
+    rows = (
+        await session.execute(
+            select(Trade.profit, Trade.commission, Trade.swap, Trade.open_time, Trade.close_time)
+            .where(Trade.bot_id == bot.id, Trade.close_time.is_not(None))
+            .order_by(Trade.close_time.asc())
+        )
+    ).all()
+    profits = [profit + commission + swap for profit, commission, swap, _, _ in rows]
+    durations = [
+        close_time - open_time for _, _, _, open_time, close_time in rows if close_time is not None
+    ]
+
+    window = sweep_config.rolling_window_trades
+    recent_profits = profits[-window:]
+    recent_durations = durations[-window:]
+
+    drift = (
+        win_rate_drift(profits, baseline_win_rate=baseline.win_rate, window=window)
+        if profits
+        else 0.0
+    )
+    payoff = payoff_ratio(recent_profits) if recent_profits else None
+    avg_duration = (
+        avg_trade_duration(recent_durations).total_seconds() / 60 if recent_durations else None
+    )
+    sharpe = rolling_sharpe(profits, window=window)
+
+    return HealthChips(
+        win_rate_drift=drift,
+        payoff=payoff,
+        avg_trade_duration_min=avg_duration,
+        sharpe_rolling=sharpe,
     )
 
 

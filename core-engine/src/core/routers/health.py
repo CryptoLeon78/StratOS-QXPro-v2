@@ -1,12 +1,8 @@
 """PARTE 9.2: `GET /api/v1/health/bots` -- pestaña Salud (7.6, grid de
 tarjetas por bot). Reutiliza `semaphore_sweep.py::assemble_semaphore_metrics`
-(ya existe, G5) para las chips de metricas rodantes vs baseline.
-
-Cobertura parcial de las chips de 7.6 (documentar, no inventar): Win Rate
-drift, Payoff y Duracion media de trade no tienen formula/servicio propio
-todavia (fuera del catalogo de 20 formulas de PARTE 8/G2) -- se listan en
-`docs/backlog.md` en el cierre de fase, no se calculan aqui con datos
-inventados."""
+(ya existe, G5) para las chips de metricas rodantes vs baseline +
+`assemble_health_chips` (G10, docs/backlog.md) para Win Rate drift/
+Payoff/Duracion media/Sharpe rolling."""
 
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -20,7 +16,11 @@ from core.auth.dependencies import get_current_user
 from core.db.base import get_session
 from core.db.enums import BotProfile, PipelinePhase, SemaphoreState
 from core.db.models.accounts import Baseline, Bot
-from core.services.semaphore_sweep import SemaphoreSweepConfig, assemble_semaphore_metrics
+from core.services.semaphore_sweep import (
+    SemaphoreSweepConfig,
+    assemble_health_chips,
+    assemble_semaphore_metrics,
+)
 
 router = APIRouter(
     prefix="/api/v1/health", tags=["health"], dependencies=[Depends(get_current_user)]
@@ -45,6 +45,10 @@ class HealthRow(BaseModel):
     dd_bot_pct: Decimal
     dd_contract_pct: Decimal
     page_hinkley_triggered: bool
+    win_rate_drift: float
+    payoff: float | None
+    avg_trade_duration_min: float | None
+    sharpe_rolling: float
 
 
 @router.get("/bots", response_model=list[HealthRow])
@@ -57,6 +61,7 @@ async def health_bots(session: AsyncSession = Depends(get_session)) -> list[Heal
         if baseline is None:
             continue
         metrics = await assemble_semaphore_metrics(session, bot, baseline, _SWEEP_CONFIG)
+        chips = await assemble_health_chips(session, bot, baseline, _SWEEP_CONFIG)
         rows.append(
             HealthRow(
                 bot_id=bot.id,
@@ -74,6 +79,10 @@ async def health_bots(session: AsyncSession = Depends(get_session)) -> list[Heal
                 dd_bot_pct=metrics.dd_bot_pct,
                 dd_contract_pct=metrics.dd_contract_pct,
                 page_hinkley_triggered=metrics.page_hinkley_triggered,
+                win_rate_drift=chips.win_rate_drift,
+                payoff=chips.payoff,
+                avg_trade_duration_min=chips.avg_trade_duration_min,
+                sharpe_rolling=chips.sharpe_rolling,
             )
         )
     return rows

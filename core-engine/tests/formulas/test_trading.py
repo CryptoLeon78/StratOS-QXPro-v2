@@ -28,6 +28,7 @@ from core.formulas.trading import (
     r_multiple_net_of_costs,
     recovery_factor,
     rolling_profit_factor,
+    rolling_sharpe,
     streak_p99_threshold,
     ulcer_index,
     win_rate_drift,
@@ -335,3 +336,27 @@ class TestRecoveryFactor:
     def test_net_loss_is_negative(self) -> None:
         curve = [Decimal("100"), Decimal("120"), Decimal("80")]
         assert recovery_factor(curve) < 0
+
+
+class TestRollingSharpe:
+    def test_nominal_positive_mean(self) -> None:
+        profits = [Decimal("10"), Decimal("-5"), Decimal("8"), Decimal("-3"), Decimal("12")]
+        sharpe = rolling_sharpe(profits, window=5)
+        assert sharpe > 0
+
+    def test_window_smaller_than_history_uses_last_n(self) -> None:
+        # ultimos 2: [-3, 12] -- mean=4.5, pstdev=7.5 -> sharpe=0.6
+        profits = [Decimal("1000"), Decimal("-1000"), Decimal("-3"), Decimal("12")]
+        sharpe = rolling_sharpe(profits, window=2)
+        assert sharpe == pytest.approx(0.6, abs=0.01)
+
+    def test_fewer_than_two_trades_returns_zero(self) -> None:
+        assert rolling_sharpe([Decimal("10")], window=5) == 0.0
+        assert rolling_sharpe([], window=5) == 0.0
+
+    def test_zero_stdev_returns_zero(self) -> None:
+        assert rolling_sharpe([Decimal("5"), Decimal("5"), Decimal("5")], window=3) == 0.0
+
+    def test_negative_mean_gives_negative_sharpe(self) -> None:
+        profits = [Decimal("-10"), Decimal("-5"), Decimal("-8")]
+        assert rolling_sharpe(profits, window=3) < 0

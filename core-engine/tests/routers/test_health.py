@@ -32,6 +32,11 @@ class TestHealthBots:
         row = next(r for r in response.json() if r["bot_id"] == bot.id)
         assert row["magic_number"] == bot.magic_number
         assert row["pf_baseline"] == baseline.profit_factor
+        # G10 (docs/backlog.md): sin trades cerrados, chips rodantes neutras
+        assert row["win_rate_drift"] == 0.0
+        assert row["payoff"] is None
+        assert row["avg_trade_duration_min"] is None
+        assert row["sharpe_rolling"] == 0.0
 
     async def test_excludes_bots_without_a_baseline(
         self, api_client: AsyncClient, db_connection: AsyncConnection

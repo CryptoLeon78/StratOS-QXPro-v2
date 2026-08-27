@@ -2,9 +2,14 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import fakeredis
+import pytest
 
-from core.db.enums import PipelinePhase, SemaphoreState
-from core.services.semaphore_sweep import SemaphoreSweepConfig, sweep_all_bots
+from core.db.enums import PipelinePhase, SemaphoreState, TradeType
+from core.services.semaphore_sweep import (
+    SemaphoreSweepConfig,
+    assemble_health_chips,
+    sweep_all_bots,
+)
 from core.state_machines.types import SemaphoreConfig
 from tests.factories import (
     AccountFactory,
@@ -127,3 +132,61 @@ class TestSweepAllBots:
         refreshed = await db_session.get(BotModel, bot.id)  # type: ignore[attr-defined]
         assert refreshed.semaphore_state == SemaphoreState.VERDE
         await redis.aclose()
+
+
+class TestAssembleHealthChips:
+    async def test_computes_the_four_rolling_chips(self, db_session: object) -> None:
+        account = await _account(db_session)
+        bot = BotFactory(account_id=account.id)  # type: ignore[call-arg]
+        db_session.add(bot)  # type: ignore[attr-defined]
+        await db_session.flush()  # type: ignore[attr-defined]
+        baseline = BaselineFactory(bot_id=bot.id, win_rate=0.5)  # type: ignore[call-arg]
+        db_session.add(baseline)  # type: ignore[attr-defined]
+        await db_session.flush()  # type: ignore[attr-defined]
+        bot.baseline_id = baseline.id  # type: ignore[attr-defined]
+        batch = IngestBatchFactory(account_id=account.id)  # type: ignore[call-arg]
+        db_session.add(batch)  # type: ignore[attr-defined]
+        await db_session.flush()  # type: ignore[attr-defined]
+
+        now = datetime.now(UTC)
+        for i, profit in enumerate([Decimal("10"), Decimal("10"), Decimal("-5"), Decimal("10")]):
+            db_session.add(  # type: ignore[attr-defined]
+                TradeFactory(
+                    bot_id=bot.id,
+                    account_id=account.id,
+                    magic_number=bot.magic_number,
+                    symbol="EURUSD",
+                    type=TradeType.BUY,
+                    volume=Decimal("1.00"),
+                    profit=profit,
+                    open_time=now - timedelta(hours=4 - i, minutes=30),
+                    close_time=now - timedelta(hours=4 - i),
+                    close_price=Decimal("1.1"),
+                    ingest_batch_id=batch.id,
+                )
+            )
+        await db_session.flush()  # type: ignore[attr-defined]
+
+        chips = await assemble_health_chips(db_session, bot, baseline, SWEEP_CONFIG)  # type: ignore[arg-type]
+        # win rate rodante = 3/4 = 0.75; baseline 0.5 -> drift = 0.25
+        assert chips.win_rate_drift == pytest.approx(0.25)
+        assert chips.payoff is not None and chips.payoff > 0
+        assert chips.avg_trade_duration_min == pytest.approx(30.0)
+        assert chips.sharpe_rolling != 0.0
+
+    async def test_bot_without_closed_trades_returns_neutral_chips(
+        self, db_session: object
+    ) -> None:
+        account = await _account(db_session)
+        bot = BotFactory(account_id=account.id)  # type: ignore[call-arg]
+        db_session.add(bot)  # type: ignore[attr-defined]
+        await db_session.flush()  # type: ignore[attr-defined]
+        baseline = BaselineFactory(bot_id=bot.id)  # type: ignore[call-arg]
+        db_session.add(baseline)  # type: ignore[attr-defined]
+        await db_session.flush()  # type: ignore[attr-defined]
+
+        chips = await assemble_health_chips(db_session, bot, baseline, SWEEP_CONFIG)  # type: ignore[arg-type]
+        assert chips.win_rate_drift == 0.0
+        assert chips.payoff is None
+        assert chips.avg_trade_duration_min is None
+        assert chips.sharpe_rolling == 0.0

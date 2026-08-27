@@ -7,13 +7,14 @@ Huecos reales de esquema, documentados (no corregidos aqui):
   tick_value/tick_size por simbolo, que el esquema no guarda. Sin
   r_multiples reales, `expectancy_r` cae a 0.0 (falla el gate >0.15 de
   forma segura, fail-closed) en vez de inventar un numero.
-- No hay curva de equity POR BOT (`EquitySnapshot` es por cuenta) ni una
-  formula de Sharpe en PARTE 8 -- se aproxima un "Sharpe de trades"
-  (media/desviacion de P&L por trade) y un max drawdown reconstruyendo una
-  curva acumulada desde un capital base 100 + P&L de cada trade en orden
-  (mismo criterio que `monte_carlo_maxdd`, G2, para la curva bootstrap)."""
+- No hay curva de equity POR BOT (`EquitySnapshot` es por cuenta) -- se
+  reconstruye una curva acumulada desde un capital base 100 + P&L de cada
+  trade en orden (mismo criterio que `monte_carlo_maxdd`, G2, para la
+  curva bootstrap). El "Sharpe de trades" (media/desviacion de P&L por
+  trade, sin curva de equity real) reutiliza `formulas/trading.py::
+  rolling_sharpe` (G10) con `window=len(...)` (todo el historial OOS del
+  candidato, no una ventana rodante corta como en Salud/Bots)."""
 
-import statistics
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -25,22 +26,12 @@ from core.db.models.market import Trade
 from core.db.models.pipeline import PipelineCandidate
 from core.formulas.pipeline import trades_per_week as trades_per_week_formula
 from core.formulas.trading import expectancy_r as expectancy_r_formula
-from core.formulas.trading import max_drawdown_pct
+from core.formulas.trading import max_drawdown_pct, rolling_sharpe
 from core.formulas.trading import rolling_profit_factor as rolling_profit_factor_formula
 from core.state_machines.pipeline import apply_pipeline_gate, evaluate_pipeline_gate
 from core.state_machines.types import GateResult, PipelineGateConfig, PipelineGateMetrics
 
 _BASE_EQUITY = Decimal("100")
-
-
-def _trade_sharpe(profits: list[Decimal]) -> float:
-    if len(profits) < 2:
-        return 0.0
-    values = [float(p) for p in profits]
-    stdev = statistics.pstdev(values)
-    if stdev == 0:
-        return 0.0
-    return statistics.mean(values) / stdev
 
 
 async def assemble_metrics(
@@ -60,7 +51,7 @@ async def assemble_metrics(
 
     profit_factor = rolling_profit_factor_formula(net_profits, window=len(net_profits)) or 0.0
     expectancy = expectancy_r_formula(r_multiples) if r_multiples else 0.0
-    sharpe = _trade_sharpe(net_profits)
+    sharpe = rolling_sharpe(net_profits, window=len(net_profits))
 
     equity_curve = [_BASE_EQUITY]
     for pnl in net_profits:

@@ -6,6 +6,7 @@ PARTE 8 -- son definiciones estandar de la industria de trading (payoff
 ratio, Calmar ratio, Ulcer Index, Recovery Factor), sin umbral de negocio
 que decidir (a diferencia de `state_machines/`)."""
 
+import statistics
 from datetime import timedelta
 from decimal import Decimal
 
@@ -122,6 +123,24 @@ def max_drawdown_pct(equity_curve: list[Decimal]) -> Decimal:
             drawdown = (peak - value) / peak * 100
             max_dd = max(max_dd, drawdown)
     return max_dd
+
+
+def rolling_sharpe(profits: list[Decimal], window: int) -> float:
+    """G10: "Sharpe de trades" rodante -- media/desviacion tipica
+    (poblacional) del P&L de los ultimos `window` trades. No hay formula
+    de Sharpe en PARTE 8 ni curva de equity por bot (`EquitySnapshot` es
+    por cuenta) -- misma aproximacion ya usada en
+    `services/pipeline_gate.py::_trade_sharpe` (G5) para el gate de
+    candidatos, aqui reutilizable con ventana explicita para el rolling
+    de Salud/Bots. Menos de 2 trades, o desviacion cero -> 0.0."""
+    recent = profits[-window:] if profits else []
+    if len(recent) < 2:
+        return 0.0
+    values = [float(p) for p in recent]
+    stdev = statistics.pstdev(values)
+    if stdev == 0:
+        return 0.0
+    return statistics.mean(values) / stdev
 
 
 def win_rate_drift(profits: list[Decimal], baseline_win_rate: float, window: int) -> float:
