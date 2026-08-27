@@ -33,6 +33,12 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.flake8-bugbear]
+# B008 asume que una funcion en un default de argumento es siempre un bug;
+# Depends es el patron de inyeccion de dependencias propio de FastAPI --
+# mismo criterio que core-engine/pyproject.toml.
+extend-immutable-calls = ["fastapi.Depends"]
+
 [tool.mypy]
 python_version = "3.12"
 strict = true
