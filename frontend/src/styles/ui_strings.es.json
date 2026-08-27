@@ -272,7 +272,22 @@
 
   "auditoria": {
     "verifiedTitle": "Verificado",
+    "verifiedSubtitle": "Nivel de verificación técnica de la cuenta (datos recibidos directamente del terminal, sin intervención manual).",
     "reconciliationTitle": "Reconciliación contable",
+    "statusOk": "OK",
+    "statusBreach": "DESCUADRE",
+    "colInitialBalance": "Balance en el primer snapshot",
+    "colFlows": "Σ flujo posterior (P&L + swaps + comisiones + depósitos)",
+    "colExpected": "Esperado",
+    "colReported": "Reportado",
+    "colDiscrepancy": "Descuadre",
+    "runNow": "Ejecutar auditoría ahora",
+    "continuityTitle": "Continuidad del envío (7 días)",
+    "sealsTitle": "Sellos de integridad",
+    "sealedBatches": "LOTES SELLADOS (HASH+TS)",
+    "archivedTrades": "TRADES ARCHIVADOS",
+    "tickets": "TICKETS",
+    "history": "HISTORIAL",
     "disclaimer": "Verificación técnica de integridad de datos desde su recepción. NO constituye una auditoría contable, financiera ni legal. La exactitud última depende del terminal y del broker."
   },
 
