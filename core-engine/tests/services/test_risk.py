@@ -1,7 +1,16 @@
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-from core.services.risk import RiskServiceConfig, compute_exposure, compute_tail_risk
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.db.enums import TradeType
+from core.services.risk import (
+    ExposureRow,
+    RiskServiceConfig,
+    compute_exposure,
+    compute_tail_risk,
+    exposure_subtotals_by_currency,
+)
 from tests.factories import AccountFactory, BotFactory, IngestBatchFactory, TradeFactory
 
 CONFIG = RiskServiceConfig(window_days=15)
@@ -94,8 +103,6 @@ class TestComputeExposure:
         db_session.add(batch)  # type: ignore[attr-defined]
         await db_session.flush()  # type: ignore[attr-defined]
 
-        from core.db.enums import TradeType
-
         db_session.add(  # type: ignore[attr-defined]
             TradeFactory(
                 bot_id=bot.id,
@@ -144,3 +151,75 @@ class TestComputeExposure:
         assert row.net_volume == Decimal("0.60")
         assert row.gross_volume == Decimal("1.40")
         assert row.pnl == Decimal("40.00")
+        assert row.currency == "EUR"  # symbol_currency, sembrado en la migracion 288e484ba382
+
+
+async def test_compute_exposure_currency_is_none_for_an_unmapped_symbol(
+    db_session: AsyncSession,
+) -> None:
+    account = AccountFactory()  # type: ignore[call-arg]
+    db_session.add(account)  # type: ignore[attr-defined]
+    await db_session.flush()  # type: ignore[attr-defined]
+    bot = BotFactory(account_id=account.id)  # type: ignore[call-arg]
+    db_session.add(bot)  # type: ignore[attr-defined]
+    await db_session.flush()  # type: ignore[attr-defined]
+    batch = IngestBatchFactory(account_id=account.id)  # type: ignore[call-arg]
+    db_session.add(batch)  # type: ignore[attr-defined]
+    await db_session.flush()  # type: ignore[attr-defined]
+
+    db_session.add(  # type: ignore[attr-defined]
+        TradeFactory(
+            bot_id=bot.id,
+            account_id=account.id,
+            magic_number=bot.magic_number,
+            symbol="ZZZUNKNOWN",
+            type=TradeType.BUY,
+            volume=Decimal("1.00"),
+            profit=Decimal("10.00"),
+            close_time=None,
+            ingest_batch_id=batch.id,
+        )
+    )
+    await db_session.flush()  # type: ignore[attr-defined]
+
+    rows = await compute_exposure(db_session)  # type: ignore[arg-type]
+    row = next(r for r in rows if r.symbol == "ZZZUNKNOWN")
+    assert row.currency is None  # sin fila en symbol_currency, no inventado
+
+
+async def test_exposure_subtotals_by_currency_groups_native_units(db_session: AsyncSession) -> None:
+    rows = [
+        ExposureRow(
+            symbol="EURUSD",
+            net_volume=Decimal("1"),
+            gross_volume=Decimal("1"),
+            pnl=Decimal("10"),
+            currency="EUR",
+        ),
+        ExposureRow(
+            symbol="XAUUSD",
+            net_volume=Decimal("2"),
+            gross_volume=Decimal("2"),
+            pnl=Decimal("20"),
+            currency="USD",
+        ),
+        ExposureRow(
+            symbol="XAGUSD",
+            net_volume=Decimal("1"),
+            gross_volume=Decimal("1"),
+            pnl=Decimal("5"),
+            currency="USD",
+        ),
+        ExposureRow(
+            symbol="ZZZUNKNOWN",
+            net_volume=Decimal("1"),
+            gross_volume=Decimal("1"),
+            pnl=Decimal("1"),
+            currency=None,
+        ),
+    ]
+    subtotals = exposure_subtotals_by_currency(rows)
+    assert subtotals["USD"].gross_volume == Decimal("3")
+    assert subtotals["USD"].pnl == Decimal("25")
+    assert subtotals["EUR"].pnl == Decimal("10")
+    assert "ZZZUNKNOWN" not in subtotals  # sin divisa, fuera del agrupado (no inventado)

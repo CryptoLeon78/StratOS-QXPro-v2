@@ -193,3 +193,18 @@ class InstrumentSpec(Base):
     point_value: Mapped[Decimal] = mapped_column(PointValue)
     source: Mapped[str] = mapped_column(String)
     imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class SymbolCurrency(Base):
+    """G10 (docs/backlog.md, ASSUMPTIONS G5-08): divisa de exposicion por
+    simbolo -- base de un par FX (EURUSD->EUR), divisa de cotizacion de un
+    indice/materia prima (XAUUSD->USD, GDAXI->EUR). Los 10 simbolos que
+    StratOS siembra hoy, valores estandar de mercado verificados a mano,
+    no una tabla completa de todos los instrumentos posibles -- un simbolo
+    sin fila aqui se queda sin agrupar por divisa en `compute_exposure`,
+    documentado, no inventado."""
+
+    __tablename__ = "symbol_currency"
+
+    symbol: Mapped[str] = mapped_column(String, primary_key=True)
+    currency: Mapped[str] = mapped_column(String(3))

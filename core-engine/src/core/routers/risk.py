@@ -14,7 +14,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.auth.dependencies import get_current_user
 from core.db.base import get_session
 from core.db.models.governance import MonteCarloRun
-from core.services.risk import RiskServiceConfig, compute_exposure, compute_tail_risk
+from core.services.risk import (
+    RiskServiceConfig,
+    compute_exposure,
+    compute_tail_risk,
+    exposure_subtotals_by_currency,
+)
 
 router = APIRouter(prefix="/api/v1/risk", tags=["risk"], dependencies=[Depends(get_current_user)])
 
@@ -37,6 +42,16 @@ class TailRiskResponse(BaseModel):
 
 class ExposureRowResponse(BaseModel):
     symbol: str
+    net_volume: Decimal
+    gross_volume: Decimal
+    pnl: Decimal
+    currency: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class ExposureCurrencySubtotalResponse(BaseModel):
+    currency: str
     net_volume: Decimal
     gross_volume: Decimal
     pnl: Decimal
@@ -67,6 +82,15 @@ async def risk_tail(session: AsyncSession = Depends(get_session)) -> TailRiskRes
 async def risk_exposure(session: AsyncSession = Depends(get_session)) -> list[ExposureRowResponse]:
     rows = await compute_exposure(session)
     return [ExposureRowResponse.model_validate(row) for row in rows]
+
+
+@router.get("/exposure/by-currency", response_model=list[ExposureCurrencySubtotalResponse])
+async def risk_exposure_by_currency(
+    session: AsyncSession = Depends(get_session),
+) -> list[ExposureCurrencySubtotalResponse]:
+    rows = await compute_exposure(session)
+    subtotals = exposure_subtotals_by_currency(rows)
+    return [ExposureCurrencySubtotalResponse.model_validate(s) for s in subtotals.values()]
 
 
 @router.get("/montecarlo", response_model=MonteCarloResponse | None)

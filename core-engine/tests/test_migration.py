@@ -7,7 +7,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 # PARTE 5.2 (25) + ea_state/virtual_trade (G4) + checklist_item_signature (G5)
-EXPECTED_TABLE_COUNT = 28
+# + instrument_spec/symbol_currency (G10, docs/backlog.md)
+EXPECTED_TABLE_COUNT = 30
 
 
 async def test_all_tables_created(db_connection: AsyncConnection) -> None:
