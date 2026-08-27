@@ -1,0 +1,33 @@
+# Continuous WAL archiving (G9, PARTE 14: "backups pg_dump diario + WAL",
+# RPO 24h/RTO 2h). Complementa a scripts/backup_postgres.sh (dump logico
+# diario, punto de recuperacion grueso) con archivado continuo de WAL
+# (recuperacion a un punto exacto entre dos dumps).
+#
+# Referencia para el Nodo B Linux (docs/runbook.md) -- NO se monta en el
+# docker-compose.yml de desarrollo de este repo: archive_command escribe
+# a un destino real (disco separado / bucket remoto) que solo existe en
+# produccion; montarlo aqui sin ese destino dejaria WAL acumulandose sin
+# poder archivarse, algo que NO se quiere en un entorno de dev compartido.
+#
+# Uso en el VPS real: montar este fichero como el postgresql.conf del
+# contenedor `postgres` (volumen adicional en docker-compose, perfil
+# `prod`) tras rellenar WAL_ARCHIVE_DIR con el destino real, o pasar los
+# equivalentes como flags `-c` en el `command:` del servicio.
+
+# --- Nivel de WAL: 'replica' ya es suficiente para archivado + PITR
+# (streaming replication real queda fuera de alcance, PARTE 3 no la pide) ---
+wal_level = replica
+
+# --- Archivado continuo ---
+archive_mode = on
+# Sustituir WAL_ARCHIVE_DIR por una ruta real (disco separado del volumen
+# de datos, o un punto de montaje de almacenamiento remoto) antes de
+# arrancar en produccion -- 'test ! -f' evita sobrescribir un segmento ya
+# archivado (comportamiento exigido por Postgres para archive_command).
+archive_command = 'test ! -f /WAL_ARCHIVE_DIR/%f && cp %p /WAL_ARCHIVE_DIR/%f'
+
+# --- Retencion de WAL en el propio servidor mientras se archiva
+# (colchon si el archivado se atrasa temporalmente, no es la retencion
+# final -- esa la define cuanto tiempo se conservan los ficheros ya
+# archivados en WAL_ARCHIVE_DIR, fuera del alcance de Postgres mismo) ---
+max_wal_size = 2GB

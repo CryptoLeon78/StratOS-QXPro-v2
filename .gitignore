@@ -27,6 +27,11 @@ frontend/blob-report/
 postgres-data/
 redis-data/
 
+# Backups (G9, scripts/backup_postgres.sh) -- dumps de datos reales/
+# sinteticos densos, nunca al repo (BACKUP_DIR por defecto).
+backups/
+*.dump
+
 # Editors / OS
 .vscode/
 .idea/
