@@ -92,7 +92,7 @@ Sin `PLAYWRIGHT_TEST_EMAIL`/`PLAYWRIGHT_TEST_PASSWORD`, los specs se saltan solo
 
 ## Calendario de decisiones (resumen)
 
-PARTE 14 define el ritmo operativo completo (instalación, backups, rotación de claves — eso vive en `docs\runbook.md`, pendiente de G9/hardening). El calendario en sí, sí construido y verificable hoy contra el seed:
+PARTE 14 define el ritmo operativo completo (instalación, backups, rotación de claves — eso vive en `docs\runbook.md`, construido en G9). El calendario en sí, sí construido y verificable hoy contra el seed:
 
 - **Domingo (20 min, mercado cerrado)**: revisión técnica (errores de EA, desconexiones, órdenes rechazadas) + copiar noticias de la semana al filtro horario. La vista dominical **nunca** muestra rentabilidad — ítem de checklist, sin UI dedicada todavía (`docs\backlog.md`).
 - **Cada 15 días**: semáforos vs baseline; confirmar los AMARILLO al 50 % de sizing.
