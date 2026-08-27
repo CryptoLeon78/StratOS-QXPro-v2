@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EquityAreaChart } from "@/components/domain/EquityAreaChart";
 import { useEquityCurve } from "@/hooks/queries/useEquityCurve";
+import { useHeaderSummary } from "@/hooks/queries/useHeaderSummary";
 import { computeMaxDrawdownPct } from "@/lib/equityStats";
 import { formatAmount, formatPercent, formatSignedAmount } from "@/lib/formatters";
 import { interpolate } from "@/lib/i18n";
@@ -19,6 +20,11 @@ const RANGES: EquityRange[] = ["30d", "90d", "180d", "1y", "all"];
 export function EquityCard() {
   const [range, setRange] = useState<EquityRange>("90d");
   const { data, isLoading } = useEquityCurve(range);
+  // "equity sin snapshot reciente -> cifra atenuada + aviso" (PARTE 7.1,
+  // caso limite): mismo data_stale_seconds que ya usa AppHeader para el
+  // badge DATOS STALE, no una heuristica de frescura nueva/duplicada.
+  const { data: header } = useHeaderSummary();
+  const isStale = header?.data_stale_seconds !== null && header?.data_stale_seconds !== undefined;
 
   const points = (data ?? []).map((p) => ({ date: p.date, equity: Number(p.equity) }));
   const first = points.at(0)?.equity ?? 0;
@@ -54,7 +60,7 @@ export function EquityCard() {
           <div className="h-64" />
         ) : (
           <>
-            <div className="mb-1 flex items-baseline gap-3">
+            <div className={cn("mb-1 flex items-baseline gap-3", isStale && "opacity-50")}>
               <span className="text-2xl font-semibold tabular-nums text-text-primary">
                 {formatAmount(last)}
               </span>
@@ -68,6 +74,9 @@ export function EquityCard() {
                 {formatPercent(deltaPct)})
               </span>
             </div>
+            {isStale && (
+              <p className="mb-2 text-xs text-semantic-warning">{uiStrings.equityCard.staleNotice}</p>
+            )}
             <p className="mb-3 text-xs text-text-secondary">
               {interpolate(uiStrings.equityCard.maxDrawdownPeriod, {
                 pct: formatPercent(maxDdPct),

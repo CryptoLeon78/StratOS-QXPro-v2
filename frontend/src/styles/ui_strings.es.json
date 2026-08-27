@@ -53,6 +53,7 @@
   "equityCard": {
     "title": "Equity del portfolio (todos los bots)",
     "maxDrawdownPeriod": "DD máx. periodo: {pct}",
+    "staleNotice": "Sin snapshot reciente de equity — cifra puede no reflejar el estado actual.",
     "ranges": {
       "30d": "30 días",
       "90d": "90 días",
