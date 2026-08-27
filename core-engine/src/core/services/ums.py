@@ -7,16 +7,20 @@ vigente (proteccion, sin firma -- `signed_by` NULL, migracion G5-0004)."""
 
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
+from typing import Any
 
 from redis.asyncio import Redis
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.enums import AlertLevel
 from core.db.models.decisions import Alert
 from core.db.models.governance import UmsPhaseLog
+from core.db.models.market import Trade
+from core.formulas.trading import max_drawdown_pct
+from core.services.risk import real_portfolio_equity_curve
 
 _AVG_DAYS_PER_MONTH = 30.44
 
@@ -135,6 +139,41 @@ def evaluate_advance_readiness(
     return UmsReadiness(current.phase, months_in_phase, True, None)
 
 
+async def monthly_evolution_metrics(session: AsyncSession, now: datetime) -> dict[str, Any]:
+    """G10 (docs/backlog.md): `trades`/`retorno_pct`/`max_dd_pct` del
+    ultimo mes (`_AVG_DAYS_PER_MONTH` dias, misma constante ya usada en
+    este modulo), para la columna "Evolucion mensual" de Escalado --
+    trades CERRADOS reales + curva de equity real de portfolio
+    (`real_portfolio_equity_curve`, `services/risk.py`, ya existe G5).
+    Sin equity suficiente en la ventana, `retorno_pct`/`max_dd_pct` quedan
+    en `None` -- no se inventan."""
+    window_start = now - timedelta(days=_AVG_DAYS_PER_MONTH)
+    trades_count = (
+        await session.execute(
+            select(func.count(Trade.id)).where(
+                Trade.close_time.isnot(None),
+                Trade.close_time >= window_start,
+                Trade.close_time <= now,
+            )
+        )
+    ).scalar_one()
+
+    equity_curve = await real_portfolio_equity_curve(session, window_start)
+    if len(equity_curve) < 2:
+        return {"trades": trades_count, "retorno_pct": None, "max_dd_pct": None}
+
+    start_equity = float(equity_curve.iloc[0])
+    end_equity = float(equity_curve.iloc[-1])
+    retorno_pct = (end_equity - start_equity) / start_equity * 100 if start_equity > 0 else None
+    dd_curve = [Decimal(str(v)) for v in equity_curve]
+
+    return {
+        "trades": trades_count,
+        "retorno_pct": retorno_pct,
+        "max_dd_pct": str(max_drawdown_pct(dd_curve)),
+    }
+
+
 async def current_phase(session: AsyncSession) -> UmsPhaseLog | None:
     return (
         await session.execute(select(UmsPhaseLog).order_by(UmsPhaseLog.ts.desc()).limit(1))
@@ -167,7 +206,11 @@ async def confirm_advance(
         ts=now,
         phase=next_phase,
         equity_at=current_equity,
-        metrics={"sharpe": metrics.sharpe, "dd_pct": str(metrics.dd_pct)},
+        metrics={
+            "sharpe": metrics.sharpe,
+            "dd_pct": str(metrics.dd_pct),
+            **await monthly_evolution_metrics(session, now),
+        },
         ready_to_advance=True,
         signed_by=signed_by,
     )
@@ -195,7 +238,7 @@ async def check_automatic_downgrade(
         ts=now,
         phase=target_phase.phase,
         equity_at=current_equity,
-        metrics={},
+        metrics=await monthly_evolution_metrics(session, now),
         ready_to_advance=False,
         signed_by=None,
     )
