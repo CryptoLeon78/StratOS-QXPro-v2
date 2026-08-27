@@ -31,6 +31,8 @@ from core.db.models.governance import SystemConfig
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from seed_lib.accounts import seed_accounts
+from seed_lib.bots_production import full_production_roster, seed_production_bots
 from seed_lib.config import profile_for
 
 
@@ -69,11 +71,18 @@ async def run_seed(profile_name: str, *, reset: bool, inject_audit_error: bool) 
 
     start, end = profile.history_start.date(), profile.history_end.date()
     print(f"[seed] perfil={profile.name} rango={start}..{end}")
-    # Los modulos de generacion se van conectando aqui a medida que se
-    # construyen (commits siguientes de G8) -- accounts.py, bots_production.py,
-    # bots_pipeline.py, graveyard.py, trades_history.py, equity_curve.py,
-    # scenarios.py, derived_states.py, audit_error.py, header_state.py.
-    print("[seed] (todavia sin generadores conectados -- solo perfil + reset en este commit)")
+
+    async with async_session_factory() as session:
+        accounts = await seed_accounts(session)
+        roster = full_production_roster()
+        bots = await seed_production_bots(session, accounts["prod"], roster, now)
+        await session.commit()
+        print(f"[seed] cuentas: {list(accounts)} · bots de produccion: {len(bots)}")
+
+    # Los modulos que faltan se conectan aqui a medida que se construyen
+    # (commits siguientes de G8): bots_pipeline.py, graveyard.py,
+    # trades_history.py, equity_curve.py, scenarios.py, derived_states.py,
+    # audit_error.py, header_state.py.
 
 
 def main() -> None:
