@@ -1,13 +1,20 @@
 from datetime import UTC, datetime
 
+import fakeredis
 import jwt as pyjwt
 import pytest
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.auth.jwt import create_access_token, create_refresh_token, decode_token
 from core.auth.service import authenticate_user, issue_tokens, refresh_tokens
 from core.config import Settings
 from tests.factories import TEST_USER_PASSWORD, UserFactory
+
+
+@pytest.fixture
+def redis() -> Redis:
+    return fakeredis.FakeAsyncRedis()  # type: ignore[no-any-return]
 
 
 def _settings() -> Settings:
@@ -60,7 +67,7 @@ async def test_issue_tokens_roundtrips_to_the_same_user(db_session: AsyncSession
 
 
 async def test_refresh_tokens_issues_new_pair_for_valid_refresh_token(
-    db_session: AsyncSession,
+    db_session: AsyncSession, redis: Redis
 ) -> None:
     user = await _persisted_user(db_session)
     settings = _settings()
@@ -72,12 +79,14 @@ async def test_refresh_tokens_issues_new_pair_for_valid_refresh_token(
         settings=settings,
         now=now,
     )
-    response = await refresh_tokens(db_session, refresh, settings, now)
+    response = await refresh_tokens(db_session, refresh, settings, now, redis)
     new_access = decode_token(response.access_token, settings)
     assert new_access.sub == user.id  # type: ignore[attr-defined]
 
 
-async def test_refresh_tokens_rejects_an_access_token(db_session: AsyncSession) -> None:
+async def test_refresh_tokens_rejects_an_access_token(
+    db_session: AsyncSession, redis: Redis
+) -> None:
     user = await _persisted_user(db_session)
     settings = _settings()
     now = datetime.now(UTC)
@@ -89,14 +98,38 @@ async def test_refresh_tokens_rejects_an_access_token(db_session: AsyncSession) 
         now=now,
     )
     with pytest.raises(pyjwt.InvalidTokenError):
-        await refresh_tokens(db_session, access, settings, now)
+        await refresh_tokens(db_session, access, settings, now, redis)
 
 
-async def test_refresh_tokens_rejects_a_deleted_user(db_session: AsyncSession) -> None:
+async def test_refresh_tokens_rejects_a_deleted_user(
+    db_session: AsyncSession, redis: Redis
+) -> None:
     settings = _settings()
     now = datetime.now(UTC)
     refresh = create_refresh_token(
         user_id=999_999, email="ghost@stratos.local", role="operator", settings=settings, now=now
     )
     with pytest.raises(pyjwt.InvalidTokenError):
-        await refresh_tokens(db_session, refresh, settings, now)
+        await refresh_tokens(db_session, refresh, settings, now, redis)
+
+
+async def test_refresh_tokens_revokes_the_used_refresh_token_rotation(
+    db_session: AsyncSession, redis: Redis
+) -> None:
+    """Rotacion con revocacion (ASSUMPTIONS G5-07, cerrado en G9): el
+    refresh token ya usado queda inservible, un robo despues del primer
+    uso legitimo no permite un segundo refresh."""
+    user = await _persisted_user(db_session)
+    settings = _settings()
+    now = datetime.now(UTC)
+    refresh = create_refresh_token(
+        user_id=user.id,  # type: ignore[attr-defined]
+        email=user.email,  # type: ignore[attr-defined]
+        role=user.role,  # type: ignore[attr-defined]
+        settings=settings,
+        now=now,
+    )
+    await refresh_tokens(db_session, refresh, settings, now, redis)
+
+    with pytest.raises(pyjwt.InvalidTokenError):
+        await refresh_tokens(db_session, refresh, settings, now, redis)

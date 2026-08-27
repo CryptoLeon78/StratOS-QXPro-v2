@@ -1,10 +1,12 @@
 from datetime import datetime
 
 import jwt
+from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.auth.jwt import create_access_token, create_refresh_token, decode_token
+from core.auth.revocation import is_revoked, revoke_jti
 from core.auth.schemas import TokenResponse
 from core.auth.security import verify_password
 from core.config import Settings
@@ -33,16 +35,22 @@ async def issue_tokens(user: User, settings: Settings, now: datetime) -> TokenRe
 
 
 async def refresh_tokens(
-    session: AsyncSession, refresh_token: str, settings: Settings, now: datetime
+    session: AsyncSession, refresh_token: str, settings: Settings, now: datetime, redis: Redis
 ) -> TokenResponse:
-    """Rotacion sin revocacion (ASSUMPTIONS G5: stateless, revocacion real
-    de tokens queda para G9-hardening). Levanta jwt.InvalidTokenError para
-    TODOS los fallos (tipo incorrecto, usuario borrado, token vencido) --
-    mismo tipo que decode_token, un unico except en el router basta."""
+    """Rotacion CON revocacion (G9, cierra ASSUMPTIONS G5-07): el refresh
+    token se revoca en cuanto se usa, un robo posterior al primer uso
+    legitimo ya no sirve para pedir un par nuevo. Levanta
+    jwt.InvalidTokenError para TODOS los fallos (tipo incorrecto, usuario
+    borrado, token vencido, YA REVOCADO) -- mismo tipo que decode_token, un
+    unico except en el router basta."""
     payload = decode_token(refresh_token, settings)
     if payload.type != "refresh":
         raise jwt.InvalidTokenError("token is not a refresh token")
+    if await is_revoked(redis, payload.jti):
+        raise jwt.InvalidTokenError("refresh token already used")
     user = (await session.execute(select(User).where(User.id == payload.sub))).scalar_one_or_none()
     if user is None:
         raise jwt.InvalidTokenError("user no longer exists")
-    return await issue_tokens(user, settings, now)
+    tokens = await issue_tokens(user, settings, now)
+    await revoke_jti(redis, payload.jti, payload.exp, now)
+    return tokens
