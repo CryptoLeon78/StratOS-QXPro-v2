@@ -4,7 +4,21 @@
 
 ## Fase actual: G8 — Seed + E2E
 
-**Estado**: sin empezar. G7 cerrado en esta sesión (14/14 commits), pusheado y con CI verde 7/7 (run [`33048222928`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33048222928)). Ambas confirmaciones del operador obtenidas: Cuentas/EA aprobada tal cual (diseño derivado, PARTE 7.2), push + CI verde confirmado.
+**Estado**: en curso, plan aprobado por el operador (`C:\Users\Ivan SQX\.claude\plans\immutable-bouncing-cascade.md`). G7 cerrado en sesión previa (14/14 commits), pusheado y con CI verde 7/7 (run [`33048222928`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33048222928)).
+
+**Commits reales de G8 hasta ahora** (de los ~17 previstos):
+1. `279a308` estructura `seed_lib/` + CLI `seed.py`
+2. `59442fd` `accounts.py` + `bots_production.py` + baselines
+3. `b717f4d` fix: renombra bots de relleno (colisión de nombres con cantera)
+4. `3a27835` `bots_pipeline.py` (cantera F1-F6) + `graveyard.py`
+5. `7805a75` `trades_history.py` — generador determinista + bulk insert sellado
+6. `71aaf03` `equity_curve.py` — EquitySnapshot diaria + heartbeats sellados
+
+**Verificado contra Postgres real tras el commit 6** (`python scripts/seed.py --profile full --reset`): 32 bots producción + 24 cantera + 9 graveyard · 15.718 trades (objetivo 15.486) · DD 2,56% (objetivo 4,8%, aproximado, ver ASSUMPTIONS G8-04) · 14/68 meses negativos · retorno medio 2,63% (objetivo 2,69%) · correlación media ~0,15 (objetivo 0,16) · par Lyra×Phoenix 0,50 redundante=True (criterio 9) · reconciliación contable exacta (`discrepancy_pct=0`, criterio 6) · continuidad 7d 100% sin huecos (el hueco de 41 min es un escenario deliberado, pendiente de `scenarios.py`) · 89.351 lotes sellados de 137.296 objetivo (~65%, gap conocido y documentado, ASSUMPTIONS G8-05).
+
+**Pendiente** (orden del plan): `scenarios.py` (huérfanos, bot muerto/desbocado, impulsos, noticias, decisiones pendientes) → `derived_states.py` (sweeps reales: semáforo/watchdog/correlaciones/gate/auditoría) → `audit_error.py` + `header_state.py` → `scripts/data/sp500_monthly.csv` a 66 meses → suite de criterios de aceptación (`test_g8_acceptance_criteria.py`) → specs Playwright (pipeline/graveyard/7 pestañas restantes/vista dominical/flujo operativo) → 2 jobs CI nuevos → README/backlog/ASSUMPTIONS de cierre → PHASE REPORT.
+
+**Nota de higiene del working tree**: hay cambios ajenos a G8 sin commitear en `doc_app/` (6 ficheros borrados, movidos por el operador a otra carpeta según el propio `docs/backlog.md`) y ruido no rastreado bajo `.github/workflows/` (`bin/`, `micromamba/`, `rcc*.yaml*`, `temp/` — artefactos de alguna herramienta externa, no generados por esta sesión). Ninguno de los dos se ha tocado ni commiteado desde aquí — no pertenecen a G8 y `doc_app\` está bloqueado para el agente (regla de comportamiento §7).
 
 ## Fases cerradas
 
