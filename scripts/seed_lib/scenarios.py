@@ -141,7 +141,13 @@ def normalize_recent_frequency(
         observed = counts.get(bot.id, 0)
         if observed >= low_bound:
             continue
-        needed = int(low_bound) + 1 - observed
+        # Rellena hasta expected_trades_30d (no solo el borde de
+        # low_bound): un margen mayor tolera la varianza de Poisson y el
+        # desplazamiento natural de la ventana entre la generacion y una
+        # re-evaluacion posterior (verificado: con el borde apenas
+        # superado, un perfil `ci` de historia corta volvia a caer en
+        # OUT_OF_TOLERANCE en varios bots, incl. Atlas -- ver ASSUMPTIONS G8).
+        needed = spec.expected_trades_30d - observed
         for j in range(needed):
             day = window_start.date() + timedelta(days=(i * 5 + j * 3) % _WATCHDOG_WINDOW_DAYS)
             open_dt = datetime.combine(day, datetime.min.time(), tzinfo=UTC) + timedelta(
