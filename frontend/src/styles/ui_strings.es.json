@@ -99,7 +99,20 @@
   },
 
   "graveyard": {
-    "banner": "Un bot retirado nunca se reactiva sin re-validación completa (pipeline desde Fase 3)."
+    "banner": "Un bot retirado nunca se reactiva sin re-validación completa (pipeline desde Fase 3).",
+    "filterAllProfiles": "Todos los perfiles",
+    "filterAllCauses": "Todos los motivos",
+    "reactivate": "Reactivar",
+    "reactivateBlocked": "Bloqueada: {reason}",
+    "causes": {
+      "ALPHA_DECAY": "Alpha decay",
+      "OVERFITTING": "Overfitting",
+      "REGIME_CHANGE": "Cambio de régimen",
+      "BROKER_UNFAVORABLE": "Broker desfavorable",
+      "OUTPERFORMED_BY_CHALLENGER": "Superado por Challenger",
+      "COMPETITIVE_NOT_SUPERIOR": "Competitivo pero no superior",
+      "OTHER": "Otro"
+    }
   },
 
   "auditoria": {

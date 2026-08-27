@@ -1,6 +1,7 @@
 import { Bell, Wifi, WifiOff } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { SemaphoreBadge } from "@/components/domain/SemaphoreBadge";
 import { StatCard } from "@/components/domain/StatCard";
 import { HEADER_SUMMARY_QUERY_KEY, useHeaderSummary } from "@/hooks/queries/useHeaderSummary";
 import { useWsTopic } from "@/hooks/useWsTopic";
@@ -9,12 +10,6 @@ import { formatAmount, formatPercent, formatSignedAmount } from "@/lib/formatter
 import { interpolate } from "@/lib/i18n";
 import { useAuthStore } from "@/stores/authStore";
 import uiStrings from "@/styles/ui_strings.es.json";
-
-const SEMAPHORE_BADGE_VARIANT: Record<string, "success" | "warning" | "orange"> = {
-  VERDE: "success",
-  AMARILLO: "warning",
-  NARANJA: "orange",
-};
 
 // PARTE 7.1: cabecera global persistente, 6 StatCard, en TODAS las
 // pestanas. Contra GET /api/v1/header/summary (refetch cada 5s hasta que
@@ -70,15 +65,7 @@ export function AppHeader() {
         />
         <StatCard
           label={uiStrings.header.semaphoreGlobal}
-          value={
-            isLoading ? (
-              "—"
-            ) : (
-              <Badge variant={SEMAPHORE_BADGE_VARIANT[data!.global_semaphore] ?? "default"}>
-                {data!.global_semaphore.charAt(0) + data!.global_semaphore.slice(1).toLowerCase()}
-              </Badge>
-            )
-          }
+          value={isLoading ? "—" : <SemaphoreBadge state={data!.global_semaphore} />}
         />
         <StatCard
           label={uiStrings.header.mt}

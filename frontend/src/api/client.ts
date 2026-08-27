@@ -34,7 +34,8 @@ async function refreshSession(): Promise<boolean> {
 export class ApiError extends Error {
   constructor(
     public status: number,
-    message: string
+    message: string,
+    public detail?: string
   ) {
     super(message);
     this.name = "ApiError";
@@ -71,7 +72,24 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   }
 
   if (!response.ok) {
-    throw new ApiError(response.status, `${init.method ?? "GET"} ${path} -> ${response.status}`);
+    // FastAPI error bodies son {detail: "..."} -- se adjunta cuando esta
+    // presente para que llamadas que necesitan el motivo exacto (p.ej. el
+    // 409 de reactivacion de Cementerio, PARTE 6.3) no tengan que reparsear
+    // la respuesta ellas mismas.
+    const detail = await response
+      .clone()
+      .json()
+      .then((body: unknown) =>
+        typeof body === "object" && body !== null && "detail" in body
+          ? String((body as { detail: unknown }).detail)
+          : undefined
+      )
+      .catch(() => undefined);
+    throw new ApiError(
+      response.status,
+      `${init.method ?? "GET"} ${path} -> ${response.status}`,
+      detail
+    );
   }
 
   if (response.status === 204) {
