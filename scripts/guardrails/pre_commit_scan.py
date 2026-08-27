@@ -18,9 +18,21 @@ import sys
 from pathlib import Path
 
 ALLOWED_PATH_PARTS = {
-    "tests", "test", "seed", "scripts", "migrations", "alembic", "node_modules",
-    "design_tokens.json", "ui_strings.es.json", "thresholds.seed.json",
-    "dist", "build", ".venv", "__pycache__", "docs",
+    "tests",
+    "test",
+    "seed",
+    "scripts",
+    "migrations",
+    "alembic",
+    "node_modules",
+    "design_tokens.json",
+    "ui_strings.es.json",
+    "thresholds.seed.json",
+    "dist",
+    "build",
+    ".venv",
+    "__pycache__",
+    "docs",
 }
 CODE_EXTENSIONS = {".py", ".ts", ".tsx", ".css", ".scss"}
 HEX_COLOR = re.compile(r"#[0-9a-fA-F]{3,8}\b")
@@ -31,7 +43,8 @@ ALLOWED_NUMBERS = {"10", "100", "1000", "60", "24", "3600", "86400", "252"}
 def staged_files() -> list[Path]:
     result = subprocess.run(
         ["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     if result.returncode != 0:
         return []
@@ -54,14 +67,17 @@ def scan_file(path: Path) -> list[str]:
             continue
         for m in HEX_COLOR.finditer(line):
             findings.append(f"{path}:{lineno} color hex {m.group(0)} -> design_tokens.json")
-        if path.suffix in {".py", ".ts", ".tsx"} and ("=" in line or "if " in line or "return" in line):
+        has_assignment_or_control = "=" in line or "if " in line or "return" in line
+        if path.suffix in {".py", ".ts", ".tsx"} and has_assignment_or_control:
             if re.search(r"(port|version|year|20\d\d|http)", line, re.I):
                 continue
             for m in MAGIC_NUMBER.finditer(line):
                 value = m.group(1)
                 if value in ALLOWED_NUMBERS:
                     continue
-                findings.append(f"{path}:{lineno} literal numerico {value} -> SystemConfig/Settings")
+                findings.append(
+                    f"{path}:{lineno} literal numerico {value} -> SystemConfig/Settings"
+                )
     return findings
 
 
