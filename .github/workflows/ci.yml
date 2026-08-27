@@ -415,22 +415,7 @@ jobs:
       - name: Run Playwright tests
         run: |
           cd frontend
-          npx playwright test --workers=1 --update-snapshots
-
-      # TEMPORAL (G9-07): el baseline -linux.png de cuentas_ea (y
-      # potencialmente otros, AppHeader cambio en las 11 pestanas) quedo
-      # commiteado en su estado VIEJO (badge/detalle ausentes, altura
-      # corta) de una coincidencia anterior (G9-06) -- ahora que los 2
-      # componentes SIEMPRE reservan su altura (G9-07), hace falta un
-      # baseline nuevo que lo refleje, una sola vez; a partir de aqui deja
-      # de variar con el tiempo real (determinismo probado en local).
-      - name: Upload updated linux snapshots (temp)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-linux-snapshots
-          path: frontend/tests/e2e/**/*-linux.png
-          retention-days: 7
+          npx playwright test --workers=1
 
       - name: Upload server logs on failure
         if: failure()
