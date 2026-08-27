@@ -3,6 +3,7 @@ broker hacia core-engine. Sin logica de dominio -- ver proxy.py/
 rate_limit.py/ws_proxy.py para el detalle de cada pieza; este modulo solo
 ensambla FastAPI encima."""
 
+import contextlib
 from collections.abc import AsyncIterator
 
 import httpx
@@ -123,6 +124,21 @@ async def proxy_ws(
         async with websockets.connect(upstream_url) as upstream_ws:
             await bridge_frames(websocket, _TextOnlyUpstream(upstream_ws))
     except InvalidStatus:
-        # core-engine rechazo el handshake (token invalido, ver ws/auth.py)
-        # -- 1008 = policy violation, mismo codigo que core-engine ya usa.
+        # core-engine rechazo el handshake antes del 101 (caso HTTP puro,
+        # poco probable en WS pero cubierto por si acaso) -- 1008 = policy
+        # violation, mismo codigo que core-engine ya usa en ws/router.py.
         await websocket.close(code=1008)
+        return
+
+    # Caso REAL con token invalido (verificado end-to-end, G9): core-engine
+    # SI completa el handshake (101) y cierra justo despues con 1008 (ver
+    # ws/router.py -- `websocket.close()` sin `accept()` previo aun asi deja
+    # pasar el upgrade a nivel ASGI). Sin esto, el cliente veria siempre un
+    # cierre generico 1000 aunque el motivo real fuera otro. `close()` en un
+    # cliente que ya se desconecto el primero (bridge terminado por SU lado)
+    # lanza RuntimeError -- no hay nada que cerrar, se ignora.
+    if upstream_ws.close_code is not None:
+        with contextlib.suppress(RuntimeError):
+            await websocket.close(
+                code=upstream_ws.close_code, reason=upstream_ws.close_reason or ""
+            )
