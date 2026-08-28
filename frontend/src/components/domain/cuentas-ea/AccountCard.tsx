@@ -2,18 +2,18 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAccountEas } from "@/hooks/queries/useAccounts";
 import { useHeartbeat } from "@/hooks/queries/useExecution";
-import { formatPercent } from "@/lib/formatters";
+import { formatAmount, formatPercent } from "@/lib/formatters";
 import { interpolate } from "@/lib/i18n";
 import uiStrings from "@/styles/ui_strings.es.json";
 import type { AccountRow } from "@/api/endpoints/accounts";
 import type { BotRow } from "@/api/endpoints/bots";
 
 // PARTE 7.2 (diseño derivado, sin captura de referencia). Equity/balance/
-// margen libre/margin level de la spec NO estan en AccountResponse --
-// omitidos (docs/backlog.md); conexion/heartbeat/latencia/uptime
-// reutilizan GET /execution/heartbeat por account_id. `ea_required_version`
-// no existe -- solo se muestra la version reportada, sin badge de
-// desactualizada.
+// margen libre/margin level (G10): EquitySnapshot mas reciente por
+// account_id, `null` si la cuenta nunca reporto uno. Conexion/heartbeat/
+// latencia/uptime reutilizan GET /execution/heartbeat por account_id.
+// `ea_required_version` no existe -- solo se muestra la version
+// reportada, sin badge de desactualizada.
 export function AccountCard({ account, bots }: { account: AccountRow; bots: BotRow[] }) {
   const { data: eas } = useAccountEas(account.id);
   const { data: heartbeats } = useHeartbeat();
@@ -35,6 +35,36 @@ export function AccountCard({ account, bots }: { account: AccountRow; bots: BotR
         </Badge>
       </CardHeader>
       <CardContent className="space-y-3">
+        {/* Grid SIEMPRE presente (nunca se monta/desmonta segun si hay
+        snapshot) -- mismo criterio anti-desplazamiento que los 3 spans de
+        heartbeat de abajo (G9-06/G9-07): "—" por celda en vez de ocultar
+        el bloque entero. */}
+        <dl className="grid grid-cols-4 gap-x-3 text-xs">
+          <div>
+            <dt className="text-text-secondary">{uiStrings.cuentasEa.colEquity}</dt>
+            <dd className="font-semibold text-text-primary">
+              {account.equity === null ? "—" : formatAmount(account.equity)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-text-secondary">{uiStrings.cuentasEa.colBalance}</dt>
+            <dd className="font-semibold text-text-primary">
+              {account.balance === null ? "—" : formatAmount(account.balance)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-text-secondary">{uiStrings.cuentasEa.colFreeMargin}</dt>
+            <dd className="font-semibold text-text-primary">
+              {account.free_margin === null ? "—" : formatAmount(account.free_margin)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-text-secondary">{uiStrings.cuentasEa.colMarginLevel}</dt>
+            <dd className="font-semibold text-text-primary">
+              {account.margin_level === null ? "—" : formatPercent(account.margin_level)}
+            </dd>
+          </div>
+        </dl>
         {/* G9: los 3 spans de detalle SIEMPRE ocupan su sitio (invisible en
         vez de ausentes cuando no aplican) -- montarlos/desmontarlos segun
         heartbeat?.connected desplazaba verticalmente todo el contenido de

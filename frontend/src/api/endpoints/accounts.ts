@@ -1,8 +1,9 @@
 import { apiFetch } from "@/api/client";
 
-// Espejo 1:1 de core/routers/accounts.py. Equity/balance/margen libre NO
-// estan en AccountResponse (docs/backlog.md); heartbeat/uptime se piden
-// aparte via execution.ts::getHeartbeat (mismo account_id).
+// Espejo 1:1 de core/routers/accounts.py. equity/balance/free_margin/
+// margin_level (G10): el EquitySnapshot mas reciente por account_id --
+// `null` si la cuenta nunca reporto uno, nunca inventado. heartbeat/uptime
+// se piden aparte via execution.ts::getHeartbeat (mismo account_id).
 export interface AccountRow {
   id: number;
   name: string;
@@ -12,6 +13,11 @@ export interface AccountRow {
   currency: string;
   is_demo: boolean;
   is_active: boolean;
+  equity: string | null;
+  balance: string | null;
+  free_margin: string | null;
+  margin_level: number | null;
+  equity_ts: string | null;
 }
 
 export function getAccounts(): Promise<AccountRow[]> {
