@@ -30,14 +30,15 @@ G0-G9 (PARTE 12, plan original) están cerradas — ver más abajo. G10 es traba
 - **Tarea aparte flageada, no bloqueante**: auditar los otros 14 usos de `.scalar_one()` en core-engine por el mismo riesgo de hypertable-sin-chunks (ver `ASSUMPTIONS.md` G10-15).
 - **Riesgo** (`7c4c415`, m-03) — hecha, verificada en CI real (`e2e-playwright` verde, run [`33144739367`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33144739367)) y en vivo. 4 gaps de G10 cerrados en frontend (backend ya construido en grupos (g)/(c) antes del checkpoint de pausa): `KillSwitchPanel.tsx` (MAX DD/DURACIÓN DD del episodio), `ExposureCard.tsx` (subtotales por divisa, nativa no EUR), `NewsShieldPanel.tsx` (trades en ventana de noticias agrupado por bot), `MonteCarloList.tsx` (histórico de runs + fecha de firma del contrato).
 - **Portfolio** (`1fc1351`, m-04) — hecha, verificada en CI real (`e2e-playwright` verde, run [`33146440551`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33146440551)) y en vivo. Último gap de G10 para esta pestaña: sección "¿Añade valor real el portfolio?" (`PortfolioBenchmarkCard.tsx`, 8 métricas + badge de veredicto + chart de 2 líneas). TDD real: `compare_to_benchmark()` calculaba la serie mensual alineada internamente pero la descartaba — nuevo campo `monthly_points` (test rojo confirmado antes de implementar).
-- **Siguiente**: Escalado, luego Graveyard/Auditoría/Cuentas-EA, por orden del plan.
+- **Escalado** (`25415a9`, m-05) — hecha, verificada en CI real (`e2e-playwright` verde, run [`33146884718`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33146884718)) y en vivo (estados vacíos correctos, sin `UmsPhaseLog` sembrado en el dev DB local). `MonthlyEvolutionTable.tsx` añade Trades/Retorno/Max DD (backend ya construido en grupo (h)).
+- **Siguiente**: Graveyard, luego Auditoría/Cuentas-EA, por orden del plan.
 
 **Pendiente**:
-- (m) resto de pestañas (Escalado, Graveyard, Auditoría, Cuentas/EA) — cada una: leer captura de referencia → implementar → verificar en vivo en navegador con `core-engine` real levantado → screenshot-diff.
+- (m) resto de pestañas (Graveyard, Auditoría, Cuentas/EA) — cada una: leer captura de referencia → implementar → verificar en vivo en navegador con `core-engine` real levantado → screenshot-diff.
 - (n) Vista `/dominical` nueva (diseño derivado, sin captura) — **requiere aprobación explícita del operador antes de cerrar la fase**, mismo criterio que Cuentas/EA en G7.
 - (o) Cierre: `scan_hardcoding` completo sobre todo lo tocado, `docs/backlog.md` final, PHASE REPORT.
 
-**Al retomar**: releer este bloque + `ASSUMPTIONS.md` G10-00 a G10-15 + `docs/backlog.md` (ya actualizado con cada gap resuelto/investigado) antes de continuar con (m) — Escalado es lo siguiente. El plan aprobado completo sigue en `~/.claude/plans/immutable-bouncing-cascade.md`.
+**Al retomar**: releer este bloque + `ASSUMPTIONS.md` G10-00 a G10-15 + `docs/backlog.md` (ya actualizado con cada gap resuelto/investigado) antes de continuar con (m) — Graveyard es lo siguiente. El plan aprobado completo sigue en `~/.claude/plans/immutable-bouncing-cascade.md`.
 
 ## Fases cerradas (G0-G9, PARTE 12, plan original)
 
