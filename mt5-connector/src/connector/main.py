@@ -64,7 +64,7 @@ async def run(mt5_client: Mt5ClientProtocol, settings: ConnectorSettings | None 
         max_seconds=settings.backoff_max_seconds,
     )
 
-    if not mt5_client.initialize():
+    if not mt5_client.initialize(path=settings.mt5_terminal_path):
         code, description = mt5_client.last_error()
         raise RuntimeError(f"MetaTrader5.initialize() fallo: {code} {description}")
 

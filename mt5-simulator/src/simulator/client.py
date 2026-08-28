@@ -39,7 +39,7 @@ class SimulatedMt5Client:
         active = [s for s in self._timeline if s.elapsed_seconds <= self._clock]
         return active[-1] if active else self._timeline[0]
 
-    def initialize(self) -> bool:
+    def initialize(self, path: str | None = None) -> bool:
         return True
 
     def login(self, login: int, password: str, server: str) -> bool:

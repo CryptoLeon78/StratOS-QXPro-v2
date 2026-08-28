@@ -18,7 +18,7 @@ from connector.main import _get_or_create_connector_instance_id, run
 
 
 class _FailingInitClient(SimulatedMt5Client):
-    def initialize(self) -> bool:  # type: ignore[override]
+    def initialize(self, path: str | None = None) -> bool:  # type: ignore[override]
         return False
 
     def last_error(self) -> tuple[int, str]:
@@ -32,6 +32,33 @@ async def test_get_or_create_connector_instance_id_reuses_existing(tmp_path: Pat
     second = await _get_or_create_connector_instance_id(buffer)
     assert first == second
     await buffer.close()
+
+
+async def test_run_propagates_mt5_terminal_path_to_initialize(tmp_path: Path) -> None:
+    """G11: confirma que `run()` propaga `settings.mt5_terminal_path` hasta
+    `initialize()` -- con 2+ terminales instalados, `initialize()` sin
+    `path` es ambiguo (ver `real_adapter.py`)."""
+    received_paths: list[str | None] = []
+
+    class _PathSpyClient(SimulatedMt5Client):
+        def initialize(self, path: str | None = None) -> bool:  # type: ignore[override]
+            received_paths.append(path)
+            return False
+
+        def last_error(self) -> tuple[int, str]:
+            return (1, "terminal no disponible")
+
+    settings = ConnectorSettings(
+        core_engine_url="http://127.0.0.1:1",
+        ingest_api_key="key",
+        account_login="100231",
+        buffer_db_path=str(tmp_path / "outbox.sqlite"),
+        mt5_terminal_path=r"C:\Program Files\MetaTrader 5\terminal64.exe",
+    )
+    client = _PathSpyClient(build_posicion_sin_sl_timeline())
+    with pytest.raises(RuntimeError, match="initialize"):
+        await run(client, settings)
+    assert received_paths == [r"C:\Program Files\MetaTrader 5\terminal64.exe"]
 
 
 async def test_run_raises_when_mt5_initialize_fails(tmp_path: Path) -> None:

@@ -77,9 +77,11 @@ def _pair_deals_into_closed_trades(raw_deals: Iterable[Any]) -> list[DealDTO]:
 
 
 class RealMt5Client:
-    def initialize(self) -> bool:
+    def initialize(self, path: str | None = None) -> bool:
         import MetaTrader5 as mt5
 
+        if path:
+            return bool(mt5.initialize(path=path))
         return bool(mt5.initialize())
 
     def login(self, login: int, password: str, server: str) -> bool:

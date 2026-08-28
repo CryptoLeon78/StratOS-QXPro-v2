@@ -5,6 +5,7 @@ instalado -- import perezoso, nunca a nivel de modulo); (2) el
 emparejamiento IN/OUT de deals, que es logica Python pura y si se puede
 probar sin el paquete real."""
 
+import sys
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
@@ -62,6 +63,40 @@ class TestModuleImportsCleanly:
         client = RealMt5Client()
         with pytest.raises(ModuleNotFoundError):
             call(client)  # type: ignore[operator]
+
+
+class TestInitializePropagatesTerminalPath:
+    """G11: con 2+ terminales MT5 instalados en la misma maquina,
+    `mt5.initialize()` sin `path` es ambiguo (se conecta a "la instancia que
+    encuentre"). `RealMt5Client.initialize(path=...)` debe pasar ese `path`
+    tal cual al paquete real -- verificado inyectando un modulo `MetaTrader5`
+    falso en `sys.modules` (el paquete real no esta instalado aqui, mismo
+    truco que hace falta para probar cualquier import perezoso sin el
+    paquete Windows-only presente)."""
+
+    def test_path_is_forwarded_to_the_real_package(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        calls: list[dict[str, object]] = []
+        fake_mt5 = SimpleNamespace(
+            initialize=lambda **kwargs: calls.append(kwargs) or True
+        )
+        monkeypatch.setitem(sys.modules, "MetaTrader5", fake_mt5)
+
+        result = RealMt5Client().initialize(path=r"C:\Program Files\MetaTrader 5\terminal64.exe")
+
+        assert result is True
+        assert calls == [{"path": r"C:\Program Files\MetaTrader 5\terminal64.exe"}]
+
+    def test_no_path_calls_initialize_without_arguments(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        calls: list[tuple[object, ...]] = []
+        fake_mt5 = SimpleNamespace(initialize=lambda *a, **kw: calls.append((a, kw)) or True)
+        monkeypatch.setitem(sys.modules, "MetaTrader5", fake_mt5)
+
+        result = RealMt5Client().initialize()
+
+        assert result is True
+        assert calls == [((), {})]
 
 
 class TestPairDealsIntoClosedTrades:
