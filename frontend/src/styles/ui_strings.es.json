@@ -227,6 +227,9 @@
     "colKelly": "Kelly",
     "monthlyEvolutionTitle": "Evolución mensual",
     "colMes": "Mes",
+    "colTrades": "Trades",
+    "colRetorno": "Retorno",
+    "colMaxDd": "Max DD",
     "colSharpe": "Sharpe",
     "emptyMonthly": "Sin historial de fases UMS todavía.",
     "emptyCurrentPhase": "Sin fase UMS registrada todavía."
