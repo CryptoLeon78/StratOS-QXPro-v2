@@ -386,6 +386,19 @@
     "disclaimer": "Verificación técnica de integridad de datos desde su recepción. NO constituye una auditoría contable, financiera ni legal. La exactitud última depende del terminal y del broker."
   },
 
+  "dominical": {
+    "headerLink": "Revisión dominical",
+    "title": "Revisión dominical",
+    "subtitle": "Revisión técnica (mercado cerrado) — errores de EA, desconexiones, órdenes rechazadas. Copia las noticias de la semana entrante al filtro horario.",
+    "noProfitNotice": "Esta vista oculta deliberadamente equity, P&L y drawdown — la revisión dominical es técnica, no de rentabilidad.",
+    "backLink": "← Volver al panel",
+    "eaErrorsTitle": "Errores de EA",
+    "emptyEaErrors": "Sin errores de EA sin resolver.",
+    "rejectedOrdersTitle": "Órdenes rechazadas",
+    "rejectedOrdersPending": "Requiere la v1.1 del EA reporter (sin consumidor de /ingest/execution todavía) — mismo estado que TCA en Ejecución/Cuentas-EA.",
+    "disconnectionsTitle": "Desconexiones"
+  },
+
   "scaffold": {
     "placeholder": "StratOS-QXPro — scaffold G0, pestañas en G6/G7"
   }

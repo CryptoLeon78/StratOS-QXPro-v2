@@ -1,9 +1,10 @@
-import { lazy } from "react";
+import { lazy, Suspense } from "react";
 import { createBrowserRouter } from "react-router-dom";
 
 import LoginPage from "@/routes/LoginPage";
 import ResumenPage from "@/routes/ResumenPage";
 import RootLayout from "@/routes/RootLayout";
+import uiStrings from "@/styles/ui_strings.es.json";
 
 // Code-splitting por ruta (G9, docs/backlog.md): Resumen y Login se
 // cargan EAGER (son lo primero que ve cualquier visitante -- lazy-loadearlas
@@ -21,8 +22,20 @@ const EjecucionPage = lazy(() => import("@/routes/EjecucionPage"));
 const EscaladoPage = lazy(() => import("@/routes/EscaladoPage"));
 const GraveyardPage = lazy(() => import("@/routes/GraveyardPage"));
 const AuditoriaPage = lazy(() => import("@/routes/AuditoriaPage"));
+// G10 (grupo n): NO anidada bajo RootLayout -- vista dominical no lleva
+// AppHeader (EQUITY/P&L/DD) ni TabBar, es "otro modo de revision", no una
+// pestana mas.
+const DominicalPage = lazy(() => import("@/routes/DominicalPage"));
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
+  {
+    path: "/dominical",
+    element: (
+      <Suspense fallback={<div className="p-6 text-text-secondary">{uiStrings.app.loadingTab}</div>}>
+        <DominicalPage />
+      </Suspense>
+    ),
+  },
   {
     path: "/",
     element: <RootLayout />,

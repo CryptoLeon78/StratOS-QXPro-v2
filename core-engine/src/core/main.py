@@ -9,6 +9,7 @@ from core.ingest.router import router as ingest_router
 from core.metrics import PrometheusMiddleware
 from core.metrics import router as metrics_router
 from core.routers.accounts import router as accounts_router
+from core.routers.alerts import router as alerts_router
 from core.routers.audit import router as audit_router
 from core.routers.bots import router as bots_router
 from core.routers.cemetery import router as cemetery_router
@@ -48,6 +49,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(ingest_router)
+app.include_router(alerts_router)
 app.include_router(metrics_router)
 app.include_router(auth_router)
 app.include_router(header_router)

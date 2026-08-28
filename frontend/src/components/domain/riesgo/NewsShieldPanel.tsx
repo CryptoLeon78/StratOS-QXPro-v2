@@ -7,7 +7,7 @@ import { interpolate } from "@/lib/i18n";
 import uiStrings from "@/styles/ui_strings.es.json";
 import type { TradeInNewsWindow } from "@/api/endpoints/news";
 
-const NEWS_SHIELD_HOURS = 48;
+const DEFAULT_NEWS_SHIELD_HOURS = 48;
 
 function formatHhmm(iso: string): string {
   return new Date(iso).toLocaleTimeString("es-ES", {
@@ -39,8 +39,11 @@ function summarizeByBot(trades: TradeInNewsWindow[]): BotNewsTradeSummary[] {
 
 // PARTE 7.7 "News Shield": GET /news/shield?hours=48 + "Trades en ventana de
 // noticias (30 dias)" (G10, GET /news/shield/trades) agrupado por bot.
-export function NewsShieldPanel() {
-  const { data } = useNewsShield(NEWS_SHIELD_HOURS);
+// `hours` es prop (default 48, comportamiento sin cambios en Riesgo) para
+// que la vista dominical (grupo n) pueda reusar el mismo componente con
+// una ventana de 7 dias ("semana entrante") sin duplicar la logica.
+export function NewsShieldPanel({ hours = DEFAULT_NEWS_SHIELD_HOURS }: { hours?: number } = {}) {
+  const { data } = useNewsShield(hours);
   const { data: tradesInWindow } = useNewsShieldTrades();
   const botSummaries = useMemo(() => summarizeByBot(tradesInWindow ?? []), [tradesInWindow]);
   const [copied, setCopied] = useState(false);
@@ -58,9 +61,7 @@ export function NewsShieldPanel() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>
-          {interpolate(uiStrings.riesgo.newsShieldTitle, { hours: NEWS_SHIELD_HOURS })}
-        </CardTitle>
+        <CardTitle>{interpolate(uiStrings.riesgo.newsShieldTitle, { hours })}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <table className="w-full text-sm">

@@ -1,4 +1,5 @@
 import { Bell, Wifi, WifiOff } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { SemaphoreBadge } from "@/components/domain/SemaphoreBadge";
@@ -32,7 +33,15 @@ export function AppHeader() {
         <div>
           <h1 className="text-lg font-semibold text-text-primary">{uiStrings.app.title}</h1>
         </div>
-        {roleLabel && <Badge variant="default">{roleLabel}</Badge>}
+        <div className="flex items-center gap-3">
+          {/* G10 (grupo n): unico punto de entrada a /dominical -- no es
+          una pestana mas (no esta en TabBar), enlace discreto junto al
+          badge de rol. */}
+          <Link to="/dominical" className="text-xs text-text-secondary hover:text-text-primary">
+            {uiStrings.dominical.headerLink}
+          </Link>
+          {roleLabel && <Badge variant="default">{roleLabel}</Badge>}
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-4 px-4 pb-4 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard

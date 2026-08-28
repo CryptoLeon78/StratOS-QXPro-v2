@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { AppHeader } from "@/components/layout/AppHeader";
@@ -16,7 +17,9 @@ function renderAppHeader() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <AppHeader />
+      <MemoryRouter>
+        <AppHeader />
+      </MemoryRouter>
     </QueryClientProvider>
   );
 }
