@@ -34,7 +34,7 @@ export function EquityCard() {
   const maxDdPct = computeMaxDrawdownPct(points.map((p) => p.equity));
 
   return (
-    <Card>
+    <Card data-testid="equity-card">
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle className="text-base">{uiStrings.equityCard.title}</CardTitle>
         <div className="flex gap-1">
