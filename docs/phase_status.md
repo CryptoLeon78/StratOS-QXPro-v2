@@ -23,17 +23,19 @@ G0-G9 (PARTE 12, plan original) están cerradas — ver más abajo. G10 es traba
 **Detalle completo de las 14 decisiones/hallazgos en `ASSUMPTIONS.md` G10-00 a G10-13.**
 
 **(m) frontend — EN CURSO** (reanudado tras el checkpoint de pausa, a petición explícita del operador "Continua con el frontend"):
-- **Salud** (`ec0fc31`) — hecha, verificada en CI real. Bots backend (`f2d8d2f`) también hecho.
-- **Hallazgo mayor de infraestructura E2E, resuelto** (`4f41df4`/`2bf52d3`/`1971978`, ver `ASSUMPTIONS.md` G10-14): `e2e-playwright` estaba roto de forma sistémica (fuente `Inter` no auto-hospedada, resuelta entre máquinas efímeras del runner de forma inconsistente — no era un baseline desactualizado por el trabajo de Salud) + 2 bugs de máscara reales (`headerMask()` sin el badge STALE, `resumen.spec.ts` con máscara duplicada sin el equity-chart cubierto). **`e2e-playwright` verde 12/12 en CI real**, run [`33142226663`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33142226663).
-- **Hallazgo separado, documentado, NO resuelto (decisión explícita del operador)**: `e2e-acceptance-full` roto (criterio 9, Lyra×Phoenix redundante, perfil `full`) — confirmado pre-existente a G10-14, no relacionado con el trabajo de frontend. Ver `ASSUMPTIONS.md` G10-14 y `docs/backlog.md`.
-- **Siguiente**: Bots frontend (BotDetail.tsx + hooks + panels, backend ya construido en `f2d8d2f`), luego Riesgo/Portfolio/Escalado/Graveyard/Auditoría/Cuentas-EA, por orden del plan.
+- **Salud** (`ec0fc31`) — hecha, verificada en CI real.
+- **Bots** (`f2d8d2f` backend + `b5bf044` loss_streak_baseline + `6e49f9c` frontend) — hecha, verificada en vivo (bot con baseline y bot sin trades) y en CI real. 2 bugs reales encontrados y arreglados via verificación en vivo: timestamps duplicados en `BotPnlChart.tsx` (lightweight-charts exige orden estrictamente ascendente) y `compute_portfolio_contribution()` crasheaba con 500 para cualquier bot sin trades (agregado SQL sin GROUP BY sobre el hypertable `trade` de TimescaleDB devuelve 0 filas en vez de la fila que garantiza el estándar SQL). Ver `ASSUMPTIONS.md` G10-15.
+- **Hallazgo mayor de infraestructura E2E, resuelto** (`4f41df4`/`2bf52d3`/`1971978`, ver `ASSUMPTIONS.md` G10-14): `e2e-playwright` estaba roto de forma sistémica (fuente `Inter` no auto-hospedada, resuelta entre máquinas efímeras del runner de forma inconsistente — no era un baseline desactualizado por el trabajo de Salud) + 2 bugs de máscara reales (`headerMask()` sin el badge STALE, `resumen.spec.ts` con máscara duplicada sin el equity-chart cubierto). **`e2e-playwright` verde 12/12 en CI real**, confirmado de nuevo en el run del commit de Bots ([`33144135903`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33144135903)).
+- **Hallazgo separado, documentado, NO resuelto (decisión explícita del operador)**: `e2e-acceptance-full` roto (criterio 9, Lyra×Phoenix redundante, perfil `full`) — confirmado pre-existente a G10-14, no relacionado con el trabajo de frontend, sigue rojo en cada run desde entonces. Ver `ASSUMPTIONS.md` G10-14 y `docs/backlog.md`.
+- **Tarea aparte flageada, no bloqueante**: auditar los otros 14 usos de `.scalar_one()` en core-engine por el mismo riesgo de hypertable-sin-chunks (ver `ASSUMPTIONS.md` G10-15).
+- **Siguiente**: Riesgo, luego Portfolio/Escalado/Graveyard/Auditoría/Cuentas-EA, por orden del plan.
 
 **Pendiente**:
-- (m) resto de pestañas (Bots frontend, Riesgo, Portfolio, Escalado, Graveyard, Auditoría, Cuentas/EA) — cada una: leer captura de referencia → implementar → verificar en vivo en navegador con `core-engine` real levantado → screenshot-diff.
+- (m) resto de pestañas (Riesgo, Portfolio, Escalado, Graveyard, Auditoría, Cuentas/EA) — cada una: leer captura de referencia → implementar → verificar en vivo en navegador con `core-engine` real levantado → screenshot-diff.
 - (n) Vista `/dominical` nueva (diseño derivado, sin captura) — **requiere aprobación explícita del operador antes de cerrar la fase**, mismo criterio que Cuentas/EA en G7.
 - (o) Cierre: `scan_hardcoding` completo sobre todo lo tocado, `docs/backlog.md` final, PHASE REPORT.
 
-**Al retomar**: releer este bloque + `ASSUMPTIONS.md` G10-00 a G10-14 + `docs/backlog.md` (ya actualizado con cada gap resuelto/investigado) antes de continuar con (m) — Bots frontend es lo siguiente. El plan aprobado completo sigue en `~/.claude/plans/immutable-bouncing-cascade.md`.
+**Al retomar**: releer este bloque + `ASSUMPTIONS.md` G10-00 a G10-15 + `docs/backlog.md` (ya actualizado con cada gap resuelto/investigado) antes de continuar con (m) — Riesgo es lo siguiente. El plan aprobado completo sigue en `~/.claude/plans/immutable-bouncing-cascade.md`.
 
 ## Fases cerradas (G0-G9, PARTE 12, plan original)
 
