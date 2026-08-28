@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { getAuditStatus, getSealsSummary, runAuditNow } from "@/api/endpoints/audit";
+import { getAuditStatus, getContinuityGaps, getSealsSummary, runAuditNow } from "@/api/endpoints/audit";
 
 export function useAuditStatus() {
   return useQuery({ queryKey: ["audit-status"], queryFn: getAuditStatus });
@@ -8,6 +8,10 @@ export function useAuditStatus() {
 
 export function useSealsSummary() {
   return useQuery({ queryKey: ["audit-seals"], queryFn: getSealsSummary });
+}
+
+export function useContinuityGaps() {
+  return useQuery({ queryKey: ["audit-continuity-gaps"], queryFn: getContinuityGaps });
 }
 
 export function useRunAudit() {
