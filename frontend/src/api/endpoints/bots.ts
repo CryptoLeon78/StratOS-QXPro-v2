@@ -46,3 +46,71 @@ export interface SemaphoreHistoryRow {
 export function getBotSemaphoreHistory(botId: number): Promise<SemaphoreHistoryRow[]> {
   return apiFetch<SemaphoreHistoryRow[]>(`/api/v1/bots/${botId}/semaphore-history`);
 }
+
+// Espejo 1:1 de core/routers/bots.py::OpenPositionRow (G10, grupo g).
+export interface OpenPositionRow {
+  id: number;
+  ticket_mt5: number;
+  symbol: string;
+  type: string;
+  open_time: string;
+  volume: string;
+  open_price: string;
+  sl: string | null;
+  tp: string | null;
+  profit: string;
+}
+
+export function getBotOpenPositions(botId: number): Promise<OpenPositionRow[]> {
+  return apiFetch<OpenPositionRow[]>(`/api/v1/bots/${botId}/open-positions`);
+}
+
+// Espejo 1:1 de core/routers/bots.py::PnlCurvePoint (G10, grupo m-02a).
+export interface PnlCurvePoint {
+  ts: string | null;
+  cumulative_pnl: string;
+}
+
+export function getBotPnlCurve(botId: number): Promise<PnlCurvePoint[]> {
+  return apiFetch<PnlCurvePoint[]>(`/api/v1/bots/${botId}/pnl-curve`);
+}
+
+export function getBotRMultiples(botId: number): Promise<string[]> {
+  return apiFetch<string[]>(`/api/v1/bots/${botId}/r-multiples`);
+}
+
+// Espejo 1:1 de core/routers/bots.py::BotMetricsResponse (G10, grupo m-02a).
+export interface BotMetricsResponse {
+  has_baseline: boolean;
+  sharpe_rolling: number | null;
+  pf_rolling: number | null;
+  exp_rolling: number | null;
+  win_rate_rolling: number | null;
+  payoff_rolling: number | null;
+  avg_trade_duration_rolling_min: number | null;
+  loss_streak: number | null;
+  loss_streak_baseline: number | null;
+  dd_rolling_pct: string | null;
+  sharpe_baseline: number | null;
+  pf_baseline: number | null;
+  exp_baseline: number | null;
+  win_rate_baseline: number | null;
+  payoff_baseline: number | null;
+  avg_trade_duration_baseline_min: number | null;
+  dd_contract_pct: string | null;
+  sortino: number | null;
+  calmar: number | null;
+  max_dd_pct: number;
+  ulcer_index: number;
+  recovery_factor: number | null;
+  net_pnl: string;
+  trades_per_month: number;
+  pct_of_total_pnl: number | null;
+  correlation_vs_rest: number | null;
+  pnl_bot: string;
+  pnl_account: string;
+}
+
+export function getBotMetrics(botId: number): Promise<BotMetricsResponse> {
+  return apiFetch<BotMetricsResponse>(`/api/v1/bots/${botId}/metrics`);
+}

@@ -281,6 +281,27 @@ class TestComputePortfolioContribution:
         contribution = await compute_portfolio_contribution(db_session, bot)  # type: ignore[arg-type]
         assert contribution.correlation_vs_rest == pytest.approx(0.4)  # (0.2+0.6)/2
 
+    async def test_bot_with_zero_trades_returns_zero_not_a_crash(self, db_session: object) -> None:
+        # Bug real encontrado en verificacion en vivo (G10, bot_id=33 "Zephyr
+        # Trend AUDUSD" del seed real, F1 sin trades): `trade` es hypertable
+        # TimescaleDB -- un agregado SIN GROUP BY que no toca ningun chunk
+        # (filtro que no coincide con NINGUN trade fisico ya commiteado)
+        # devuelve CERO filas, no la fila unica que garantiza el estandar
+        # SQL (COALESCE(SUM(...),0)); `.scalar_one()` lanzaba NoResultFound.
+        # Esta fixture (transaccion/savepoint, sin datos commiteados a nivel
+        # de chunk) NO reproduce el quirk fisico de Timescale -- pero fija
+        # el contrato correcto (0, no crash) que el fix (`.scalar()` +
+        # fallback) garantiza en ambos casos.
+        from core.services.bot_equity import compute_portfolio_contribution
+
+        bot, _account, _batch = await _bot(db_session)
+
+        contribution = await compute_portfolio_contribution(db_session, bot)  # type: ignore[arg-type]
+        assert contribution.pnl_bot == Decimal("0")
+        assert contribution.pnl_account == Decimal("0")
+        assert contribution.pct_of_total_pnl is None
+        assert contribution.correlation_vs_rest is None
+
 
 class TestBotPnlCurveWithDates:
     async def test_pairs_each_point_with_its_close_time(self, db_session: object) -> None:
