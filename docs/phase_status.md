@@ -33,14 +33,15 @@ G0-G9 (PARTE 12, plan original) están cerradas — ver más abajo. G10 es traba
 - **Escalado** (`25415a9`, m-05) — hecha, verificada en CI real (`e2e-playwright` verde, run [`33146884718`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33146884718)) y en vivo (estados vacíos correctos, sin `UmsPhaseLog` sembrado en el dev DB local). `MonthlyEvolutionTable.tsx` añade Trades/Retorno/Max DD (backend ya construido en grupo (h)).
 - **Graveyard** — revisado, SIN gap de G10 pendiente (fecha de inicio ya investigada y confirmada irresoluble en el checkpoint de pausa, ver `docs/adr/0006`; el resto ya estaba completo desde G7). No requirió commit.
 - **Auditoría** (`1bdc6f5`, m-06) — hecha, verificada en CI real (`e2e-playwright` verde, run [`33147293299`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33147293299)) y en vivo. `ContinuityCard.tsx` lista los tramos sin envío detallados por cuenta (backend ya construido en grupo (i)).
-- **Siguiente**: Cuentas/EA — última pestaña regular del plan. Tras esa, queda (n) vista `/dominical` (necesita aprobación del operador) y (o) cierre.
+- **Cuentas/EA** (`1544fc2` + `5016275` baseline, m-07) — hecha, verificada en CI real (`e2e-playwright` verde, run [`33148244916`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33148244916)) y en vivo (cuenta con snapshot parcial + cuenta sin snapshot). `AccountCard.tsx` añade el grid de 4 celdas Equity/Balance/Margen libre/Margin level (backend ya construido en grupo (g)) — grid siempre presente, "—" por celda faltante (mismo criterio anti-desplazamiento que G9-06/G9-07). Baseline `cuentas_ea.png` regenerado (cambio de altura real de la tarjeta, no flake).
+
+**(m) COMPLETO — las 7 pestañas regulares del plan cerradas y verificadas en CI real** (Salud/Bots/Riesgo/Portfolio/Escalado/Graveyard[sin gap]/Auditoría/Cuentas-EA). Siguiente: (n) vista `/dominical` (necesita aprobación del operador antes de construirla) y (o) cierre de fase.
 
 **Pendiente**:
-- (m) Cuentas/EA — leer captura de referencia → implementar → verificar en vivo en navegador con `core-engine` real levantado → screenshot-diff.
-- (n) Vista `/dominical` nueva (diseño derivado, sin captura) — **requiere aprobación explícita del operador antes de cerrar la fase**, mismo criterio que Cuentas/EA en G7.
+- (n) Vista `/dominical` nueva (diseño derivado, sin captura) — **requiere aprobación explícita del operador antes de cerrar la fase**, mismo criterio que Cuentas/EA en G7. Sin cifras de rentabilidad (equity/P&L/DD ausentes por completo, criterio de salida literal de PARTE 16 #14).
 - (o) Cierre: `scan_hardcoding` completo sobre todo lo tocado, `docs/backlog.md` final, PHASE REPORT.
 
-**Al retomar**: releer este bloque + `ASSUMPTIONS.md` G10-00 a G10-15 + `docs/backlog.md` (ya actualizado con cada gap resuelto/investigado) antes de continuar con (m) — Cuentas/EA es lo siguiente. El plan aprobado completo sigue en `~/.claude/plans/immutable-bouncing-cascade.md`.
+**Al retomar**: releer este bloque + `ASSUMPTIONS.md` G10-00 a G10-15 + `docs/backlog.md` (ya actualizado con cada gap resuelto/investigado) antes de continuar con (n) — preguntar al operador cómo quiere abordar la vista dominical (punto de entrada: ¿enlace en Resumen? ¿ruta solo por URL directa?) antes de escribir código. El plan aprobado completo sigue en `~/.claude/plans/immutable-bouncing-cascade.md`.
 
 ## Fases cerradas (G0-G9, PARTE 12, plan original)
 
