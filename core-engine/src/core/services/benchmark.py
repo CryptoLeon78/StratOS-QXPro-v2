@@ -13,7 +13,7 @@ comparar contra el seed real de este sistema puede dar una correlacion
 espuria, no es un bug del calculo."""
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -60,6 +60,13 @@ def load_sp500_monthly(csv_path: Path | None = None) -> pd.Series:
 
 
 @dataclass(frozen=True)
+class MonthlyReturnPoint:
+    date: date
+    portfolio_return: float
+    benchmark_return: float
+
+
+@dataclass(frozen=True)
 class BenchmarkComparison:
     n_months: int
     cagr_portfolio: float
@@ -72,6 +79,7 @@ class BenchmarkComparison:
     batting_average: float
     up_capture: float | None
     down_capture: float | None
+    monthly_points: list[MonthlyReturnPoint]
 
 
 def _cagr_pct(monthly_returns: pd.Series, n_months: int) -> float:
@@ -132,4 +140,13 @@ def compare_to_benchmark(
         batting_average=batting_average,
         up_capture=up_capture,
         down_capture=down_capture,
+        monthly_points=[
+            MonthlyReturnPoint(date=ts, portfolio_return=port, benchmark_return=bench)
+            for ts, port, bench in zip(
+                pd.DatetimeIndex(aligned.index).date,
+                aligned["portfolio"],
+                aligned["benchmark"],
+                strict=True,
+            )
+        ],
     )

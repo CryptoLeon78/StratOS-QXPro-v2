@@ -197,7 +197,23 @@
       "GRID_SCALPING": "Grid / Scalping",
       "AI_ML": "ML / IA"
     },
-    "emptyState": "Sin bots activos (F7/Producción) todavía."
+    "emptyState": "Sin bots activos (F7/Producción) todavía.",
+    "benchmarkTitle": "¿Añade valor real el portfolio?",
+    "benchmarkSelector": "S&P 500",
+    "benchmarkAddsValue": "El portfolio añade valor real vs benchmark.",
+    "benchmarkNoValue": "El portfolio NO añade valor real vs benchmark.",
+    "benchmarkEmpty": "Sin suficientes meses solapados de equity real y S&P 500 todavía.",
+    "colPortfolioCagr": "PORTFOLIO CAGR",
+    "colBenchmarkCagr": "S&P 500 CAGR",
+    "colBeta": "BETA",
+    "colAlphaJensen": "α JENSEN (MENSUAL)",
+    "colTStatAlpha": "T-STAT α",
+    "colInformationRatio": "INFORMATION RATIO",
+    "colBattingAvg": "BATTING AVG",
+    "colUpDownCapture": "UP / DOWN CAPTURE",
+    "benchmarkSource": "Source: FRED, Federal Reserve Bank of St. Louis",
+    "legendPortfolio": "Portfolio",
+    "legendBenchmark": "S&P 500"
   },
 
   "escalado": {

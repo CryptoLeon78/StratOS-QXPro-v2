@@ -1,11 +1,10 @@
 import { CorrelationMatrix } from "@/components/domain/portfolio/CorrelationMatrix";
 import { MacroStructureCard } from "@/components/domain/portfolio/MacroStructureCard";
 import { MicroProfilesTable } from "@/components/domain/portfolio/MicroProfilesTable";
+import { PortfolioBenchmarkCard } from "@/components/domain/portfolio/PortfolioBenchmarkCard";
 
-// PARTE 7.5. La seccion "Añade valor real el portfolio?" (comparacion vs
-// S&P500, alfa de Jensen) de la captura se omite en G7: ols_alpha_beta
-// existe (G2) pero ningun servicio la invoca contra scripts/data/
-// sp500_monthly.csv -- docs/backlog.md.
+// PARTE 7.5. "¿Añade valor real el portfolio?" (G10, services/benchmark.py)
+// cierra el ultimo gap de la pestaña -- ver docs/backlog.md.
 export default function PortfolioPage() {
   return (
     <div className="space-y-4 p-4">
@@ -14,6 +13,7 @@ export default function PortfolioPage() {
         <MicroProfilesTable />
       </div>
       <CorrelationMatrix />
+      <PortfolioBenchmarkCard />
     </div>
   );
 }

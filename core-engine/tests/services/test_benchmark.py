@@ -61,6 +61,22 @@ class TestCompareToBenchmark:
         assert result.up_capture == pytest.approx(200.0)
         assert result.down_capture == pytest.approx(200.0)
 
+    def test_monthly_points_carries_the_aligned_series_for_the_chart(self) -> None:
+        # G10: "¿Añade valor real el portfolio?" (7.3) necesita el chart de
+        # 2 lineas (portfolio vs benchmark) -- la serie mensual alineada ya
+        # se calcula internamente (`aligned`) pero antes se descartaba,
+        # solo se devolvian los agregados. Sin esto, el frontend no tiene
+        # datos reales para el chart (no se inventa una serie).
+        benchmark = pd.Series([0.02, -0.01, 0.03, 0.01], index=_dates(4))
+        portfolio = pd.Series([0.015, -0.005, 0.025, 0.02], index=_dates(4))
+        result = compare_to_benchmark(portfolio, benchmark)
+        assert result is not None
+        assert len(result.monthly_points) == 4
+        first = result.monthly_points[0]
+        assert first.date == _dates(4)[0].date()
+        assert first.portfolio_return == pytest.approx(0.015)
+        assert first.benchmark_return == pytest.approx(0.02)
+
     def test_too_few_overlapping_months_returns_none(self) -> None:
         benchmark = pd.Series([0.01, 0.02], index=_dates(2))
         portfolio = pd.Series([0.01, 0.02], index=_dates(2))

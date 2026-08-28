@@ -29,3 +29,30 @@ export function getPortfolioCorrelations(windowDays?: number): Promise<Correlati
   const query = windowDays ? `?window_days=${windowDays}` : "";
   return apiFetch<CorrelationRow[]>(`/api/v1/portfolio/correlations${query}`);
 }
+
+// G10: "¿Añade valor real el portfolio?" -- espejo 1:1 de
+// BenchmarkComparisonResponse/MonthlyReturnPointResponse.
+export interface MonthlyReturnPoint {
+  date: string;
+  portfolio_return: number;
+  benchmark_return: number;
+}
+
+export interface BenchmarkComparison {
+  n_months: number;
+  cagr_portfolio: number;
+  cagr_benchmark: number;
+  alpha: number;
+  beta: number;
+  t_stat: number;
+  p_value: number;
+  information_ratio: number;
+  batting_average: number;
+  up_capture: number | null;
+  down_capture: number | null;
+  monthly_points: MonthlyReturnPoint[];
+}
+
+export function getPortfolioBenchmark(): Promise<BenchmarkComparison | null> {
+  return apiFetch<BenchmarkComparison | null>("/api/v1/portfolio/benchmark");
+}

@@ -8,7 +8,7 @@ por `correlations.py::run_correlation_job` (G5), no recalcula nada.
 `GET /portfolio/benchmark` (G10, docs/backlog.md): "¿Añade valor real el
 portfolio?" -- `services/benchmark.py` (nuevo)."""
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends
@@ -63,6 +63,12 @@ class AllocationRow(BaseModel):
     bot_count: int
 
 
+class MonthlyReturnPointResponse(BaseModel):
+    date: date
+    portfolio_return: float
+    benchmark_return: float
+
+
 class BenchmarkComparisonResponse(BaseModel):
     n_months: int
     cagr_portfolio: float
@@ -75,6 +81,7 @@ class BenchmarkComparisonResponse(BaseModel):
     batting_average: float
     up_capture: float | None
     down_capture: float | None
+    monthly_points: list[MonthlyReturnPointResponse]
 
 
 class CorrelationRow(BaseModel):
