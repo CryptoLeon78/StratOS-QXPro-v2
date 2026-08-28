@@ -2,7 +2,11 @@
 
 > Se actualiza SIEMPRE al cerrar trabajo (regla de continuidad entre sesiones). Al abrir sesión, leer esto + `CLAUDE.md` + `ASSUMPTIONS.md` antes de proponer nada.
 
-## Fase actual: G10 — Cierre de huecos de negocio (docs/backlog.md) — EN CURSO, pausada por el operador
+## Fase actual: ninguna — G10 CERRADA, sin fase nueva abierta
+
+G10 (ver detalle completo más abajo) quedó cerrada tras el grupo (o): PHASE REPORT completo en `ASSUMPTIONS.md` G10-16, `scan_hardcoding` consolidado limpio, `docs/backlog.md` actualizado. CI real 9/10 jobs verdes de forma consistente (el único rojo, `e2e-acceptance-full` criterio 9, es una regresión confirmada NO relacionada con G10 — ver G10-14/`docs/backlog.md`, decisión explícita del operador de no bloquear el cierre por ella). No hay trabajo pendiente de esta fase; el siguiente trabajo (nuevas features, bugs reales que aparezcan en operación) se planifica cuando el operador lo pida.
+
+## G10 — Cierre de huecos de negocio (docs/backlog.md) — CERRADA
 
 G0-G9 (PARTE 12, plan original) están cerradas — ver más abajo. G10 es trabajo nuevo, fuera de ese plan, iniciado a petición del operador para abordar el backlog de huecos de negocio acumulado en G4-G9 (plan aprobado, `~/.claude/plans/immutable-bouncing-cascade.md`).
 
@@ -39,12 +43,9 @@ G0-G9 (PARTE 12, plan original) están cerradas — ver más abajo. G10 es traba
 
 **(n) COMPLETO — Vista `/dominical`** (`7376513`), aprobada explícitamente por el operador antes de construirla, verificada en CI real (`e2e-playwright` verde, run [`33149603328`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33149603328)) y en vivo. Ruta de nivel superior (NO en `RootLayout`, NO en `TabBar`), punto de entrada: enlace discreto en `AppHeader`. Backend nuevo `GET /alerts` (TDD, gap real: `Alert(module="config_drift")` nunca se listaba). Reusa `HeartbeatCard`/`WatchdogTable` (desconexiones) y `NewsShieldPanel` con `hours=168` (noticias semana entrante, ahora prop configurable). "Órdenes rechazadas" documentado pendiente (v1.1 EA reporter). Criterio literal PARTE 16 #14 verificado con test de contenido real (`vista_dominical.spec.ts`): EQUITY/P&L DÍA/DRAWDOWN nunca aparecen.
 
-**Siguiente y último paso de G10: (o) Cierre de fase.**
+**(o) Cierre — COMPLETO**: `scan_hardcoding` consolidado sobre todo el repo ejecutado, ficheros tocados por G10 verificados uno a uno (constantes con nombre+comentario de origen o docstring, cero hallazgos nuevos sin justificar). `docs/backlog.md` y `ASSUMPTIONS.md` (G10-00 a G10-16) al día. PHASE REPORT completo en `ASSUMPTIONS.md` G10-16 (5 secciones: archivos, tests, criterios de salida uno a uno, entradas nuevas, screenshot-diff).
 
-**Pendiente**:
-- (o) Cierre: `scan_hardcoding` completo sobre todo lo tocado en G10 (ya verificado limpio en cada commit, falta el pase final consolidado), `docs/backlog.md`/`ASSUMPTIONS.md` finales, PHASE REPORT de toda la fase G10.
-
-**Al retomar**: releer este bloque + `ASSUMPTIONS.md` G10-00 a G10-15 + `docs/backlog.md` (ya actualizado con cada gap resuelto/investigado, incluida la vista dominical) antes de escribir el PHASE REPORT final de (o). El plan aprobado completo sigue en `~/.claude/plans/immutable-bouncing-cascade.md`.
+**Fuera de alcance de G10, dejado explícitamente sin resolver, con razón documentada** (no bloquea el cierre): `ea_required_version` (Cuentas/EA), "Backtest vs Forward" del pipeline, "Graveyard fecha de inicio", precios de seed no realistas en GDAXI/NDX/SPX500/US30, `e2e-acceptance-full` criterio 9 (Lyra×Phoenix). Ver `docs/backlog.md` para el detalle de cada uno.
 
 ## Fases cerradas (G0-G9, PARTE 12, plan original)
 
