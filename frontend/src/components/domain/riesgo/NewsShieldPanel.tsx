@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useNewsShield } from "@/hooks/queries/useNews";
+import { useNewsShield, useNewsShieldTrades } from "@/hooks/queries/useNews";
 import { interpolate } from "@/lib/i18n";
 import uiStrings from "@/styles/ui_strings.es.json";
+import type { TradeInNewsWindow } from "@/api/endpoints/news";
 
 const NEWS_SHIELD_HOURS = 48;
 
@@ -16,11 +17,32 @@ function formatHhmm(iso: string): string {
   });
 }
 
-// PARTE 7.7 "News Shield": GET /news/shield?hours=48. "Trades en ventana de
-// noticias (30 dias)" de la captura no esta en NewsShieldRow (ningun
-// endpoint cruza trades x ventanas) -- omitido, docs/backlog.md.
+interface BotNewsTradeSummary {
+  botName: string;
+  count: number;
+  lastNewsTitle: string;
+}
+
+// Agrupa por bot y toma la noticia mas reciente (news_ts) por bot -- "N
+// trade(s) ejecutado(s) en ventana (ultimo: <titulo>)" de la captura.
+function summarizeByBot(trades: TradeInNewsWindow[]): BotNewsTradeSummary[] {
+  const byBot = new Map<string, TradeInNewsWindow[]>();
+  for (const t of trades) {
+    const key = t.bot_name ?? "—";
+    byBot.set(key, [...(byBot.get(key) ?? []), t]);
+  }
+  return [...byBot.entries()].map(([botName, botTrades]) => {
+    const latest = botTrades.reduce((a, b) => (a.news_ts > b.news_ts ? a : b));
+    return { botName, count: botTrades.length, lastNewsTitle: latest.news_title };
+  });
+}
+
+// PARTE 7.7 "News Shield": GET /news/shield?hours=48 + "Trades en ventana de
+// noticias (30 dias)" (G10, GET /news/shield/trades) agrupado por bot.
 export function NewsShieldPanel() {
   const { data } = useNewsShield(NEWS_SHIELD_HOURS);
+  const { data: tradesInWindow } = useNewsShieldTrades();
+  const botSummaries = useMemo(() => summarizeByBot(tradesInWindow ?? []), [tradesInWindow]);
   const [copied, setCopied] = useState(false);
 
   const windowsText = (data ?? [])
@@ -65,6 +87,26 @@ export function NewsShieldPanel() {
             </Button>
           </div>
         )}
+        <div>
+          <p className="text-xs font-medium text-text-secondary">
+            {uiStrings.riesgo.tradesInWindowTitle}
+          </p>
+          {botSummaries.length === 0 ? (
+            <p className="text-xs text-text-muted">{uiStrings.riesgo.emptyTradesInWindow}</p>
+          ) : (
+            <ul className="space-y-0.5 text-xs text-text-secondary">
+              {botSummaries.map((s) => (
+                <li key={s.botName}>
+                  {interpolate(uiStrings.riesgo.tradesInWindowRow, {
+                    bot: s.botName,
+                    count: s.count,
+                    news: s.lastNewsTitle,
+                  })}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

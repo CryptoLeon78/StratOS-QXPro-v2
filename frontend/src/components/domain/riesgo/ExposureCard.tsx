@@ -1,16 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useExposure } from "@/hooks/queries/useRisk";
+import { useExposure, useExposureByCurrency } from "@/hooks/queries/useRisk";
 import { formatSignedAmount } from "@/lib/formatters";
 import { interpolate } from "@/lib/i18n";
 import uiStrings from "@/styles/ui_strings.es.json";
 
-// PARTE 7.7 "Exposicion en vivo": GET /risk/exposure, agregado solo por
-// simbolo (unidad nativa, sin conversion de divisa -- gap ya documentado
-// en G5/docs/backlog.md). Los subtotales por divisa de la captura ("BTC:
-// +0.46  USD: +2.33") no estan en ExposureRowResponse (no tiene campo de
-// divisa) -- se omiten.
+// PARTE 7.7 "Exposicion en vivo": GET /risk/exposure, agregado por simbolo
+// (unidad nativa). Subtotales por divisa ("BTC: +0.46  USD: +2.33") desde
+// G10: GET /risk/exposure/by-currency (unidad nativa, NO conversion a EUR
+// -- ese endpoint separado, /risk/exposure/eur, no se consume aqui porque
+// la captura muestra montos en la divisa propia de cada posicion, no EUR).
 export function ExposureCard() {
   const { data } = useExposure();
+  const { data: byCurrency } = useExposureByCurrency();
 
   return (
     <Card>
@@ -40,6 +41,16 @@ export function ExposureCard() {
             ))}
           </tbody>
         </table>
+        {(byCurrency ?? []).length > 0 && (
+          <p className="mt-2 text-xs text-text-secondary">
+            {(byCurrency ?? [])
+              .map(
+                (row) =>
+                  `${row.currency}: ${formatSignedAmount(row.net_volume)}`
+              )
+              .join("  ")}
+          </p>
+        )}
       </CardContent>
     </Card>
   );

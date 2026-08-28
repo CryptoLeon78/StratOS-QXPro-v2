@@ -1,21 +1,24 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useBots } from "@/hooks/queries/useBots";
-import { useMonteCarlo } from "@/hooks/queries/useRisk";
+import { useMonteCarloHistory } from "@/hooks/queries/useRisk";
 import { formatPercent } from "@/lib/formatters";
+import { interpolate } from "@/lib/i18n";
 import uiStrings from "@/styles/ui_strings.es.json";
 import type { BotRow } from "@/api/endpoints/bots";
 
 const ACTIVE_PHASES = new Set(["F7", "PRODUCCION"]);
 
 // PARTE 7.7 "Drawdown esperado (Monte Carlo) y contrato de drawdown": una
-// tarjeta por bot activo, GET /risk/montecarlo?bot_id=. "Historico" DD% y
-// fecha de firma del contrato de la captura no estan en MonteCarloResponse
-// -- se omiten (docs/backlog.md), solo P50/P75/P95/contrato.
+// tarjeta por bot activo. GET /risk/montecarlo/history (G10, todas las
+// runs, mas recientes primero) en vez de /montecarlo (solo la ultima) --
+// "Historico" de la captura son las runs anteriores; la fecha de firma del
+// contrato es `ts` de la run vigente (ya estaba en el schema desde G5).
 function MonteCarloRow({ bot }: { bot: BotRow }) {
-  const { data } = useMonteCarlo(bot.id);
+  const { data: history } = useMonteCarloHistory(bot.id);
+  const [latest, ...previous] = history ?? [];
 
-  if (!data) {
+  if (!latest) {
     return (
       <div className="border-t border-border-subtle py-2 first:border-t-0">
         <p className="font-medium text-text-primary">{bot.name}</p>
@@ -24,7 +27,7 @@ function MonteCarloRow({ bot }: { bot: BotRow }) {
     );
   }
 
-  const breach = Number(data.dd_p95) > Number(data.dd_contract_pct);
+  const breach = Number(latest.dd_p95) > Number(latest.dd_contract_pct);
 
   return (
     <div className="border-t border-border-subtle py-2 first:border-t-0">
@@ -37,9 +40,21 @@ function MonteCarloRow({ bot }: { bot: BotRow }) {
         </Badge>
       </div>
       <p className="text-xs text-text-secondary">
-        P50: {formatPercent(data.dd_p50)} · P75: {formatPercent(data.dd_p75)} · P95:{" "}
-        {formatPercent(data.dd_p95)} · Contrato: {formatPercent(data.dd_contract_pct)}
+        P50: {formatPercent(latest.dd_p50)} · P75: {formatPercent(latest.dd_p75)} · P95:{" "}
+        {formatPercent(latest.dd_p95)} ·{" "}
+        {interpolate(uiStrings.riesgo.contractSigned, {
+          pct: formatPercent(latest.dd_contract_pct),
+          date: new Date(latest.ts).toLocaleDateString("es-ES"),
+        })}
       </p>
+      {previous.length > 0 && (
+        <p className="text-xs text-text-muted">
+          {uiStrings.riesgo.historicoLabel}{" "}
+          {previous
+            .map((run) => `${formatPercent(run.dd_p95)} (${new Date(run.ts).toLocaleDateString("es-ES")})`)
+            .join(" · ")}
+        </p>
+      )}
     </div>
   );
 }

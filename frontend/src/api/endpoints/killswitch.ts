@@ -7,6 +7,8 @@ export interface KillSwitchStatus {
   level: number;
   portfolio_dd_pct: string | null;
   instruction_text: string | null;
+  episode_max_dd_pct: string | null;
+  episode_duration_seconds: number | null;
 }
 
 export function getKillSwitchStatus(): Promise<KillSwitchStatus> {
