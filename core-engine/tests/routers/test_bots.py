@@ -235,6 +235,7 @@ class TestBotMetrics:
         body = response.json()
         assert body["has_baseline"] is True
         assert body["pf_baseline"] == baseline.profit_factor
+        assert body["loss_streak_baseline"] == baseline.max_consec_losses
         assert Decimal(body["net_pnl"]) == Decimal("30.00")
         assert Decimal(body["pnl_bot"]) == Decimal("30.00")
         assert Decimal(body["pnl_account"]) == Decimal("30.00")

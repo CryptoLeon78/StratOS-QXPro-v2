@@ -98,6 +98,7 @@ class BotMetricsResponse(BaseModel):
     payoff_rolling: float | None
     avg_trade_duration_rolling_min: float | None
     loss_streak: int | None
+    loss_streak_baseline: int | None
     dd_rolling_pct: Decimal | None
     # baseline
     sharpe_baseline: float | None
@@ -211,6 +212,7 @@ async def bot_metrics(
             payoff_rolling=None,
             avg_trade_duration_rolling_min=None,
             loss_streak=None,
+            loss_streak_baseline=None,
             dd_rolling_pct=None,
             sharpe_baseline=None,
             pf_baseline=None,
@@ -244,6 +246,7 @@ async def bot_metrics(
         payoff_rolling=chips.payoff,
         avg_trade_duration_rolling_min=chips.avg_trade_duration_min,
         loss_streak=semaphore_metrics.loss_streak,
+        loss_streak_baseline=semaphore_metrics.loss_streak_p99_baseline,
         dd_rolling_pct=semaphore_metrics.dd_bot_pct,
         sharpe_baseline=baseline.sharpe,
         pf_baseline=semaphore_metrics.pf_baseline,
