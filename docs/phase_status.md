@@ -35,13 +35,16 @@ G0-G9 (PARTE 12, plan original) están cerradas — ver más abajo. G10 es traba
 - **Auditoría** (`1bdc6f5`, m-06) — hecha, verificada en CI real (`e2e-playwright` verde, run [`33147293299`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33147293299)) y en vivo. `ContinuityCard.tsx` lista los tramos sin envío detallados por cuenta (backend ya construido en grupo (i)).
 - **Cuentas/EA** (`1544fc2` + `5016275` baseline, m-07) — hecha, verificada en CI real (`e2e-playwright` verde, run [`33148244916`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33148244916)) y en vivo (cuenta con snapshot parcial + cuenta sin snapshot). `AccountCard.tsx` añade el grid de 4 celdas Equity/Balance/Margen libre/Margin level (backend ya construido en grupo (g)) — grid siempre presente, "—" por celda faltante (mismo criterio anti-desplazamiento que G9-06/G9-07). Baseline `cuentas_ea.png` regenerado (cambio de altura real de la tarjeta, no flake).
 
-**(m) COMPLETO — las 7 pestañas regulares del plan cerradas y verificadas en CI real** (Salud/Bots/Riesgo/Portfolio/Escalado/Graveyard[sin gap]/Auditoría/Cuentas-EA). Siguiente: (n) vista `/dominical` (necesita aprobación del operador antes de construirla) y (o) cierre de fase.
+**(m) COMPLETO — las 7 pestañas regulares del plan cerradas y verificadas en CI real** (Salud/Bots/Riesgo/Portfolio/Escalado/Graveyard[sin gap]/Auditoría/Cuentas-EA).
+
+**(n) COMPLETO — Vista `/dominical`** (`7376513`), aprobada explícitamente por el operador antes de construirla, verificada en CI real (`e2e-playwright` verde, run [`33149603328`](https://github.com/CryptoLeon78/StratOS-QXPro-v2/actions/runs/33149603328)) y en vivo. Ruta de nivel superior (NO en `RootLayout`, NO en `TabBar`), punto de entrada: enlace discreto en `AppHeader`. Backend nuevo `GET /alerts` (TDD, gap real: `Alert(module="config_drift")` nunca se listaba). Reusa `HeartbeatCard`/`WatchdogTable` (desconexiones) y `NewsShieldPanel` con `hours=168` (noticias semana entrante, ahora prop configurable). "Órdenes rechazadas" documentado pendiente (v1.1 EA reporter). Criterio literal PARTE 16 #14 verificado con test de contenido real (`vista_dominical.spec.ts`): EQUITY/P&L DÍA/DRAWDOWN nunca aparecen.
+
+**Siguiente y último paso de G10: (o) Cierre de fase.**
 
 **Pendiente**:
-- (n) Vista `/dominical` nueva (diseño derivado, sin captura) — **requiere aprobación explícita del operador antes de cerrar la fase**, mismo criterio que Cuentas/EA en G7. Sin cifras de rentabilidad (equity/P&L/DD ausentes por completo, criterio de salida literal de PARTE 16 #14).
-- (o) Cierre: `scan_hardcoding` completo sobre todo lo tocado, `docs/backlog.md` final, PHASE REPORT.
+- (o) Cierre: `scan_hardcoding` completo sobre todo lo tocado en G10 (ya verificado limpio en cada commit, falta el pase final consolidado), `docs/backlog.md`/`ASSUMPTIONS.md` finales, PHASE REPORT de toda la fase G10.
 
-**Al retomar**: releer este bloque + `ASSUMPTIONS.md` G10-00 a G10-15 + `docs/backlog.md` (ya actualizado con cada gap resuelto/investigado) antes de continuar con (n) — preguntar al operador cómo quiere abordar la vista dominical (punto de entrada: ¿enlace en Resumen? ¿ruta solo por URL directa?) antes de escribir código. El plan aprobado completo sigue en `~/.claude/plans/immutable-bouncing-cascade.md`.
+**Al retomar**: releer este bloque + `ASSUMPTIONS.md` G10-00 a G10-15 + `docs/backlog.md` (ya actualizado con cada gap resuelto/investigado, incluida la vista dominical) antes de escribir el PHASE REPORT final de (o). El plan aprobado completo sigue en `~/.claude/plans/immutable-bouncing-cascade.md`.
 
 ## Fases cerradas (G0-G9, PARTE 12, plan original)
 
