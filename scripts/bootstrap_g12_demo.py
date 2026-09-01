@@ -20,6 +20,13 @@ from core.services.admin_imports import import_sqx_baseline
 from core.services.pipeline_history import record_phase_transition
 
 
+# Recuento cerrado de la campana G12: los 16 supervivientes MANTENER del veredicto del
+# stock (11 READY + 5 WITHHELD). No es un umbral configurable -- es el tamano exacto
+# del lote que el operador autorizo; si el manifiesto trae otro numero, el alta se
+# bloquea en vez de adivinar cual falta.
+EXPECTED_SURVIVOR_COUNT = 16
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", required=True, type=Path)
@@ -49,8 +56,11 @@ def _ready_candidates(
     candidates = manifest.get("candidates")
     if not isinstance(candidates, list):
         raise ValueError("manifest sin candidates")
-    if len(candidates) != 16:
-        raise ValueError(f"alta bloqueada: se esperaban 16 candidatos y hay {len(candidates)}")
+    if len(candidates) != EXPECTED_SURVIVOR_COUNT:
+        raise ValueError(
+            f"alta bloqueada: se esperaban {EXPECTED_SURVIVOR_COUNT} candidatos "
+            f"y hay {len(candidates)}"
+        )
     if not all(isinstance(item, dict) for item in candidates):
         raise ValueError("manifest con candidato inválido")
     invalid_status = [item for item in candidates if item.get("status") not in {"READY", "WITHHELD"}]

@@ -28,6 +28,10 @@ TIMEFRAME_TO_PERIOD: dict[str, tuple[int, int]] = {
     "H4": (1, 4),
     "D1": (1, 24),
 }
+# Los 11 supervivientes READY de los 16 MANTENER (los otros 5 quedan WITHHELD y fuera
+# del perfil). Recuento cerrado de la campana G12, no un parametro: si el manifiesto
+# trae otro numero, el adjunto se bloquea en vez de adjuntar lo que haya.
+MT5_CHART_ID_BASE = 128968171281015625
 EXPECTED_READY_COUNT = 11
 MAGIC_INPUT = re.compile(r"input\s+int\s+MagicNumber\s*=\s*(\d+)\s*;")
 REPORTER_VERSION_INPUT = re.compile(r'input\s+string\s+StratosReporterVersion\s*=\s*"([^"]+)"\s*;')
@@ -145,6 +149,15 @@ def build_attachments(
 
 
 def chart_text(attachment: Attachment, chart_id: int) -> str:
+    """Serializa un gráfico en el formato `.chr` de MetaTrader 5.
+
+    Todos los números literales de esta plantilla (`scale`, `shift_size`, los colores
+    `16777215`/`65280`/`3329330`..., `scale_line_percent`) pertenecen al **formato de
+    fichero del terminal**, no a la política de trading: son la apariencia por defecto de
+    un gráfico MT5. `scan_hardcoding` los señala porque son literales numéricos en código,
+    pero no tienen hogar en `SystemConfig` ni en `design_tokens.json` -- moverlos allí
+    fingiría que son configurables cuando lo que hacen es reproducir un formato ajeno.
+    """
     period_type, period_size = TIMEFRAME_TO_PERIOD[attachment.timeframe]
     return f"""<chart>
 id={chart_id}
@@ -228,7 +241,13 @@ scale_fix_max_val=0.000000
 
 
 def _profile_files(attachments: list[Attachment], profile_name: str) -> dict[str, str]:
-    files = {attachment.chart_file: chart_text(attachment, 128968171281015625 + index) for index, attachment in enumerate(attachments)}
+    # Base de IDs de gráfico de MT5: el terminal los emite en ese orden de magnitud y
+    # exige unicidad dentro del perfil. No es un umbral; es el espacio de identificadores
+    # del formato, y se desplaza por índice para que los 11 gráficos no colisionen.
+    files = {
+        attachment.chart_file: chart_text(attachment, MT5_CHART_ID_BASE + index)
+        for index, attachment in enumerate(attachments)
+    }
     files["order.wnd"] = "\n".join(attachment.chart_file for attachment in attachments) + "\n"
     return files
 

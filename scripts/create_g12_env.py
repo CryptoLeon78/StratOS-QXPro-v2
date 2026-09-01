@@ -27,13 +27,18 @@ def _read_env(path: Path) -> dict[str, str]:
     return values
 
 
+# Bytes de entropia por secreto generado. No es un umbral de negocio: es el tamano de
+# `secrets.token_urlsafe`, que produce ~43 caracteres url-safe por cada 32 bytes.
+SECRET_TOKEN_BYTES = 32
+
+
 def build_g12_env(source: dict[str, str]) -> dict[str, str]:
     missing = [key for key in REQUIRED_SOURCE_KEYS if not source.get(key)]
     if missing:
         raise ValueError(f".env origen incompleto: faltan {', '.join(missing)}")
-    postgres_password = secrets.token_urlsafe(32)
-    app_password = secrets.token_urlsafe(32)
-    ingest_key = secrets.token_urlsafe(32)
+    postgres_password = secrets.token_urlsafe(SECRET_TOKEN_BYTES)
+    app_password = secrets.token_urlsafe(SECRET_TOKEN_BYTES)
+    ingest_key = secrets.token_urlsafe(SECRET_TOKEN_BYTES)
     values = {
         "POSTGRES_DB": "stratos_g12",
         "POSTGRES_USER": "stratos_g12_user",

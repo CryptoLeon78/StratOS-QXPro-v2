@@ -19,13 +19,21 @@ def _assert_g12_database(database_url: str) -> None:
         raise ValueError("alta bloqueada: DATABASE_URL no apunta a stratos_g12")
 
 
+# Politica local de la campana: la contrasena se entrega una sola vez al operador fuera
+# del repositorio, asi que su longitud minima se comprueba aqui y no en SystemConfig,
+# que esta en la base que este mismo script inicializa.
+MIN_OPERATOR_PASSWORD_LENGTH = 16
+
+
 async def create_or_rotate_operator(email: str, password: str) -> str:
     _assert_g12_database(os.environ.get("DATABASE_URL", ""))
     normalized_email = email.strip().lower()
     if not normalized_email or "@" not in normalized_email:
         raise ValueError("email de operador inválido")
-    if len(password) < 16:
-        raise ValueError("contraseña G12 demasiado corta")
+    if len(password) < MIN_OPERATOR_PASSWORD_LENGTH:
+        raise ValueError(
+            f"contraseña G12 demasiado corta: mínimo {MIN_OPERATOR_PASSWORD_LENGTH} caracteres"
+        )
     async with async_session_factory() as session:
         user = await session.scalar(select(User).where(User.email == normalized_email))
         if user is None:
