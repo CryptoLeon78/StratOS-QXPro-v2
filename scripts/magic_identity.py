@@ -152,3 +152,45 @@ def verify_payload_hash(payload: Mapping[str, Any], field: str = "payload_sha256
         payload_without_hash(payload, field)
     ):
         raise IdentityValidationError("payload_sha256 inválido")
+
+
+def build_legacy_magic_map(registry_path: Path) -> dict[int, dict[str, Any]]:
+    """Mapa `magic anterior a la migración` -> identidad vigente.
+
+    La migración de identidad compacta (G13-18/G13-20) cambió el magic de los EAs
+    desplegados. Los deals anteriores al cambio llevan el magic **viejo**, así que una
+    atribución por magic actual los deja huérfanos: en el export real de JJTI/BEPB hay 203
+    y 128 magics distintos frente a 32 y 24 EAs registrados.
+
+    El registro append-only conserva `legacy_magic_numbers` en cada evento `ASSIGNED`, que
+    es la única fuente admisible para esta traducción: no se deduce de nombres ni de
+    comentarios. Si dos identidades declarasen el mismo legacy, se retienen las dos y ese
+    magic no traduce -- una atribución ambigua es peor que ninguna.
+    """
+    asignaciones: dict[int, list[dict[str, Any]]] = {}
+    with registry_path.open(encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            event = json.loads(line)
+            if event.get("event_type") != "ASSIGNED":
+                continue
+            for legacy in event.get("legacy_magic_numbers") or []:
+                asignaciones.setdefault(int(legacy), []).append(event)
+
+    mapa: dict[int, dict[str, Any]] = {}
+    for legacy, eventos in asignaciones.items():
+        magics = {int(event["magic_number"]) for event in eventos}
+        if len(magics) != 1:
+            continue  # ambiguo: el magic viejo apuntaría a dos identidades vigentes
+        event = eventos[0]
+        if legacy == int(event["magic_number"]):
+            continue  # no cambió: no hay nada que traducir
+        mapa[legacy] = {
+            "magic_number": int(event["magic_number"]),
+            "comment_identity": event.get("comment_identity"),
+            "accounts": event.get("accounts") or [],
+            "proposal_payload_sha256": event.get("proposal_payload_sha256"),
+        }
+    return mapa

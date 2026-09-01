@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -5,6 +6,7 @@ import pytest
 from magic_identity import (
     IdentityValidationError,
     build_comment_identity,
+    build_legacy_magic_map,
     load_policy,
     next_free_magic,
     normalize_short_label,
@@ -56,3 +58,70 @@ def test_next_free_magic_never_reuses_reserved_or_retired() -> None:
 
 def test_payload_hash_is_deterministic() -> None:
     assert sha256_payload({"b": 1, "a": [2]}) == sha256_payload({"a": [2], "b": 1})
+
+
+# --- Mapa de magics legacy -> identidad vigente (P2.2) ---------------------------------
+
+def _registro(tmp_path, eventos):
+    ruta = tmp_path / "registry.jsonl"
+    ruta.write_text(
+        "\n".join(json.dumps(evento, ensure_ascii=False) for evento in eventos) + "\n",
+        encoding="utf-8",
+    )
+    return ruta
+
+
+def _asignacion(comment, magic, legacy, accounts=("BEPB",)):
+    return {
+        "event_type": "ASSIGNED",
+        "comment_identity": comment,
+        "magic_number": magic,
+        "legacy_magic_numbers": list(legacy),
+        "accounts": list(accounts),
+        "proposal_payload_sha256": "prop",
+    }
+
+
+def test_legacy_map_translates_an_assigned_magic(tmp_path) -> None:
+    ruta = _registro(tmp_path, [_asignacion("XAUH1BUYSTOPeof_1.8.81_MN1", 1, [7786])])
+
+    mapa = build_legacy_magic_map(ruta)
+
+    assert mapa[7786]["magic_number"] == 1
+    assert mapa[7786]["comment_identity"] == "XAUH1BUYSTOPeof_1.8.81_MN1"
+
+
+def test_legacy_map_ignores_events_that_are_not_assignments(tmp_path) -> None:
+    ruta = _registro(
+        tmp_path,
+        [
+            {"event_type": "MIGRATION_PLANNED", "magic_number": 9, "legacy_magic_numbers": [111]},
+            _asignacion("A_MN1", 1, [7786]),
+        ],
+    )
+
+    mapa = build_legacy_magic_map(ruta)
+
+    assert 111 not in mapa
+    assert 7786 in mapa
+
+
+def test_legacy_map_refuses_an_ambiguous_legacy(tmp_path) -> None:
+    """Un magic viejo que apuntase a dos identidades vigentes no traduce: una atribución
+    ambigua es peor que ninguna."""
+    ruta = _registro(
+        tmp_path,
+        [_asignacion("A_MN1", 1, [5000]), _asignacion("B_MN2", 2, [5000])],
+    )
+
+    mapa = build_legacy_magic_map(ruta)
+
+    assert 5000 not in mapa
+
+
+def test_legacy_map_skips_a_magic_that_did_not_change(tmp_path) -> None:
+    ruta = _registro(tmp_path, [_asignacion("A_MN7507", 7507, [7507])])
+
+    mapa = build_legacy_magic_map(ruta)
+
+    assert mapa == {}
