@@ -42,7 +42,8 @@ export function CandidateCard({ candidate }: { candidate: PipelineCandidate }) {
           {interpolate(uiStrings.pipeline.daysInPhase, { days: candidate.incubation_days })}
         </p>
         <p className="text-xs text-text-muted">
-          {candidate.account_origin} · {candidate.bot_origin}
+          {uiStrings.provenance[candidate.account_origin] ?? candidate.account_origin} ·{" "}
+          {candidate.bot_origin}
         </p>
       </CardHeader>
       <CardContent className="space-y-2 p-3 pt-0">

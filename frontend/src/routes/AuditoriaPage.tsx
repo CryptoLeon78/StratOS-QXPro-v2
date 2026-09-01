@@ -4,6 +4,7 @@ import { ContinuityCard } from "@/components/domain/auditoria/ContinuityCard";
 import { ReconciliationCard } from "@/components/domain/auditoria/ReconciliationCard";
 import { SealsCard } from "@/components/domain/auditoria/SealsCard";
 import uiStrings from "@/styles/ui_strings.es.json";
+import { ProvenanceBadge } from "@/components/domain/ProvenanceBadge";
 
 // PARTE 7.9. El banner "Verificado" es una afirmacion estatica sobre la
 // arquitectura de ingesta (datos recibidos directamente del terminal, sin
@@ -13,6 +14,7 @@ import uiStrings from "@/styles/ui_strings.es.json";
 export default function AuditoriaPage() {
   return (
     <div className="space-y-4 p-4">
+      <ProvenanceBadge />
       <div className="flex items-center gap-2 rounded-md border-l-2 border-l-semantic-success bg-bg-surface px-3 py-2">
         <ShieldCheck className="size-5 text-semantic-success" />
         <div>

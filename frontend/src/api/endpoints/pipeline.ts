@@ -56,6 +56,26 @@ export function getPipelineBoard(): Promise<PipelineCandidate[]> {
   return apiFetch<PipelineCandidate[]>("/api/v1/pipeline/board");
 }
 
+export interface OperationalQueueEntry {
+  rank: number;
+  strategy_name: string;
+  symbol: string | null;
+  timeframe: string | null;
+  state: string;
+}
+
+export interface OperationalQueue {
+  status: "READY" | "ABSENT" | "INVALID";
+  detail: string | null;
+  generated_at_utc: string | null;
+  snapshot_sha256: string | null;
+  entries: OperationalQueueEntry[];
+}
+
+export function getOperationalQueue(): Promise<OperationalQueue> {
+  return apiFetch<OperationalQueue>("/api/v1/pipeline/operational-queue");
+}
+
 // Scoped variant for account/provenance-aware views. The parameterless board
 // function remains a valid TanStack Query queryFn.
 export function getScopedPipelineBoard(

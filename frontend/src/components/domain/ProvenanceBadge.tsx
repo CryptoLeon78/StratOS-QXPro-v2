@@ -1,0 +1,59 @@
+import { Badge } from "@/components/ui/badge";
+import { useDataProvenance } from "@/hooks/queries/useDataProvenance";
+import type { DataOrigin } from "@/api/endpoints/provenance";
+import { interpolate } from "@/lib/i18n";
+import uiStrings from "@/styles/ui_strings.es.json";
+
+// Procedencia del dato en las vistas AGREGADAS (Portfolio, Salud, Riesgo, Auditoria,
+// Dominical). En Bots, Pipeline y Cuentas/EA cada fila declara la suya y no hace falta esto.
+//
+// El recorrido G12 encontro que estas superficies sumaban fixture y telemetria real en la
+// misma cifra sin que nada lo dijera, y por eso el operador no podia fiarse de los numeros.
+// El caso que importa es `is_mixed`: con un solo origen las cifras significan una cosa, con
+// varios cualquier total agrega universos distintos.
+const VARIANT: Record<DataOrigin, "success" | "warning" | "default"> = {
+  BROKER_REAL: "success",
+  BROKER_DEMO: "warning",
+  FIXTURE: "default",
+};
+
+function originLabel(origin: DataOrigin): string {
+  return uiStrings.provenance[origin] ?? origin;
+}
+
+export function ProvenanceBadge() {
+  const { data } = useDataProvenance();
+
+  // Mientras carga no se afirma nada: una procedencia equivocada es peor que ninguna.
+  if (!data) return null;
+
+  if (data.accounts.length === 0) {
+    return (
+      <p className="text-xs text-text-muted" data-testid="provenance">
+        {uiStrings.provenance.absent}
+      </p>
+    );
+  }
+
+  const origins = data.accounts.map((row) => originLabel(row.data_origin));
+
+  return (
+    <div className="flex flex-wrap items-center gap-2" data-testid="provenance">
+      <span className="text-xs text-text-muted">{uiStrings.provenance.label}:</span>
+      {data.accounts.map((row) => (
+        <Badge key={row.data_origin} variant={VARIANT[row.data_origin] ?? "default"}>
+          {originLabel(row.data_origin)} ·{" "}
+          {interpolate(uiStrings.provenance.counts, {
+            accounts: row.accounts,
+            bots: row.bots,
+          })}
+        </Badge>
+      ))}
+      <span className="text-xs text-text-secondary">
+        {data.is_mixed
+          ? interpolate(uiStrings.provenance.mixedDetail, { origins: origins.join(" + ") })
+          : interpolate(uiStrings.provenance.single, { origin: origins[0] })}
+      </span>
+    </div>
+  );
+}

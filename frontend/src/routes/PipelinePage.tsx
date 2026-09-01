@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { CandidateCard } from "@/components/domain/pipeline/CandidateCard";
 import { CreateCandidateDialog } from "@/components/domain/pipeline/CreateCandidateDialog";
 import { usePipelineBoard } from "@/hooks/queries/usePipelineBoard";
+import { useOperationalQueue } from "@/hooks/queries/useOperationalQueue";
 import uiStrings from "@/styles/ui_strings.es.json";
 import type { PipelinePhase } from "@/api/endpoints/pipeline";
 
@@ -16,6 +17,7 @@ const PAPER_PHASES = new Set<PipelinePhase>(["F1", "F2", "F3"]);
 // "Backtest vs Forward" (CandidateResponse no trae metricas de baseline/IS).
 export default function PipelinePage() {
   const { data } = usePipelineBoard();
+  const { data: operationalQueue } = useOperationalQueue();
   const [createOpen, setCreateOpen] = useState(false);
 
   const byPhase = new Map<string, typeof data>();
@@ -33,6 +35,32 @@ export default function PipelinePage() {
           {uiStrings.pipeline.addCandidate}
         </Button>
       </div>
+      <section className="rounded-lg border border-semantic-info/40 p-3 text-sm">
+        <p className="font-semibold text-text-secondary">{uiStrings.pipeline.operationalQueueTitle}</p>
+        {operationalQueue?.status === "READY" ? (
+          <>
+            <p className="mt-1 text-xs text-text-muted">
+              {uiStrings.pipeline.operationalQueueReady.replace("{count}", String(operationalQueue.entries.length))}
+            </p>
+            {operationalQueue.entries.length === 0 ? (
+              <p className="mt-1 text-xs text-text-muted">{uiStrings.pipeline.emptyColumn}</p>
+            ) : (
+              <ul className="mt-2 space-y-1 text-xs text-text-secondary">
+                {operationalQueue.entries.map((entry) => (
+                  <li key={entry.rank}>
+                    #{entry.rank} · {entry.strategy_name} · {entry.symbol ?? "—"} {entry.timeframe ?? "—"} · {entry.state}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-2 text-xs text-text-muted">{uiStrings.pipeline.operationalQueueReadOnly}</p>
+          </>
+        ) : (
+          <p className="mt-1 text-xs text-text-muted">
+            {operationalQueue?.detail ?? uiStrings.pipeline.operationalQueueAbsent}
+          </p>
+        )}
+      </section>
       <div className="grid grid-cols-1 gap-3 overflow-x-auto sm:grid-cols-2 lg:grid-flow-col lg:auto-cols-[260px]">
         {COLUMNS.map((phase) => {
           const candidates = byPhase.get(phase) ?? [];

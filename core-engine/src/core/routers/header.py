@@ -21,8 +21,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.auth.dependencies import get_current_user
 from core.db.base import get_session
-from core.db.enums import DecisionStatus, PipelinePhase, SemaphoreState
-from core.db.models.accounts import Bot
+from core.db.enums import AccountDataOrigin, DecisionStatus, PipelinePhase, SemaphoreState
+from core.db.models.accounts import Account, Bot
 from core.db.models.decisions import Alert, Decision, KillSwitchEvent
 from core.db.models.market import HeartbeatLog, Trade
 from core.services.killswitch_sweep import KillSwitchSweepConfig, compute_portfolio_dd_pct
@@ -131,6 +131,54 @@ async def compute_header_summary(
         pending_decisions=pending_decisions,
         data_stale_seconds=data_stale_seconds,
     )
+
+
+class ProvenanceRow(BaseModel):
+    data_origin: AccountDataOrigin
+    accounts: int
+    bots: int
+
+
+class DataProvenanceResponse(BaseModel):
+    """De qué universos se compone lo que muestran las vistas agregadas.
+
+    En Portfolio, Salud, Riesgo, Auditoría y Dominical la procedencia no es un campo de una
+    fila: es una propiedad del agregado. El recorrido G12 encontró que esas superficies
+    sumaban fixture y telemetría real en la misma cifra sin que nada lo dijera, y por eso el
+    operador no podía fiarse de los números. Aquí se declara la composición real para que la
+    UI la muestre en vez de callarla.
+
+    `is_mixed` es el dato accionable: con un solo origen, las cifras significan una cosa; con
+    varios, cualquier total agrega universos distintos.
+    """
+
+    accounts: list[ProvenanceRow]
+    is_mixed: bool
+
+
+@router.get("/data-provenance", response_model=DataProvenanceResponse)
+async def data_provenance(
+    session: AsyncSession = Depends(get_session),
+) -> DataProvenanceResponse:
+    rows = (
+        await session.execute(
+            select(
+                Account.data_origin,
+                func.count(func.distinct(Account.id)),
+                func.count(Bot.id),
+            )
+            .select_from(Account)
+            .outerjoin(Bot, Bot.account_id == Account.id)
+            .group_by(Account.data_origin)
+            .order_by(Account.data_origin)
+        )
+    ).all()
+    composicion = [
+        ProvenanceRow(data_origin=origin, accounts=n_accounts, bots=n_bots)
+        for origin, n_accounts, n_bots in rows
+    ]
+    # Una base vacía es ausencia, no mezcla: no se infiere procedencia de lo que no hay.
+    return DataProvenanceResponse(accounts=composicion, is_mixed=len(composicion) > 1)
 
 
 @router.get("/header/summary", response_model=HeaderSummaryResponse)

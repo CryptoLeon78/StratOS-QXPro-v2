@@ -1,6 +1,5 @@
 {
   "$comment": "Catalogo de textos de UI (P11): ningun literal de captura va inline en componentes. Semilla de G0 con los literales ya citados textualmente en PROMPT_MAESTRO PARTE 7/11; se completa pestana a pestana en G6-G7 leyendo cada captura antes de implementar.",
-
   "app": {
     "title": "Panel Maestro de Portfolio — Copiloto de decisiones · StratOS",
     "roleBadge": "Ingeniero",
@@ -8,7 +7,6 @@
     "g12DemoLabel": "DEMO LOCAL · G12",
     "operationalLabel": "OPERACIONAL LOCAL · SIN FIXTURE"
   },
-
   "login": {
     "title": "Panel Maestro de Portfolio",
     "emailLabel": "Correo",
@@ -18,7 +16,6 @@
     "passwordRequired": "Introduce tu contraseña.",
     "credentialsInvalid": "Correo o contraseña incorrectos."
   },
-
   "header": {
     "equity": "EQUITY",
     "pnlDay": "P&L DÍA",
@@ -38,7 +35,6 @@
       "operator": "Ingeniero"
     }
   },
-
   "tabs": {
     "resumen": "Resumen",
     "cuentasEa": "Cuentas/EA",
@@ -52,7 +48,6 @@
     "graveyard": "Graveyard",
     "auditoria": "Auditoría"
   },
-
   "equityCard": {
     "title": "Equity del portfolio (todos los bots)",
     "maxDrawdownPeriod": "DD máx. periodo: {pct}",
@@ -65,14 +60,12 @@
       "all": "Todo"
     }
   },
-
   "pipelinePanel": {
     "title": "Pipeline",
     "prefixGo": "GO",
     "prefixOverstay": "OVERSTAY",
     "prefixNaranja": "NARANJA"
   },
-
   "decisionCard": {
     "confirm": "Confirmar",
     "postpone": "Posponer",
@@ -86,7 +79,6 @@
     "postponeDialogCancel": "Cancelar",
     "instructionPrefix": "MT: "
   },
-
   "bots": {
     "impulseButton": "Tengo el impulso de intervenir",
     "searchPlaceholder": "Buscar…",
@@ -108,7 +100,12 @@
     "semaphoreHistoryTitle": "Historial de semáforo",
     "emptySemaphoreHistory": "Sin transiciones de semáforo registradas.",
     "pnlChartTitle": "P&L acumulado del bot ({count} trades)",
-    "ranges": { "30d": "30d", "90d": "90d", "180d": "180d", "all": "Todo" },
+    "ranges": {
+      "30d": "30d",
+      "90d": "90d",
+      "180d": "180d",
+      "all": "Todo"
+    },
     "completeMetricsTitle": "Métricas completas",
     "colProfitFactor": "Profit Factor",
     "colExpectancyR": "Expectancy (R)",
@@ -153,7 +150,6 @@
     "impulseCancel": "Cancelar",
     "impulseSuccess": "Impulso registrado — se evaluará su contrafactual a 7 días."
   },
-
   "cuentasEa": {
     "real": "REAL",
     "demo": "DEMO",
@@ -170,28 +166,27 @@
     "colMagic": "Magic",
     "colBot": "Bot",
     "colPhaseRole": "Fase/rol",
-      "colEaVersion": "Versión EA",
-      "colEaRequirement": "Versión requerida",
-      "eaVersionMatch": "Conforme",
-      "eaVersionMismatch": "v desactualizada",
-      "eaVersionUnverifiable": "No verificable",
-      "colModeExpectedReported": "Modo (esperado → reportado)",
-      "colOperationalMode": "Modo operativo",
-      "colAutotrading": "AutoTrading",
-      "colSizing": "Sizing",
-      "colSchedule": "Horario",
-      "colNewsWindows": "Ventanas news",
-      "colLastReported": "Último estado",
-      "scheduleLimited": "Limitado",
-      "scheduleUnrestricted": "Sin límite",
+    "colEaVersion": "Versión EA",
+    "colEaRequirement": "Versión requerida",
+    "eaVersionMatch": "Conforme",
+    "eaVersionMismatch": "v desactualizada",
+    "eaVersionUnverifiable": "No verificable",
+    "colModeExpectedReported": "Modo (esperado → reportado)",
+    "colOperationalMode": "Modo operativo",
+    "colAutotrading": "AutoTrading",
+    "colSizing": "Sizing",
+    "colSchedule": "Horario",
+    "colNewsWindows": "Ventanas news",
+    "colLastReported": "Último estado",
+    "scheduleLimited": "Limitado",
+    "scheduleUnrestricted": "Sin límite",
     "colLastSignal": "Última señal",
     "driftTitle": "Deriva de configuración",
     "driftEmpty": "Sin deriva detectada — todos los EAs reportan el modo esperado.",
-      "driftRow": "Bot #{botId} (magic {magic}): esperado {expected}, reportado {reported}",
-      "driftOperationalDetails": "AutoTrading {reportedAutotrading} (esperado {expectedAutotrading}); sizing {reportedSizing}% (esperado {expectedSizing}%).",
+    "driftRow": "Bot #{botId} (magic {magic}): esperado {expected}, reportado {reported}",
+    "driftOperationalDetails": "AutoTrading {reportedAutotrading} (esperado {expectedAutotrading}); sizing {reportedSizing}% (esperado {expectedSizing}%).",
     "emptyAccounts": "Sin cuentas registradas todavía."
   },
-
   "portfolio": {
     "macroTitle": "Estructura macro 40/40/20",
     "microTitle": "Los 6 perfiles (micro)",
@@ -234,7 +229,6 @@
     "legendPortfolio": "Portfolio",
     "legendBenchmark": "S&P 500"
   },
-
   "escalado": {
     "currentPhaseTitle": "Fase UMS actual",
     "readyToAdvance": "Listo para subir de fase UMS (métricas sostenidas).",
@@ -253,7 +247,6 @@
     "emptyMonthly": "Sin historial de fases UMS todavía.",
     "emptyCurrentPhase": "Sin fase UMS registrada todavía."
   },
-
   "ejecucion": {
     "heartbeatTitle": "Heartbeat",
     "terminalReporting": "Terminal reportando",
@@ -261,10 +254,10 @@
     "lastReport": "Último reporte: {date}",
     "uptime7d": "Continuidad 7 días: {pct}",
     "tcaTitle": "TCA / Perfil de broker",
-      "tcaFills": "Fills reportados",
-      "rejectedOrders": "Órdenes rechazadas",
-      "brokerProfile": "Perfil de broker",
-      "spreadP50": "Spread P50",
+    "tcaFills": "Fills reportados",
+    "rejectedOrders": "Órdenes rechazadas",
+    "brokerProfile": "Perfil de broker",
+    "spreadP50": "Spread P50",
     "tcaPending": "TCA (§10.1) y Broker Profile (§10.2) requieren la v1.1 del EA reporter (precio solicitado vs ejecutado + spread por ejecución).",
     "tcaPendingDetail": "Cuando el EA reporte slippage y spread por ejecución, aquí verás slippage P50/P95/P99, Asymmetry Index, Implementation Shortfall y el mapa de spread por sesión.",
     "watchdogTitle": "Watchdog de bots (frecuencia observada vs esperada, 30 días)",
@@ -274,7 +267,6 @@
     "colLastTrade": "Último trade",
     "colState": "Estado"
   },
-
   "salud": {
     "daysInState": "{days}d en estado",
     "chipSharpeRolling": "Sharpe rolling",
@@ -287,7 +279,6 @@
     "chipPageHinkley": "PH {value}",
     "emptyState": "Sin bots con baseline asignado todavía."
   },
-
   "riesgo": {
     "copyWindows": "Copiar ventanas",
     "killswitchNote": "El panel avisa e instruye; la ejecución de cierres vive en MetaTrader",
@@ -319,7 +310,6 @@
     "colCvar99Monthly": "CVAR 99% MENSUAL",
     "colCvar99Annual": "CVAR 99% ANUAL"
   },
-
   "pipeline": {
     "backtestForwardTitle": "Backtest vs Forward",
     "backtestForwardBaseline": "Backtest firmado",
@@ -333,6 +323,10 @@
     "paperZone": "PAPER",
     "capitalRealZone": "CAPITAL REAL",
     "banner": "F1 → F7: de paper a capital real",
+    "operationalQueueTitle": "Cola local de Tester",
+    "operationalQueueReady": "{count} candidata(s) en la vista sellada local.",
+    "operationalQueueAbsent": "Sin cola local publicada todavía.",
+    "operationalQueueReadOnly": "Sólo lectura: el navegador no puede abrir MT5. Cada Tester exige confirmación individual en StratOS_Operational.",
     "columns": {
       "F1": "F1 · Ideación y prototipado",
       "F2": "F2 · Filtrado de robustez",
@@ -369,7 +363,6 @@
     "emptyColumn": "Sin candidatos.",
     "manualPromoteOnly": "Ascenso manual solo F1-F3; F4+ es solo lectura del gate automático."
   },
-
   "graveyard": {
     "banner": "Un bot retirado nunca se reactiva sin re-validación completa (pipeline desde Fase 3).",
     "filterAllProfiles": "Todos los perfiles",
@@ -386,7 +379,6 @@
       "OTHER": "Otro"
     }
   },
-
   "auditoria": {
     "verifiedTitle": "Verificado",
     "verifiedSubtitle": "Nivel de verificación técnica de la cuenta (datos recibidos directamente del terminal, sin intervención manual).",
@@ -410,7 +402,6 @@
     "history": "HISTORIAL",
     "disclaimer": "Verificación técnica de integridad de datos desde su recepción. NO constituye una auditoría contable, financiera ni legal. La exactitud última depende del terminal y del broker."
   },
-
   "dominical": {
     "headerLink": "Revisión dominical",
     "title": "Revisión dominical",
@@ -423,8 +414,19 @@
     "rejectedOrdersPending": "Requiere la v1.1 del EA reporter (sin consumidor de /ingest/execution todavía) — mismo estado que TCA en Ejecución/Cuentas-EA.",
     "disconnectionsTitle": "Desconexiones"
   },
-
   "scaffold": {
     "placeholder": "StratOS-QXPro — scaffold G0, pestañas en G6/G7"
+  },
+  "provenance": {
+    "$comment": "Procedencia del dato en vistas agregadas (Portfolio, Salud, Riesgo, Auditoría, Dominical). En esas superficies la procedencia no es un campo de una fila: es la composición del agregado.",
+    "label": "Procedencia",
+    "BROKER_REAL": "Cuenta real",
+    "BROKER_DEMO": "Cuenta demo",
+    "FIXTURE": "Fixture",
+    "mixed": "Datos de varios universos",
+    "mixedDetail": "Estas cifras agregan {origins}. Un total mezcla universos distintos.",
+    "single": "Todos los datos provienen de {origin}.",
+    "absent": "Sin cuentas registradas: no hay datos que atribuir.",
+    "counts": "{accounts} cuenta(s) · {bots} bot(s)"
   }
 }

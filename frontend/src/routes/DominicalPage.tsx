@@ -9,6 +9,7 @@ import { NewsShieldPanel } from "@/components/domain/riesgo/NewsShieldPanel";
 import { useAlerts } from "@/hooks/queries/useAlerts";
 import { useAuthStore } from "@/stores/authStore";
 import uiStrings from "@/styles/ui_strings.es.json";
+import { ProvenanceBadge } from "@/components/domain/ProvenanceBadge";
 
 const NEWS_WEEK_AHEAD_HOURS = 24 * 7;
 
@@ -38,6 +39,7 @@ export default function DominicalPage() {
 
   return (
     <div className="min-h-screen">
+      <ProvenanceBadge />
       <header className="border-b border-border-subtle px-4 py-3">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold text-text-primary">{uiStrings.dominical.title}</h1>

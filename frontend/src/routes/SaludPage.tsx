@@ -1,6 +1,7 @@
 import { HealthCard } from "@/components/domain/salud/HealthCard";
 import { useHealthBots } from "@/hooks/queries/useHealth";
 import uiStrings from "@/styles/ui_strings.es.json";
+import { ProvenanceBadge } from "@/components/domain/ProvenanceBadge";
 
 export default function SaludPage() {
   const { data, isLoading } = useHealthBots();
@@ -11,6 +12,7 @@ export default function SaludPage() {
 
   return (
     <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
+      <ProvenanceBadge />
       {(data ?? []).map((bot) => (
         <HealthCard key={bot.bot_id} bot={bot} />
       ))}
