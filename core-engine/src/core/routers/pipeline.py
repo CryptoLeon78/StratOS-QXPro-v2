@@ -163,10 +163,16 @@ def _load_operational_queue_snapshot(settings: Settings) -> OperationalQueueResp
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
         seal = payload.pop("snapshot_sha256")
-        canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        canonical = json.dumps(
+            payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
         if not isinstance(seal, str) or hashlib.sha256(canonical).hexdigest() != seal:
-            return OperationalQueueResponse(status="INVALID", detail="sello de cola local no válido")
-        entries = [OperationalQueueEntryResponse.model_validate(item) for item in payload["entries"]]
+            return OperationalQueueResponse(
+                status="INVALID", detail="sello de cola local no válido"
+            )
+        entries = [
+            OperationalQueueEntryResponse.model_validate(item) for item in payload["entries"]
+        ]
         return OperationalQueueResponse(
             status="READY",
             generated_at_utc=payload["generated_at_utc"],

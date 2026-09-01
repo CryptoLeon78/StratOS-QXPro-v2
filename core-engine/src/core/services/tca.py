@@ -59,9 +59,7 @@ async def tca_summary(session: AsyncSession) -> TcaSummary | None:
     rejected_orders = sum(report.status == _REJECTED_STATUS for report in reports)
     account_brokers: dict[int, str] = {
         account_id: broker
-        for account_id, broker in (
-            await session.execute(select(Account.id, Account.broker))
-        ).all()
+        for account_id, broker in (await session.execute(select(Account.id, Account.broker))).all()
     }
     profiles: list[BrokerProfile] = []
     reports_by_broker_symbol: dict[tuple[str, str], list[ExecutionFill]] = {}
