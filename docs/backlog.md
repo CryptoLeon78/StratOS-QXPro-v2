@@ -42,14 +42,21 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   `"USDJPY": "USDJPY"` (alias identidad redundante). Son parches puntuales sobre un fallo de
   extracción de símbolo; cada estrategia futura con el mismo patrón necesitaría su propia línea.
   Arreglar la extracción y limpiar el diccionario.
-- **[A15] Una comparación SQX↔MT5 completada no está registrada** — la corrida
-  `20260830T210536Z_91538465c20a` (AUDCAD H4 `4.25.70_wfm520`) tiene manifiesto e informes
-  sellados en `runtime/operational/backtests_live/` pero **ningún evento en
-  `operational_asset_event`**. Se descubrió al persistir la reclasificación direccional, que
-  la retuvo con causa en vez de inventar el evento que falta. Es además la que pasaría de
-  `TOLERABLE` a `VALIDADA` bajo el contrato direccional. Registrarla con
-  `record_operational_backtest.py` y después reejecutar
-  `record_directional_reclassification.py --apply`.
+- ~~**[A15] Una comparación SQX↔MT5 completada no está registrada**~~ **RESUELTO 2026-09-02,
+  y el diagnóstico inicial era incorrecto**: la corrida `20260830T210536Z_91538465c20a` no es
+  un registro perdido. Es una comparación de la campaña **anterior al renombrado MN**, y su
+  `sqx_path`/`mq5_path` ya no existen —la migración renombró la carpeta—. La misma estrategia
+  se volvió a comparar el 2026-09-01 sobre la ruta MN (`20260901T155216Z_cc6bc7d013a4`,
+  `XAU1H1BUYSTP_3.10.66_MN28`, `VALIDADA`) y **esa sí está registrada** como `asset_id=243`.
+  No hay nada que registrar: está deliberadamente fuera, como declara G13-21 al dar las rutas
+  antiguas por obsoletas. El fail-closed por entrada de
+  `record_directional_reclassification.py` hizo exactamente lo correcto al retenerla.
+- **[A19] `reclassify_external_f7_backtests.py` reevalúa manifiestos obsoletos** — barre todos
+  los `run-manifest.json` de disco, incluidos los de campañas superseded por el renombrado MN
+  cuya fuente ya no existe. Por eso su informe dice "11 corridas" cuando sólo 10 corresponden
+  a la campaña vigente. No es un error de veredicto —cada uno se recalcula sobre su propio
+  manifiesto sellado— pero infla el recuento y obliga a retener una entrada en cada
+  reclasificación. Filtrar por existencia de la fuente, o por pertenencia a la cola alineada.
 - **[A16] La importación del histórico está construida pero sin ejecutar** — la traducción de
   magics legacy, el sellado de la traducción en el artefacto y el informe de cobertura están
   probados (17 tests), pero `import_mt5_history_export.py --identity-registry` no se ha
