@@ -26,7 +26,7 @@ export function CemeteryCard({ entry, bot }: { entry: CemeteryEntry; bot: BotRow
             {bot?.name ?? `Bot #${entry.bot_id}`} <span className="text-xs text-text-secondary">#{bot?.magic_number}</span>
           </p>
           <p className="text-xs text-text-secondary">
-            {bot ? `${bot.profile.toLowerCase()} · ${bot.market}` : ""} ·{" "}
+            {bot ? `${bot.profile?.toLowerCase() ?? "—"} · ${bot.market}` : ""} ·{" "}
             {new Date(entry.retired_at).toLocaleDateString("es-ES")}
           </p>
         </div>

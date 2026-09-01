@@ -41,6 +41,9 @@ export function CandidateCard({ candidate }: { candidate: PipelineCandidate }) {
         <p className="text-xs text-text-secondary">
           {interpolate(uiStrings.pipeline.daysInPhase, { days: candidate.incubation_days })}
         </p>
+        <p className="text-xs text-text-muted">
+          {candidate.account_origin} · {candidate.bot_origin}
+        </p>
       </CardHeader>
       <CardContent className="space-y-2 p-3 pt-0">
         <div className="flex items-center justify-between">
@@ -63,6 +66,22 @@ export function CandidateCard({ candidate }: { candidate: PipelineCandidate }) {
           </CollapsibleTrigger>
           <CollapsibleContent>
             <GateChecklist candidate={candidate} />
+          </CollapsibleContent>
+        </Collapsible>
+        <Collapsible>
+          <CollapsibleTrigger className="text-xs text-accent-primary">
+            {uiStrings.pipeline.backtestForwardTitle}
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            {candidate.backtest_vs_forward ? (
+              <div className="space-y-1 text-xs text-text-secondary">
+                <p>{uiStrings.pipeline.backtestForwardBaseline}: PF {candidate.backtest_vs_forward.backtest.profit_factor.toFixed(2)} · Exp R {candidate.backtest_vs_forward.backtest.expectancy_r.toFixed(2)} · Sharpe {candidate.backtest_vs_forward.backtest.sharpe.toFixed(2)} · DD {candidate.backtest_vs_forward.backtest.max_dd_pct}%</p>
+                <p>{uiStrings.pipeline.backtestForwardForward}: PF {candidate.backtest_vs_forward.forward.profit_factor?.toFixed(2) ?? "—"} · Exp R {candidate.backtest_vs_forward.forward.expectancy_r?.toFixed(2) ?? "—"} · Sharpe {candidate.backtest_vs_forward.forward.sharpe?.toFixed(2) ?? "—"} · DD {candidate.backtest_vs_forward.forward.max_dd_pct ?? "—"}%</p>
+                <p>{uiStrings.pipeline.backtestForwardSource}: {candidate.backtest_vs_forward.baseline_provenance ?? uiStrings.pipeline.backtestForwardNoProvenance}</p>
+              </div>
+            ) : (
+              <p className="text-xs text-text-muted">{uiStrings.pipeline.backtestForwardEmpty}</p>
+            )}
           </CollapsibleContent>
         </Collapsible>
         <div className="flex gap-2">

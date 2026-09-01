@@ -9,14 +9,16 @@ export interface BotRow {
   name: string;
   market: string;
   timeframe: string;
-  profile: string;
+  profile: string | null;
   role: "CHAMPION" | "CHALLENGER";
+  origin_kind: "EXTERNAL_PRODUCTION" | "INCUBATION" | "ANALYSIS";
+  account_origin: "BROKER_REAL" | "BROKER_DEMO" | "FIXTURE";
   slot: string | null;
   pipeline_phase: string;
   semaphore_state: string;
   entered_state_at: string;
-  capital_allocated_pct: string;
-  risk_per_trade_pct: string;
+  capital_allocated_pct: string | null;
+  risk_per_trade_pct: string | null;
   sizing_multiplier: string;
   sizing_current_pct: string;
   kelly_fraction: string | null;
@@ -26,6 +28,16 @@ export interface BotRow {
 
 export function getBots(): Promise<BotRow[]> {
   return apiFetch<BotRow[]>("/api/v1/bots");
+}
+
+// Scoped variant for account/provenance-aware views. Keep getBots parameterless:
+// TanStack Query invokes a queryFn with its QueryFunctionContext argument.
+export function getScopedBots(accountId?: number, dataOrigin?: BotRow["account_origin"]): Promise<BotRow[]> {
+  const params = new URLSearchParams();
+  if (accountId !== undefined) params.set("account_id", String(accountId));
+  if (dataOrigin !== undefined) params.set("data_origin", dataOrigin);
+  const suffix = params.size ? `?${params.toString()}` : "";
+  return apiFetch<BotRow[]>(`/api/v1/bots${suffix}`);
 }
 
 export function getBot(botId: number): Promise<BotRow> {

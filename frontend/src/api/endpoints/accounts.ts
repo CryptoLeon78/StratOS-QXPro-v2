@@ -12,6 +12,7 @@ export interface AccountRow {
   server: string;
   currency: string;
   is_demo: boolean;
+  data_origin: "BROKER_REAL" | "BROKER_DEMO" | "FIXTURE";
   is_active: boolean;
   equity: string | null;
   balance: string | null;
@@ -31,7 +32,11 @@ export interface EaStateRow {
   autotrading: boolean;
   schedule_filter: Record<string, unknown> | null;
   news_windows: unknown[] | null;
+  sizing_pct: string | null;
   last_ingested_at: string;
+  ea_required_version: string | null;
+  version_verifiable: boolean;
+  version_matches: boolean | null;
 }
 
 export function getAccountEas(accountId: number): Promise<EaStateRow[]> {
@@ -45,6 +50,12 @@ export interface DriftRow {
   expected_mode: string;
   reported_mode: string;
   drift: boolean;
+  expected_autotrading: boolean;
+  reported_autotrading: boolean;
+  autotrading_drift: boolean;
+  expected_sizing_pct: string;
+  reported_sizing_pct: string | null;
+  sizing_drift: boolean | null;
 }
 
 export function getAccountsDrift(): Promise<DriftRow[]> {

@@ -18,6 +18,9 @@ export type PipelinePhase =
 export interface PipelineCandidate {
   id: number;
   bot_id: number;
+  account_id: number;
+  account_origin: "BROKER_REAL" | "BROKER_DEMO" | "FIXTURE";
+  bot_origin: "EXTERNAL_PRODUCTION" | "INCUBATION" | "ANALYSIS";
   current_phase: PipelinePhase;
   entered_phase_at: string;
   incubation_days: number;
@@ -35,10 +38,35 @@ export interface PipelineCandidate {
   verdict_reason: string | null;
   decision_eta_days: number | null;
   evaluated_at: string | null;
+  backtest_vs_forward?: BacktestVsForward | null;
+}
+
+export interface BacktestVsForward {
+  backtest: { profit_factor: number; expectancy_r: number; sharpe: number; max_dd_pct: string };
+  forward: { profit_factor: number | null; expectancy_r: number | null; sharpe: number | null; max_dd_pct: string | null };
+  baseline_created_at: string;
+  baseline_provenance: string | null;
+  delta_profit_factor: number | null;
+  delta_expectancy_r: number | null;
+  delta_sharpe: number | null;
+  delta_max_dd_pct: string | null;
 }
 
 export function getPipelineBoard(): Promise<PipelineCandidate[]> {
   return apiFetch<PipelineCandidate[]>("/api/v1/pipeline/board");
+}
+
+// Scoped variant for account/provenance-aware views. The parameterless board
+// function remains a valid TanStack Query queryFn.
+export function getScopedPipelineBoard(
+  accountId?: number,
+  dataOrigin?: PipelineCandidate["account_origin"]
+): Promise<PipelineCandidate[]> {
+  const params = new URLSearchParams();
+  if (accountId !== undefined) params.set("account_id", String(accountId));
+  if (dataOrigin !== undefined) params.set("data_origin", dataOrigin);
+  const suffix = params.size ? `?${params.toString()}` : "";
+  return apiFetch<PipelineCandidate[]>(`/api/v1/pipeline/board${suffix}`);
 }
 
 export function promoteCandidate(candidateId: number): Promise<PipelineCandidate> {

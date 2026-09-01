@@ -4,7 +4,9 @@
   "app": {
     "title": "Panel Maestro de Portfolio — Copiloto de decisiones · StratOS",
     "roleBadge": "Ingeniero",
-    "loadingTab": "Cargando…"
+    "loadingTab": "Cargando…",
+    "g12DemoLabel": "DEMO LOCAL · G12",
+    "operationalLabel": "OPERACIONAL LOCAL · SIN FIXTURE"
   },
 
   "login": {
@@ -89,6 +91,7 @@
     "impulseButton": "Tengo el impulso de intervenir",
     "searchPlaceholder": "Buscar…",
     "emptySearch": "Sin bots que coincidan con la búsqueda.",
+    "externalF7": "F7 externo",
     "emptySelection": "Selecciona un bot de la lista.",
     "daysInPhase": "{days}d en fase",
     "rollingVsBaselineTitle": "Rolling vs Baseline (alpha decay)",
@@ -167,13 +170,25 @@
     "colMagic": "Magic",
     "colBot": "Bot",
     "colPhaseRole": "Fase/rol",
-    "colEaVersion": "Versión EA",
-    "colModeExpectedReported": "Modo (esperado → reportado)",
-    "colAutotrading": "AutoTrading",
+      "colEaVersion": "Versión EA",
+      "colEaRequirement": "Versión requerida",
+      "eaVersionMatch": "Conforme",
+      "eaVersionMismatch": "v desactualizada",
+      "eaVersionUnverifiable": "No verificable",
+      "colModeExpectedReported": "Modo (esperado → reportado)",
+      "colOperationalMode": "Modo operativo",
+      "colAutotrading": "AutoTrading",
+      "colSizing": "Sizing",
+      "colSchedule": "Horario",
+      "colNewsWindows": "Ventanas news",
+      "colLastReported": "Último estado",
+      "scheduleLimited": "Limitado",
+      "scheduleUnrestricted": "Sin límite",
     "colLastSignal": "Última señal",
     "driftTitle": "Deriva de configuración",
     "driftEmpty": "Sin deriva detectada — todos los EAs reportan el modo esperado.",
-    "driftRow": "Bot #{botId} (magic {magic}): esperado {expected}, reportado {reported}",
+      "driftRow": "Bot #{botId} (magic {magic}): esperado {expected}, reportado {reported}",
+      "driftOperationalDetails": "AutoTrading {reportedAutotrading} (esperado {expectedAutotrading}); sizing {reportedSizing}% (esperado {expectedSizing}%).",
     "emptyAccounts": "Sin cuentas registradas todavía."
   },
 
@@ -246,6 +261,10 @@
     "lastReport": "Último reporte: {date}",
     "uptime7d": "Continuidad 7 días: {pct}",
     "tcaTitle": "TCA / Perfil de broker",
+      "tcaFills": "Fills reportados",
+      "rejectedOrders": "Órdenes rechazadas",
+      "brokerProfile": "Perfil de broker",
+      "spreadP50": "Spread P50",
     "tcaPending": "TCA (§10.1) y Broker Profile (§10.2) requieren la v1.1 del EA reporter (precio solicitado vs ejecutado + spread por ejecución).",
     "tcaPendingDetail": "Cuando el EA reporte slippage y spread por ejecución, aquí verás slippage P50/P95/P99, Asymmetry Index, Implementation Shortfall y el mapa de spread por sesión.",
     "watchdogTitle": "Watchdog de bots (frecuencia observada vs esperada, 30 días)",
@@ -302,6 +321,12 @@
   },
 
   "pipeline": {
+    "backtestForwardTitle": "Backtest vs Forward",
+    "backtestForwardBaseline": "Backtest firmado",
+    "backtestForwardForward": "Forward observado",
+    "backtestForwardSource": "Procedencia",
+    "backtestForwardNoProvenance": "sin procedencia de artefacto",
+    "backtestForwardEmpty": "Sin baseline firmado todavía — no se inventan métricas de backtest.",
     "promoteTo": "Promover a F{phase}",
     "kill": "Matar",
     "addCandidate": "+ Candidato",

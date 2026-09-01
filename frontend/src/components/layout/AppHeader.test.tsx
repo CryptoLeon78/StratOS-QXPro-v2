@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppHeader } from "@/components/layout/AppHeader";
 import { API_BASE_URL } from "@/api/client";
@@ -48,6 +48,10 @@ function mockHeaderSummary(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   useAuthStore.getState().setSession(FAKE_ACCESS_TOKEN, "refresh");
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe("AppHeader", () => {
@@ -102,5 +106,13 @@ describe("AppHeader", () => {
     const badge = screen.getByText(/DATOS STALE/);
     expect(badge).toBeInTheDocument();
     expect(badge).toHaveClass("invisible");
+  });
+
+  it("marca de forma visible el build de validacion G12 como demo local", async () => {
+    vi.stubEnv("VITE_OPERATIONAL_MODE", "g12_demo");
+    mockHeaderSummary();
+    renderAppHeader();
+
+    expect(await screen.findByText("DEMO LOCAL · G12")).toBeInTheDocument();
   });
 });

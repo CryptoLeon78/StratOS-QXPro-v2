@@ -25,3 +25,25 @@ export interface HeartbeatRow {
 export function getHeartbeat(): Promise<HeartbeatRow[]> {
   return apiFetch<HeartbeatRow[]>("/api/v1/execution/heartbeat");
 }
+
+export interface TcaSummary {
+  fills: number;
+  slippage_p50: string | null;
+  slippage_p95: string | null;
+  slippage_p99: string | null;
+  asymmetry_index: number | null;
+  implementation_shortfall_p50: string | null;
+  rejected_orders: number;
+  broker_profiles: BrokerProfile[];
+}
+
+export interface BrokerProfile {
+  broker: string;
+  symbol: string;
+  fills: number;
+  spread_p50: string | null;
+}
+
+export function getTca(): Promise<TcaSummary | null> {
+  return apiFetch<TcaSummary | null>("/api/v1/execution/tca");
+}

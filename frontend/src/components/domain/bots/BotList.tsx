@@ -55,7 +55,10 @@ export function BotList({
                       selectedId === bot.id ? "bg-bg-surfaceHover" : "hover:bg-bg-surfaceHover"
                     }`}
                   >
-                    <span className="truncate text-text-primary">{bot.name}</span>
+                    <span className="truncate text-text-primary">
+                      {bot.name}
+                      {bot.origin_kind === "EXTERNAL_PRODUCTION" ? ` · ${uiStrings.bots.externalF7}` : ""}
+                    </span>
                     <SemaphoreBadge state={bot.semaphore_state} />
                   </button>
                 </li>

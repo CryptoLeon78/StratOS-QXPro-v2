@@ -26,6 +26,8 @@ export function AppHeader() {
   const roleLabel = claims
     ? (uiStrings.header.roleLabels as Record<string, string>)[claims.role] ?? claims.role
     : "";
+  const isG12Demo = import.meta.env.VITE_OPERATIONAL_MODE === "g12_demo";
+  const isOperational = import.meta.env.VITE_OPERATIONAL_MODE === "operational";
 
   return (
     <header className="border-b border-border-subtle">
@@ -34,6 +36,8 @@ export function AppHeader() {
           <h1 className="text-lg font-semibold text-text-primary">{uiStrings.app.title}</h1>
         </div>
         <div className="flex items-center gap-3">
+          {isG12Demo && <Badge variant="warning">{uiStrings.app.g12DemoLabel}</Badge>}
+          {isOperational && <Badge variant="outline">{uiStrings.app.operationalLabel}</Badge>}
           {/* G10 (grupo n): unico punto de entrada a /dominical -- no es
           una pestana mas (no esta en TabBar), enlace discreto junto al
           badge de rol. */}

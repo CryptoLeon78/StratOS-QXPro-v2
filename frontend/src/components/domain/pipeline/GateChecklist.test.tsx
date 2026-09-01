@@ -20,6 +20,9 @@ function renderChecklist(candidate: PipelineCandidate) {
 const baseCandidate: PipelineCandidate = {
   id: 1,
   bot_id: 1,
+  account_id: 1,
+  account_origin: "BROKER_DEMO",
+  bot_origin: "INCUBATION",
   current_phase: "F5",
   entered_phase_at: "2026-01-01T00:00:00Z",
   incubation_days: 95,

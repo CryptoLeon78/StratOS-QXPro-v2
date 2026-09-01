@@ -12,8 +12,8 @@ import type { BotRow } from "@/api/endpoints/bots";
 // margen libre/margin level (G10): EquitySnapshot mas reciente por
 // account_id, `null` si la cuenta nunca reporto uno. Conexion/heartbeat/
 // latencia/uptime reutilizan GET /execution/heartbeat por account_id.
-// `ea_required_version` no existe -- solo se muestra la version
-// reportada, sin badge de desactualizada.
+// `ea_required_version` se configura sólo desde el registro administrativo.
+// NULL significa no verificable, nunca versión correcta por defecto.
 export function AccountCard({ account, bots }: { account: AccountRow; bots: BotRow[] }) {
   const { data: eas } = useAccountEas(account.id);
   const { data: heartbeats } = useHeartbeat();
@@ -33,6 +33,7 @@ export function AccountCard({ account, bots }: { account: AccountRow; bots: BotR
         <Badge variant={account.is_demo ? "outline" : "default"}>
           {account.is_demo ? uiStrings.cuentasEa.demo : uiStrings.cuentasEa.real}
         </Badge>
+        <Badge variant="outline">{account.data_origin}</Badge>
       </CardHeader>
       <CardContent className="space-y-3">
         {/* Grid SIEMPRE presente (nunca se monta/desmonta segun si hay
@@ -111,7 +112,13 @@ export function AccountCard({ account, bots }: { account: AccountRow; bots: BotR
               <th className="pb-1 font-normal">{uiStrings.cuentasEa.colBot}</th>
               <th className="pb-1 font-normal">{uiStrings.cuentasEa.colPhaseRole}</th>
               <th className="pb-1 font-normal">{uiStrings.cuentasEa.colEaVersion}</th>
+              <th className="pb-1 font-normal">{uiStrings.cuentasEa.colEaRequirement}</th>
+              <th className="pb-1 font-normal">{uiStrings.cuentasEa.colOperationalMode}</th>
               <th className="pb-1 font-normal">{uiStrings.cuentasEa.colAutotrading}</th>
+              <th className="pb-1 font-normal">{uiStrings.cuentasEa.colSizing}</th>
+              <th className="pb-1 font-normal">{uiStrings.cuentasEa.colSchedule}</th>
+              <th className="pb-1 font-normal">{uiStrings.cuentasEa.colNewsWindows}</th>
+              <th className="pb-1 font-normal">{uiStrings.cuentasEa.colLastReported}</th>
             </tr>
           </thead>
           <tbody>
@@ -122,13 +129,39 @@ export function AccountCard({ account, bots }: { account: AccountRow; bots: BotR
                   <td className="py-1.5">{ea.magic_number}</td>
                   <td className="py-1.5 text-text-primary">{bot?.name ?? "—"}</td>
                   <td className="py-1.5 text-text-secondary">
-                    {bot ? `${bot.pipeline_phase} · ${bot.role.toLowerCase()}` : "—"}
+                    {bot
+                      ? `${bot.origin_kind === "EXTERNAL_PRODUCTION" ? uiStrings.bots.externalF7 : bot.pipeline_phase} · ${bot.role.toLowerCase()}`
+                      : "—"}
                   </td>
                   <td className="py-1.5 text-text-secondary">{ea.ea_version}</td>
+                  <td className="py-1.5">
+                    {ea.version_verifiable ? (
+                      <Badge variant={ea.version_matches ? "success" : "warning"}>
+                        {ea.version_matches
+                          ? uiStrings.cuentasEa.eaVersionMatch
+                          : uiStrings.cuentasEa.eaVersionMismatch}
+                      </Badge>
+                    ) : (
+                      <span className="text-text-muted">{uiStrings.cuentasEa.eaVersionUnverifiable}</span>
+                    )}
+                  </td>
+                  <td className="py-1.5">
+                    <Badge variant={ea.mode === "REAL" ? "success" : "outline"}>{ea.mode}</Badge>
+                  </td>
                   <td className="py-1.5">
                     <Badge variant={ea.autotrading ? "success" : "outline"}>
                       {ea.autotrading ? "ON" : "OFF"}
                     </Badge>
+                  </td>
+                  <td className="py-1.5 text-text-secondary">{ea.sizing_pct ?? "—"}%</td>
+                  <td className="py-1.5 text-text-secondary">
+                    {ea.schedule_filter?.limit_time_range === true
+                      ? uiStrings.cuentasEa.scheduleLimited
+                      : uiStrings.cuentasEa.scheduleUnrestricted}
+                  </td>
+                  <td className="py-1.5 text-text-secondary">{ea.news_windows?.length ?? 0}</td>
+                  <td className="py-1.5 text-text-secondary">
+                    {new Date(ea.last_ingested_at).toLocaleString("es-ES", { timeZone: "Europe/Madrid" })}
                   </td>
                 </tr>
               );

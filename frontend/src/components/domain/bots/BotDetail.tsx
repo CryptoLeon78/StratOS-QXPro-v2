@@ -67,8 +67,8 @@ export function BotDetail({ bot }: { bot: BotRow }) {
           <div>
             <CardTitle>{bot.name}</CardTitle>
             <p className="text-xs text-text-secondary">
-              magic {bot.magic_number} · {bot.market} {bot.timeframe} · {bot.profile.toLowerCase()}{" "}
-              · {bot.pipeline_phase} · {bot.role.toLowerCase()}
+              magic {bot.magic_number} · {bot.market} {bot.timeframe} · {bot.profile?.toLowerCase() ?? "—"}{" "}
+              · {bot.origin_kind === "EXTERNAL_PRODUCTION" ? uiStrings.bots.externalF7 : bot.pipeline_phase} · {bot.role.toLowerCase()}
             </p>
           </div>
           <SemaphoreBadge state={bot.semaphore_state} />
@@ -272,7 +272,9 @@ export function BotDetail({ bot }: { bot: BotRow }) {
               </div>
               <div>
                 <dt className="text-text-secondary">{uiStrings.bots.sizingObjetivo}</dt>
-                <dd className="text-text-primary">{bot.capital_allocated_pct}%</dd>
+                <dd className="text-text-primary">
+                  {bot.capital_allocated_pct === null ? "—" : `${bot.capital_allocated_pct}%`}
+                </dd>
               </div>
               <div>
                 <dt className="text-text-secondary">{uiStrings.bots.colPnlBotAccount}</dt>

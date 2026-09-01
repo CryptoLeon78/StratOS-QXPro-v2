@@ -12,7 +12,9 @@ export default function GraveyardPage() {
   const [profileFilter, setProfileFilter] = useState("");
   const [causeFilter, setCauseFilter] = useState("");
 
-  const profiles = Array.from(new Set((bots ?? []).map((b) => b.profile)));
+  const profiles = Array.from(
+    new Set((bots ?? []).flatMap((bot) => (bot.profile === null ? [] : [bot.profile])))
+  );
   const causes = Object.keys(uiStrings.graveyard.causes);
 
   const filtered = (entries ?? []).filter((entry) => {

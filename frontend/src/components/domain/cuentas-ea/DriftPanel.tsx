@@ -4,14 +4,14 @@ import { interpolate } from "@/lib/i18n";
 import uiStrings from "@/styles/ui_strings.es.json";
 
 // PARTE 7.2 "Panel Deriva de configuracion": GET /accounts/drift, mapeo
-// directo. La spec pide tambien sizing aplicado vs sizing_current_pct y
-// magics huerfanos/ausentes -- DriftRowResponse solo trae deriva de modo
-// (expected_mode vs reported_mode), asi que el panel se limita a eso
-// (coincide con el caso de uso literal de CLAUDE.md: "EA en modo
-// incorrecto").
+// directo: modo operativo, permiso AutoTrading y sizing aplicado frente al
+// sizing contractual. Un sizing ausente sigue siendo no comparable (no se
+// presenta falsamente como conforme).
 export function DriftPanel() {
   const { data } = useAccountsDrift();
-  const drifted = (data ?? []).filter((row) => row.drift);
+  const drifted = (data ?? []).filter(
+    (row) => row.drift || row.autotrading_drift || row.sizing_drift === true
+  );
 
   return (
     <Card>
@@ -31,6 +31,17 @@ export function DriftPanel() {
                 expected: row.expected_mode,
                 reported: row.reported_mode,
               })}
+              {(row.autotrading_drift || row.sizing_drift === true) && (
+                <span className="text-text-secondary">
+                  {" "}
+                  {interpolate(uiStrings.cuentasEa.driftOperationalDetails, {
+                    expectedAutotrading: row.expected_autotrading ? "ON" : "OFF",
+                    reportedAutotrading: row.reported_autotrading ? "ON" : "OFF",
+                    expectedSizing: row.expected_sizing_pct,
+                    reportedSizing: row.reported_sizing_pct ?? "—",
+                  })}
+                </span>
+              )}
             </li>
           ))}
         </ul>

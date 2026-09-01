@@ -21,8 +21,8 @@ describe("DriftPanel", () => {
     server.use(
       http.get(`${API_BASE_URL}/api/v1/accounts/drift`, () =>
         HttpResponse.json([
-          { bot_id: 1, account_id: 1, magic_number: 118231, expected_mode: "REAL", reported_mode: "REAL", drift: false },
-          { bot_id: 2, account_id: 1, magic_number: 118247, expected_mode: "PAPER", reported_mode: "REAL", drift: true },
+          { bot_id: 1, account_id: 1, magic_number: 118231, expected_mode: "REAL", reported_mode: "REAL", drift: false, expected_autotrading: true, reported_autotrading: true, autotrading_drift: false, expected_sizing_pct: "100", reported_sizing_pct: "100", sizing_drift: false },
+          { bot_id: 2, account_id: 1, magic_number: 118247, expected_mode: "PAPER", reported_mode: "REAL", drift: true, expected_autotrading: false, reported_autotrading: true, autotrading_drift: true, expected_sizing_pct: "50", reported_sizing_pct: "100", sizing_drift: true },
         ])
       )
     );
@@ -30,6 +30,7 @@ describe("DriftPanel", () => {
     renderPanel();
 
     expect(await screen.findByText(/Bot #2 \(magic 118247\): esperado PAPER, reportado REAL/)).toBeInTheDocument();
+    expect(screen.getByText(/AutoTrading ON \(esperado OFF\); sizing 100% \(esperado 50%\)/)).toBeInTheDocument();
     expect(screen.queryByText(/Bot #1/)).not.toBeInTheDocument();
     expect(screen.queryByText("Sin deriva detectada")).not.toBeInTheDocument();
   });
@@ -38,7 +39,7 @@ describe("DriftPanel", () => {
     server.use(
       http.get(`${API_BASE_URL}/api/v1/accounts/drift`, () =>
         HttpResponse.json([
-          { bot_id: 1, account_id: 1, magic_number: 118231, expected_mode: "REAL", reported_mode: "REAL", drift: false },
+          { bot_id: 1, account_id: 1, magic_number: 118231, expected_mode: "REAL", reported_mode: "REAL", drift: false, expected_autotrading: true, reported_autotrading: true, autotrading_drift: false, expected_sizing_pct: "100", reported_sizing_pct: "100", sizing_drift: false },
         ])
       )
     );

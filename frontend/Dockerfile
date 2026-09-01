@@ -20,6 +20,8 @@ COPY frontend ./frontend
 # horneados dentro del JS, rotos para cualquier visitante real.
 ENV VITE_API_BASE_URL=/api
 ENV VITE_WS_BASE_URL=/ws
+ARG VITE_OPERATIONAL_MODE=""
+ENV VITE_OPERATIONAL_MODE=${VITE_OPERATIONAL_MODE}
 RUN cd frontend && npm run build
 
 FROM nginx:1.27-alpine AS runtime

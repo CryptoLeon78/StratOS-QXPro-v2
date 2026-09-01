@@ -35,7 +35,7 @@ export function HealthCard({ bot }: { bot: HealthRow }) {
         <div>
           <p className="font-semibold text-text-primary">{bot.name}</p>
           <p className="text-xs text-text-secondary">
-            {bot.profile.toLowerCase()} · {bot.pipeline_phase} ·{" "}
+            {bot.profile?.toLowerCase() ?? "—"} · {bot.pipeline_phase} ·{" "}
             {interpolate(uiStrings.salud.daysInState, { days: bot.days_in_state })}
           </p>
         </div>
