@@ -285,18 +285,44 @@ alimenta las decisiones de retirada que el registro de veredictos ya empezó en 
 
 ---
 
-## P4 — UI: procedencia completa y recorrido autenticado
+## P4 — UI: procedencia completa · PARCIALMENTE EJECUTADO 2026-09-02
 
-- Etiquetas y filtros de procedencia (`BROKER_REAL` / `BROKER_DEMO` / `FIXTURE` / `DERIVED` /
-  `ABSENT`) en las 5 pestañas que faltan: Portfolio, Salud, Riesgo, Auditoría, Dominical. Bots,
-  Pipeline y Cuentas/EA ya las tienen.
-- Recorrido autenticado con WebSocket contra `stratos_operational`, que nunca se hizo.
-- Con procedencia en todas las superficies, **retirar el fixture `full` del stack operacional**: hoy
-  varias vistas agregan fixture y telemetría real en la misma cifra, que es el hallazgo abierto de
-  G12 y la razón por la que el operador no se fía de los números del Resumen.
-- Regenerar los baselines de Playwright (son de G10) y volver a poner `e2e-playwright` en verde.
+### P4.1 — Procedencia en las 5 vistas agregadas — HECHO
 
----
+El hallazgo abierto de G12 era que Portfolio, Salud, Riesgo, Auditoría y Dominical sumaban
+fixture y telemetría real en la misma cifra sin que nada lo dijera. En esas superficies **la
+procedencia no es un campo de una fila** —como en Bots o Pipeline— sino una propiedad del
+agregado, y por eso no bastaba con replicar el patrón existente.
+
+`GET /data-provenance` declara la composición real: cuentas y bots por `data_origin`, más un
+`is_mixed` que es el dato accionable. Con un solo origen las cifras significan una cosa; con
+varios, cualquier total agrega universos distintos. Una base vacía es ausencia, no mezcla.
+`ProvenanceBadge` lo muestra en las cinco páginas y no afirma nada mientras carga.
+
+De paso, `CandidateCard` mostraba el enum en bruto (`BROKER_REAL · EXTERNAL_PRODUCTION`) sin
+pasar por `ui_strings`, contra P11.
+
+TDD real: los 3 tests del endpoint se confirmaron rojos (404) antes de implementarlo.
+**Verificado en vivo** contra el stack operacional tras reconstruir la imagen:
+`{"data_origin":"BROKER_REAL","accounts":2,"bots":40}`, `is_mixed=false` — correcto, el perfil
+operacional rechaza fixture por diseño.
+
+### P4.2 — Recorrido autenticado y WebSocket — PENDIENTE, REQUIERE AL OPERADOR
+
+**La vista autenticada no se ha comprobado en navegador**: `/login` exige credenciales que se
+entregaron una sola vez fuera del repositorio. Un agente no debe introducirlas. Queda para el
+operador: abrir las cinco pestañas y confirmar que el badge aparece donde debe.
+
+### P4.3 — Retirar el fixture del stack operacional — NO APLICA
+
+El perfil `operational` ya rechaza `seed full` por guardia, y el endpoint confirma que sólo hay
+`BROKER_REAL`. El fixture mezclado es un problema del stack `stratos_g12`, que no está
+levantado. Si se vuelve a levantar, el badge ahora lo declarará.
+
+### P4.4 — Baselines de Playwright — PENDIENTE
+
+Siguen siendo de G10 y `e2e-playwright` sigue rojo en CI por eso. Regenerarlos exige un
+recorrido con seed y navegador; no es un arreglo de código.
 
 ## P5 — Incubadora: abrir la puerta a más candidatas, y de observatorio a gestor
 
@@ -339,14 +365,55 @@ Sólo después de P0-P4. En orden:
    10 %, riesgo 0,2 %, DD contractual 5 %.
 4. Sólo entonces, semáforos y kill-switch actuando de verdad.
 
-## P6 — Higiene de entorno · sin urgencia, sin bloqueo
+## P6 — Higiene de entorno · EJECUTADO 2026-09-02
 
-- **`SQX_Edge_Suite_v1`** (`backlog A10`): proyecto grande, sin git, inactivo desde 2026-08-14, con
-  gobierno propio y ausente de todos los índices. Decidir: versionar, archivar o retirar.
-- **`PIPELINE_MINADO_A_FINALISTAS.md`** sigue hablando de "9 apps de entorno" cuando
-  `Apps_entorno_SQX/` tiene 14 directorios.
-- **`.codex/config.toml`** sólo registra el MCP `sqx_forja`. Añadir `stratos` (es el que expone
-  `scan_hardcoding`, obligatorio por P11) y `mt5_bridge`.
+- **`.codex/config.toml`** ahora registra el MCP `stratos` además de `sqx_forja`. Es el que
+  expone `scan_hardcoding`, obligatorio por P11 antes de cerrar unidad; Codex trabajaba sin él.
+- **`PIPELINE_MINADO_A_FINALISTAS.md`** decía "inventario completo de `Apps_entorno_SQX/`"
+  sobre una tabla de 9 apps cuando hay **14 directorios**, y ubicaba `SQX_vs_MT5_Panel` "en la
+  raíz, fuera de `Apps_entorno_SQX`" cuando vive dentro. Corregido: la tabla se declara como
+  las apps **del pipeline de minado**, y las cinco restantes (`StratOS-QXPro-v2`,
+  `SQX_Edge_Suite_v1`, `pipeline_hub`, `PortfolioLive_Pro`, `mt5_bridge`, más `_common`) se
+  listan aparte con lo que son. Rango de puertos corregido a 8770-8777.
+- **`SQX_Edge_Suite_v1`** (`backlog A10`): documentado en los índices de la raíz y en
+  `PIPELINE_MINADO_A_FINALISTAS.md` como proyecto con gobierno propio, sin git e inactivo
+  desde 2026-08-14. **Versionarlo o archivarlo sigue siendo decisión del operador**: no se
+  toca un proyecto ajeno al pipeline sin que lo pida.
+
+## Estado final del plan — verificado 2026-09-02
+
+Verificación ejecutada sobre el plan completo, punto por punto:
+
+| Bloque | Estado | Comprobado con |
+|---|---|---|
+| P0.1 commitear | **HECHO** | 18 commits sobre `a55694c`, pusheados |
+| P0.2 CI verde | **HECHO** | ruff/format/mypy limpios; 603 + 155 + 64 + 54 + 21 tests |
+| P0.3 exe | **HECHO** | regenerado 2 veces; 0 scripts por detrás, `--help` responde |
+| P0-bis salvaguarda de símbolo | **HECHO** | panel v1.3.1, 21 tests, verificado contra databank real |
+| P1.1 reclasificación persistida | **HECHO** | 2 eventos `DIRECTIONAL_*` en `operational_asset_event` |
+| P1.2 extracción de símbolo | **HECHO** | `alias_simbolos` con sus 3 alias reales; 73/73 `.sqx` resuelven |
+| P1.3 scan consolidado | **HECHO** | `ASSUMPTIONS.md` G13-28, 5 literales migrados |
+| P2.0/P2.1 export medido | **HECHO** | ventana y migración cerradas por decisión del operador |
+| P2.2 atribución del histórico | **HECHO** | 34 bots sincronizados, 26 trades reatribuidos, 377/8.831 |
+| P4.1 procedencia en 5 vistas | **HECHO** | endpoint verificado en vivo, `is_mixed=false` |
+| P5.0 tope de validación | **HECHO** | política v3, cola de 2 a 24 |
+| P6 higiene | **HECHO** | MCP `stratos` en Codex, inventario de apps corregido |
+
+**Lo que queda, y por qué no depende del agente:**
+
+| Bloque | Qué falta | Quién |
+|---|---|---|
+| P2.3 telemetría viva | decidir si el conector read-only pasa a leer JJTI/BEPB en continuo | operador |
+| P3 cola F7 | sigue en pausa desde 2026-08-31 esperando confirmación de los retests SQX | operador |
+| P4.2 recorrido autenticado | `/login` exige credenciales que un agente no debe introducir | operador |
+| P4.4 baselines Playwright | recorrido con seed y navegador; `e2e-playwright` sigue rojo por esto | operador |
+| P5.1 Incubadora | necesita una cuenta `BROKER_DEMO` registrada | operador |
+| A17 métricas por bot | decidir si se presentan sólo sobre EAs vivos (87-90 % del histórico es de retirados) | operador |
+| A18 filtro de correlación | se cablea cuando exista admisión a Incubadora | tras P5.1 |
+| A19 reclasificador | filtrar manifiestos de campañas superseded | agente, menor |
+
+**`e2e-acceptance-full` sigue rojo** por el criterio 9 (Lyra×Phoenix), documentado desde G10-14
+con decisión explícita de no investigar.
 
 ---
 
