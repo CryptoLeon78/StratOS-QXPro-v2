@@ -1,0 +1,16 @@
+{
+  "version": "stratos-operational-launcher-v1",
+  "python_executable": ".venv/Scripts/python.exe",
+  "env_file": ".env.operational",
+  "compose_project": "stratos_operational",
+  "compose_files": ["docker-compose.yml", "docker-compose.operational.yml"],
+  "core_health_url": "http://127.0.0.1:8300/health",
+  "core_health_startup_timeout_s": 45,
+  "analysis_root": "C:\\REPLACE_WITH_ANALYSIS_ROOT",
+  "projects_root": "C:\\REPLACE_WITH_SQX_PROJECTS_ROOT",
+  "panel_dir": "C:\\REPLACE_WITH_SQX_VS_MT5_PANEL",
+  "expected_terminal": "REPLACE_WITH_TERMINAL_BACKTEST_ID",
+  "backtest_from": "2018-01-01",
+  "backtest_to": "YYYY-MM-DD",
+  "max_backtests_per_run": 2
+}

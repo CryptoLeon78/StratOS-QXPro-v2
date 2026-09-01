@@ -1,0 +1,17 @@
+{
+  "$comment": "Política de selección previa a SQX_vs_MT5. Los mínimos cuantitativos viven exclusivamente en thresholds.seed.json; este archivo sólo gobierna evidencia y capacidad de la cola.",
+  "version": "operational-prefilter-v2",
+  "wfe_f2_gate": {
+    "enabled": false,
+    "accepted_statuses": [
+      "VALIDATED_EQUIVALENCE",
+      "FORWARD_VALIDATED",
+      "MT5_COMPARISON_VALIDATED"
+    ],
+    "activation_note": "El gate F2 WFE sólo se habilita tras equivalencia explícita validada o evidencia forward/MT5 correspondiente. DERIVED_UNMAPPED es informativa y no bloquea."
+  },
+  "require_monte_carlo_evidence": true,
+  "require_cost_evidence": true,
+  "max_per_symbol_timeframe": 2,
+  "max_mt5_queue": 24
+}

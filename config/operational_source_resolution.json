@@ -1,0 +1,8 @@
+{
+  "$comment": "Layout de proyectos SQX usado por el resolutor. Las rutas concretas se pasan siempre por CLI y no se versionan.",
+  "version": "operational-source-resolution-v1",
+  "project_name_prefix": "Project_",
+  "project_definition_filename": "project.cfx",
+  "databanks_directory_name": "databanks",
+  "strategy_extension": ".sqx"
+}

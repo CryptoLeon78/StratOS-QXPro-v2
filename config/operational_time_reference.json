@@ -1,0 +1,9 @@
+{
+  "$comment": "Contrato temporal para fuentes Darwinex operacionales. No contiene secretos.",
+  "schema_version": 1,
+  "broker_profile": "Darwinex",
+  "sqx_timezone": "EETUS",
+  "iana_timezone": "Europe/Helsinki",
+  "mt5_timestamp_semantics": "broker_server_wall_time",
+  "evidence": "SQX user/data/data.db BROKER MT_TIMEZONE for Darwinex profile"
+}

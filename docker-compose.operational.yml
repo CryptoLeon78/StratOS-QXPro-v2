@@ -1,0 +1,40 @@
+# Stack sin fixture. Ejecutar siempre con:
+# docker compose -p stratos_operational -f docker-compose.yml -f docker-compose.operational.yml --env-file .env.operational up -d
+services:
+  postgres:
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?}
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+    ports: !override
+      - "57432:5432"
+    volumes: !override
+      - operational-postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+  redis:
+    ports: !override
+      - "6580:6379"
+  core-engine:
+    env_file: !override
+      - .env.operational
+    ports: !override
+      - "8300:8000"
+  worker:
+    env_file: !override
+      - .env.operational
+  scheduler:
+    env_file: !override
+      - .env.operational
+  api-gateway:
+    env_file: !override
+      - .env.operational
+    ports: !override
+      - "8380:8080"
+  frontend:
+    build:
+      args:
+        VITE_OPERATIONAL_MODE: operational
+    ports: !override
+      - "5473:80"
+volumes:
+  operational-postgres-data:

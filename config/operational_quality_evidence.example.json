@@ -1,0 +1,24 @@
+{
+  "$comment": "Contrato de evidencia de robustez para operational_prefilter.py. Copiar fuera de Git y generar los valores/artefactos desde SQX o FORJA; no completar a mano ni por el nombre de una carpeta.",
+  "version": "operational-quality-evidence-v1",
+  "items": [
+    {
+      "sqx_sha256": "SHA256_DEL_SQX_INVENTARIADO",
+      "wfe": {
+        "value": 0.0,
+        "artifact_path": "C:\\ruta\\privada\\forja\\walk-forward-report.json",
+        "sha256": "SHA256_DEL_ARTEFACTO_WFE"
+      },
+      "monte_carlo": {
+        "p95_no_ruin": false,
+        "artifact_path": "C:\\ruta\\privada\\forja\\monte-carlo-report.json",
+        "sha256": "SHA256_DEL_ARTEFACTO_MONTE_CARLO"
+      },
+      "costs": {
+        "session_aware": false,
+        "artifact_path": "C:\\ruta\\privada\\forja\\cost-model-report.json",
+        "sha256": "SHA256_DEL_ARTEFACTO_COSTES"
+      }
+    }
+  ]
+}

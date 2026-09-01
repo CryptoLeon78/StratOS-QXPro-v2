@@ -1,0 +1,18 @@
+# Copiar a runtime/operational/sources.yaml. No guardar rutas de cuentas ni
+# credenciales en Git. El importador acepta solo rutas locales declaradas aqui.
+sources:
+  - group: REAL
+    terminal_alias: contabo_jjti
+    account_label: JJTI
+  - group: REAL
+    terminal_alias: contabo_bepb
+    account_label: BEPB
+  - group: INCUBATOR
+    terminal_data_root: C:\\path\\to\\MetaQuotes\\Terminal\\incubator
+  - group: ANALYSIS
+    root: C:\\path\\to\\analysis
+policy:
+  max_incubating_bots: 8
+  capital_allocated_pct: 10
+  risk_per_trade_pct: 0.2
+  dd_contract_pct: 5
