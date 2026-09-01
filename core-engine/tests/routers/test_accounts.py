@@ -88,6 +88,56 @@ class TestListEas:
         response = await api_client.get("/api/v1/accounts/999999/eas")
         assert response.status_code == 404
 
+    async def test_version_is_unverifiable_without_a_requirement(
+        self, api_client: AsyncClient, db_connection: AsyncConnection
+    ) -> None:
+        session = await _session(db_connection)
+        account = AccountFactory()
+        session.add(account)
+        await session.flush()
+        batch = IngestBatchFactory(account_id=account.id)
+        session.add(batch)
+        await session.flush()
+        session.add(
+            EaStateFactory(
+                account_id=account.id, magic_number=118232, ingest_batch_id=batch.id
+            )
+        )
+        await session.commit()
+
+        response = await api_client.get(f"/api/v1/accounts/{account.id}/eas")
+        row = response.json()[0]
+        assert row["ea_required_version"] is None
+        assert row["version_verifiable"] is False
+        assert row["version_matches"] is None
+
+    async def test_version_compares_with_the_registered_bot_requirement(
+        self, api_client: AsyncClient, db_connection: AsyncConnection
+    ) -> None:
+        session = await _session(db_connection)
+        account = AccountFactory()
+        session.add(account)
+        await session.flush()
+        bot = BotFactory(account_id=account.id, magic_number=118233, ea_required_version="1.1.0")
+        session.add(bot)
+        batch = IngestBatchFactory(account_id=account.id)
+        session.add(batch)
+        await session.flush()
+        session.add(
+            EaStateFactory(
+                account_id=account.id,
+                magic_number=bot.magic_number,
+                ea_version="1.1.0",
+                ingest_batch_id=batch.id,
+            )
+        )
+        await session.commit()
+
+        response = await api_client.get(f"/api/v1/accounts/{account.id}/eas")
+        row = response.json()[0]
+        assert row["version_verifiable"] is True
+        assert row["version_matches"] is True
+
 
 class TestAccountDrift:
     async def test_flags_orange_bot_in_real_mode(

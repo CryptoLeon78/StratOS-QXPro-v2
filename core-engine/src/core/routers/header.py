@@ -59,9 +59,15 @@ class EquityCurvePoint(BaseModel):
     equity: Decimal
 
 
-@router.get("/header/summary", response_model=HeaderSummaryResponse)
-async def header_summary(session: AsyncSession = Depends(get_session)) -> HeaderSummaryResponse:
-    now = datetime.now(UTC)
+async def compute_header_summary(
+    session: AsyncSession, *, now: datetime | None = None
+) -> HeaderSummaryResponse:
+    """Calcula la cabecera con un reloj explícito para fixtures verificables.
+
+    Los handlers HTTP no exponen ``now``: en producción siempre se usa UTC
+    actual. El seed full congelado lo aporta solo para su auto-verificación.
+    """
+    now = now or datetime.now(UTC)
     curve = await real_portfolio_equity_curve(session, now - timedelta(days=35))
     equity_eur = Decimal(str(curve.iloc[-1])) if not curve.empty else Decimal("0")
 
@@ -101,7 +107,7 @@ async def header_summary(session: AsyncSession = Depends(get_session)) -> Header
 
     open_positions = (
         await session.execute(select(func.count(Trade.id)).where(Trade.close_time.is_(None)))
-    ).scalar_one()
+    ).scalar() or 0
     alerts = (
         await session.execute(select(func.count(Alert.id)).where(Alert.resolved.is_(False)))
     ).scalar_one()
@@ -125,6 +131,11 @@ async def header_summary(session: AsyncSession = Depends(get_session)) -> Header
         pending_decisions=pending_decisions,
         data_stale_seconds=data_stale_seconds,
     )
+
+
+@router.get("/header/summary", response_model=HeaderSummaryResponse)
+async def header_summary(session: AsyncSession = Depends(get_session)) -> HeaderSummaryResponse:
+    return await compute_header_summary(session)
 
 
 @router.get("/summary/equity-curve", response_model=list[EquityCurvePoint])

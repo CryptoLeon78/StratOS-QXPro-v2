@@ -170,6 +170,8 @@ async def sweep_all_bots(
         baseline = await session.get(Baseline, bot.baseline_id)
         if baseline is None:
             continue
+        if (now - baseline.created_at).days < config.baseline_grace_days:
+            continue
 
         metrics = await assemble_semaphore_metrics(session, bot, baseline, sweep_config)
         days_in_state = (now - bot.entered_state_at).days

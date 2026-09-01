@@ -98,7 +98,9 @@ async def _active_bot_allocations(session: AsyncSession) -> list[tuple[str, Deci
     rows = (
         await session.execute(
             select(Bot.profile, Bot.capital_allocated_pct).where(
-                Bot.pipeline_phase.in_(_ACTIVE_PHASES)
+                Bot.pipeline_phase.in_(_ACTIVE_PHASES),
+                Bot.profile.is_not(None),
+                Bot.capital_allocated_pct.is_not(None),
             )
         )
     ).all()

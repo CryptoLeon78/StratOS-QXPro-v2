@@ -9,7 +9,7 @@ autopsia obligatoria, valida antes de tocar la sesion)."""
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from redis.asyncio import Redis
 from sqlalchemy import select
@@ -17,10 +17,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.auth.dependencies import get_current_user
 from core.db.base import get_session
-from core.db.enums import CemeteryCause, PipelinePhase, Verdict
-from core.db.models.accounts import Bot
-from core.db.models.pipeline import CemeteryEntry, PipelineCandidate
+from core.db.enums import AccountDataOrigin, ActorType, BotOriginKind, CemeteryCause, PipelinePhase, Verdict
+from core.db.models.accounts import Account, Baseline, Bot
+from core.db.models.market import ImportArtifact
+from core.db.models.pipeline import CemeteryEntry, PipelineCandidate, PipelinePhaseTransition
 from core.redis import get_redis
+from core.services.pipeline_history import record_phase_transition
 from core.state_machines.challenger import apply_cemetery_archival
 
 router = APIRouter(
@@ -42,6 +44,9 @@ _PHASE_ORDER = [
 class CandidateResponse(BaseModel):
     id: int
     bot_id: int
+    account_id: int
+    account_origin: AccountDataOrigin
+    bot_origin: BotOriginKind
     current_phase: PipelinePhase
     entered_phase_at: datetime
     incubation_days: int
@@ -59,8 +64,36 @@ class CandidateResponse(BaseModel):
     verdict_reason: str | None
     decision_eta_days: int | None
     evaluated_at: datetime | None
+    backtest_vs_forward: "BacktestVsForwardResponse | None" = None
 
     model_config = {"from_attributes": True}
+
+
+class BacktestMetricsResponse(BaseModel):
+    profit_factor: float
+    expectancy_r: float
+    sharpe: float
+    max_dd_pct: Decimal
+
+
+class ForwardMetricsResponse(BaseModel):
+    profit_factor: float | None
+    expectancy_r: float | None
+    sharpe: float | None
+    max_dd_pct: Decimal | None
+
+
+class BacktestVsForwardResponse(BaseModel):
+    """Comparación explícita; no fabrica datos si el bot no tiene baseline."""
+
+    backtest: BacktestMetricsResponse
+    forward: ForwardMetricsResponse
+    baseline_created_at: datetime
+    baseline_provenance: str | None
+    delta_profit_factor: float | None
+    delta_expectancy_r: float | None
+    delta_sharpe: float | None
+    delta_max_dd_pct: Decimal | None
 
 
 class CreateCandidateRequest(BaseModel):
@@ -86,6 +119,16 @@ class CemeteryEntryResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PipelinePhaseTransitionResponse(BaseModel):
+    from_phase: PipelinePhase | None
+    to_phase: PipelinePhase
+    reason: str | None
+    actor: ActorType
+    occurred_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 async def _get_candidate(session: AsyncSession, candidate_id: int) -> PipelineCandidate:
     candidate = await session.get(PipelineCandidate, candidate_id)
     if candidate is None:
@@ -93,9 +136,90 @@ async def _get_candidate(session: AsyncSession, candidate_id: int) -> PipelineCa
     return candidate
 
 
+async def _candidate_response(
+    session: AsyncSession, candidate: PipelineCandidate
+) -> CandidateResponse:
+    """Añade el baseline firmado y deltas forward sin inferir una baseline."""
+    bot = await session.get(Bot, candidate.bot_id)
+    if bot is None:
+        raise RuntimeError(f"candidato {candidate.id} sin bot")
+    account = await session.get(Account, bot.account_id)
+    if account is None:
+        raise RuntimeError(f"bot {bot.id} sin cuenta")
+    response = CandidateResponse.model_validate(
+        {
+            field: getattr(candidate, field)
+            for field in CandidateResponse.model_fields
+            if field not in {"account_id", "account_origin", "bot_origin", "backtest_vs_forward"}
+        }
+        | {
+            "account_id": bot.account_id,
+            "account_origin": account.data_origin,
+            "bot_origin": bot.origin_kind,
+        }
+    )
+    if bot.baseline_id is None:
+        return response
+    baseline = await session.get(Baseline, bot.baseline_id)
+    if baseline is None:
+        return response
+    provenance: str | None = None
+    if baseline.artifact_id is not None:
+        artifact = await session.get(ImportArtifact, baseline.artifact_id)
+        provenance = artifact.source_path if artifact is not None else None
+    forward = ForwardMetricsResponse(
+        profit_factor=candidate.profit_factor,
+        expectancy_r=candidate.expectancy_r,
+        sharpe=candidate.sharpe,
+        max_dd_pct=candidate.max_dd_pct,
+    )
+    response.backtest_vs_forward = BacktestVsForwardResponse(
+        backtest=BacktestMetricsResponse(
+            profit_factor=baseline.profit_factor,
+            expectancy_r=baseline.expectancy_r,
+            sharpe=baseline.sharpe,
+            max_dd_pct=baseline.max_dd_pct,
+        ),
+        forward=forward,
+        baseline_created_at=baseline.created_at,
+        baseline_provenance=provenance,
+        delta_profit_factor=(
+            forward.profit_factor - baseline.profit_factor
+            if forward.profit_factor is not None
+            else None
+        ),
+        delta_expectancy_r=(
+            forward.expectancy_r - baseline.expectancy_r
+            if forward.expectancy_r is not None
+            else None
+        ),
+        delta_sharpe=forward.sharpe - baseline.sharpe if forward.sharpe is not None else None,
+        delta_max_dd_pct=(
+            forward.max_dd_pct - baseline.max_dd_pct
+            if forward.max_dd_pct is not None
+            else None
+        ),
+    )
+    return response
+
+
 @router.get("/board", response_model=list[CandidateResponse])
-async def pipeline_board(session: AsyncSession = Depends(get_session)) -> list[PipelineCandidate]:
-    return list((await session.execute(select(PipelineCandidate))).scalars().all())
+async def pipeline_board(
+    account_id: int | None = Query(default=None),
+    data_origin: AccountDataOrigin | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> list[CandidateResponse]:
+    statement = (
+        select(PipelineCandidate)
+        .join(Bot, Bot.id == PipelineCandidate.bot_id)
+        .join(Account, Account.id == Bot.account_id)
+    )
+    if account_id is not None:
+        statement = statement.where(Bot.account_id == account_id)
+    if data_origin is not None:
+        statement = statement.where(Account.data_origin == data_origin)
+    candidates = list((await session.execute(statement)).scalars().all())
+    return [await _candidate_response(session, candidate) for candidate in candidates]
 
 
 @router.post("/candidates", response_model=CandidateResponse, status_code=status.HTTP_201_CREATED)
@@ -113,8 +237,17 @@ async def create_candidate(
         oos_trades=0,
     )
     session.add(candidate)
+    await session.flush()
+    record_phase_transition(
+        session,
+        candidate,
+        from_phase=None,
+        to_phase=PipelinePhase.F1,
+        actor=ActorType.HUMAN,
+        reason="CANDIDATE_CREATED",
+    )
     await session.commit()
-    return candidate
+    return await _candidate_response(session, candidate)
 
 
 @router.post("/{candidate_id}/promote", response_model=CandidateResponse)
@@ -128,10 +261,19 @@ async def promote_candidate(
             "ascensos F4+ solo por gate automatico (PARTE 6.3), no manual",
         )
     next_index = _PHASE_ORDER.index(candidate.current_phase) + 1
+    prior_phase = candidate.current_phase
     candidate.current_phase = _PHASE_ORDER[next_index]
     candidate.entered_phase_at = datetime.now(UTC)
+    record_phase_transition(
+        session,
+        candidate,
+        from_phase=prior_phase,
+        to_phase=candidate.current_phase,
+        actor=ActorType.HUMAN,
+        reason="MANUAL_PROMOTION",
+    )
     await session.commit()
-    return candidate
+    return await _candidate_response(session, candidate)
 
 
 @router.post("/{candidate_id}/kill", response_model=CemeteryEntryResponse)
@@ -152,7 +294,16 @@ async def kill_candidate(
         )
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    prior_phase = candidate.current_phase
     candidate.current_phase = PipelinePhase.CEMENTERIO
+    record_phase_transition(
+        session,
+        candidate,
+        from_phase=prior_phase,
+        to_phase=PipelinePhase.CEMENTERIO,
+        actor=ActorType.HUMAN,
+        reason=body.cause.value,
+    )
     await session.commit()
 
     entry = (
@@ -165,4 +316,17 @@ async def kill_candidate(
 async def candidate_gate(
     candidate_id: int, session: AsyncSession = Depends(get_session)
 ) -> PipelineCandidate:
-    return await _get_candidate(session, candidate_id)
+    return await _candidate_response(session, await _get_candidate(session, candidate_id))
+
+
+@router.get("/{candidate_id}/history", response_model=list[PipelinePhaseTransitionResponse])
+async def candidate_history(
+    candidate_id: int, session: AsyncSession = Depends(get_session)
+) -> list[PipelinePhaseTransition]:
+    await _get_candidate(session, candidate_id)
+    result = await session.execute(
+        select(PipelinePhaseTransition)
+        .where(PipelinePhaseTransition.candidate_id == candidate_id)
+        .order_by(PipelinePhaseTransition.occurred_at)
+    )
+    return list(result.scalars().all())

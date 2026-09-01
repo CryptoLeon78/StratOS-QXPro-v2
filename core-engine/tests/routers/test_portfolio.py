@@ -4,7 +4,7 @@ from decimal import Decimal
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
-from core.db.enums import BotProfile, PipelinePhase
+from core.db.enums import BotOriginKind, BotProfile, PipelinePhase
 from core.db.models.governance import CorrelationMatrix
 from tests.factories import AccountFactory, BotFactory
 
@@ -47,6 +47,30 @@ class TestPortfolioBlocks:
         assert rows["CONVEXO"]["real_pct"] == 50.0
         assert rows["HIBRIDO"]["real_pct"] == 50.0
         assert rows["CONCAVO"]["real_pct"] == 0.0
+
+    async def test_excludes_external_observation_without_declared_allocation(
+        self, api_client: AsyncClient, db_connection: AsyncConnection
+    ) -> None:
+        session = await _session(db_connection)
+        account = AccountFactory()
+        session.add(account)
+        await session.flush()
+        session.add(
+            BotFactory(
+                account_id=account.id,
+                origin_kind=BotOriginKind.EXTERNAL_PRODUCTION,
+                profile=None,
+                capital_allocated_pct=None,
+                risk_per_trade_pct=None,
+                pipeline_phase=PipelinePhase.F7,
+            )
+        )
+        await session.commit()
+
+        response = await api_client.get("/api/v1/portfolio/blocks")
+
+        assert response.status_code == 200
+        assert all(row["bot_count"] == 0 for row in response.json())
 
 
 class TestPortfolioProfiles:

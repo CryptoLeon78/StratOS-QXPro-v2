@@ -27,8 +27,15 @@ from core.ingest.batch import seal_and_create_batch
 from core.ingest.schemas import TradesIngestRequest
 from core.ingest.services import IngestOutcome
 
+BOT_MAGIC_MIN = -(2**31)
+BOT_MAGIC_MAX = 2**31 - 1
+
 
 async def _resolve_bot_id(session: AsyncSession, account_id: int, magic_number: int) -> int | None:
+    # 0 está reservado por el importador HTML para “magic no expuesto”; no es
+    # un magic MT5 válido ni puede resolver un bot por coincidencia.
+    if magic_number == 0 or not BOT_MAGIC_MIN <= magic_number <= BOT_MAGIC_MAX:
+        return None
     result = await session.execute(
         select(Bot.id).where(Bot.account_id == account_id, Bot.magic_number == magic_number)
     )

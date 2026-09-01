@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
-from core.db.enums import PipelinePhase
+from core.db.enums import AccountDataOrigin, PipelinePhase
 from core.db.models.pipeline import PipelineCandidate
 from tests.factories import AccountFactory, BotFactory
 
@@ -15,10 +15,12 @@ async def _session(db_connection: AsyncConnection) -> AsyncSession:
 
 
 async def _candidate(
-    db_connection: AsyncConnection, phase: PipelinePhase = PipelinePhase.F1
+    db_connection: AsyncConnection,
+    phase: PipelinePhase = PipelinePhase.F1,
+    data_origin: AccountDataOrigin = AccountDataOrigin.FIXTURE,
 ) -> tuple[int, int]:
     session = await _session(db_connection)
-    account = AccountFactory()
+    account = AccountFactory(data_origin=data_origin)
     session.add(account)
     await session.flush()
     bot = BotFactory(account_id=account.id, pipeline_phase=phase)
@@ -44,6 +46,21 @@ class TestPipelineBoard:
         response = await api_client.get("/api/v1/pipeline/board")
         assert response.status_code == 200
         assert len(response.json()) == 1
+
+    async def test_filters_by_account_and_data_origin(
+        self, api_client: AsyncClient, db_connection: AsyncConnection
+    ) -> None:
+        _, real_bot_id = await _candidate(
+            db_connection, data_origin=AccountDataOrigin.BROKER_REAL
+        )
+        await _candidate(db_connection, data_origin=AccountDataOrigin.FIXTURE)
+
+        response = await api_client.get("/api/v1/pipeline/board?data_origin=BROKER_REAL")
+
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+        assert response.json()[0]["bot_id"] == real_bot_id
+        assert response.json()[0]["account_origin"] == "BROKER_REAL"
 
 
 class TestCreateCandidate:

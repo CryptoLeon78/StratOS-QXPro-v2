@@ -5,7 +5,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
-from core.db.enums import TradeType
+from core.db.enums import AccountDataOrigin, BotOriginKind, TradeType
 from tests.factories import (
     AccountFactory,
     BaselineFactory,
@@ -36,6 +36,51 @@ class TestListBots:
         response = await api_client.get("/api/v1/bots")
         assert response.status_code == 200
         assert len(response.json()) == 1
+
+    async def test_filters_by_account_and_data_origin(
+        self, api_client: AsyncClient, db_connection: AsyncConnection
+    ) -> None:
+        session = await _session(db_connection)
+        real_account = AccountFactory(data_origin=AccountDataOrigin.BROKER_REAL)
+        demo_account = AccountFactory(data_origin=AccountDataOrigin.BROKER_DEMO)
+        session.add_all([real_account, demo_account])
+        await session.flush()
+        real_bot = BotFactory(account_id=real_account.id)
+        session.add_all([real_bot, BotFactory(account_id=demo_account.id)])
+        await session.commit()
+
+        by_origin = await api_client.get("/api/v1/bots?data_origin=BROKER_REAL")
+        by_account = await api_client.get(f"/api/v1/bots?account_id={real_account.id}")
+
+        assert [row["id"] for row in by_origin.json()] == [real_bot.id]
+        assert [row["id"] for row in by_account.json()] == [real_bot.id]
+        assert by_origin.json()[0]["account_origin"] == "BROKER_REAL"
+
+    async def test_external_bot_allows_absent_internal_contract(
+        self, api_client: AsyncClient, db_connection: AsyncConnection
+    ) -> None:
+        session = await _session(db_connection)
+        account = AccountFactory(data_origin=AccountDataOrigin.BROKER_REAL)
+        session.add(account)
+        await session.flush()
+        external_bot = BotFactory(
+            account_id=account.id,
+            origin_kind=BotOriginKind.EXTERNAL_PRODUCTION,
+            profile=None,
+            capital_allocated_pct=None,
+            risk_per_trade_pct=None,
+        )
+        session.add(external_bot)
+        await session.commit()
+
+        response = await api_client.get("/api/v1/bots")
+
+        assert response.status_code == 200
+        row = response.json()[0]
+        assert row["origin_kind"] == "EXTERNAL_PRODUCTION"
+        assert row["profile"] is None
+        assert row["capital_allocated_pct"] is None
+        assert row["risk_per_trade_pct"] is None
 
 
 class TestGetBot:

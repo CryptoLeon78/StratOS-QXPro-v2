@@ -193,6 +193,8 @@ class TestExecutionAndEaStateShapes:
                     {
                         "order_id": "ord-1",
                         "symbol": "EURUSD",
+                        "type": "BUY",
+                        "volume": 0.10,
                         "requested_price": 1.0850,
                         "executed_price": 1.0851,
                         "spread": 0.0001,
@@ -202,6 +204,28 @@ class TestExecutionAndEaStateShapes:
             }
         )
         assert req.fills[0].order_id == "ord-1"
+
+    def test_rejected_execution_requires_a_reason(self) -> None:
+        with pytest.raises(ValidationError, match="rejection_reason"):
+            ExecutionIngestRequest.model_validate(
+                {
+                    "account_login": "100231",
+                    "connector_instance_id": "conn-1",
+                    "batch_sha256": SEAL,
+                    "magic": 118231,
+                    "fills": [
+                        {
+                            "order_id": "ord-rejected",
+                            "symbol": "EURUSD",
+                            "type": "BUY",
+                            "volume": 0.10,
+                            "requested_price": 1.0850,
+                            "status": "REJECTED",
+                            "ts": "2026-08-26T12:00:00Z",
+                        }
+                    ],
+                }
+            )
 
     def test_ea_state_valid_payload_with_jsonb_fields(self) -> None:
         req = EaStateIngestRequest.model_validate(

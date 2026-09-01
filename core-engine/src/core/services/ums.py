@@ -156,7 +156,7 @@ async def monthly_evolution_metrics(session: AsyncSession, now: datetime) -> dic
                 Trade.close_time <= now,
             )
         )
-    ).scalar_one()
+    ).scalar() or 0
 
     equity_curve = await real_portfolio_equity_curve(session, window_start)
     if len(equity_curve) < 2:

@@ -53,6 +53,7 @@ class SemaphoreConfig:
     exp_recover: float = 0.80
     recovery_days: int = 10
     orange_days: int = 15
+    baseline_grace_days: int = 5
     orange_virtual_trades: int = 30
     dd_contract_orange_ratio: float = 0.80
     sizing_amarillo_pct: Decimal = Decimal("50")

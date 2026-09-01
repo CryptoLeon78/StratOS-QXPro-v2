@@ -7,7 +7,7 @@ from httpx import AsyncClient
 from ingest_seal.sealing import compute_batch_sha256
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
-from core.db.models.market import IngestBatch
+from core.db.models.market import ExecutionFill, IngestBatch
 from core.ingest.schemas import ExecutionIngestRequest
 from tests.factories import AccountFactory
 from tests.ingest.conftest import TEST_INGEST_API_KEY
@@ -25,9 +25,24 @@ def _fill(order_id: str) -> dict[str, Any]:
     return {
         "order_id": order_id,
         "symbol": "EURUSD",
+        "type": "BUY",
+        "volume": 0.10,
         "requested_price": 1.0850,
         "executed_price": 1.0851,
         "spread": 0.0001,
+        "ts": "2026-08-26T12:00:00Z",
+    }
+
+
+def _rejected_order(order_id: str) -> dict[str, Any]:
+    return {
+        "order_id": order_id,
+        "symbol": "EURUSD",
+        "type": "SELL",
+        "volume": 0.10,
+        "requested_price": 1.0850,
+        "status": "REJECTED",
+        "rejection_reason": "MARKET_CLOSED",
         "ts": "2026-08-26T12:00:00Z",
     }
 
@@ -48,7 +63,7 @@ def _sealed_execution_payload(
     return {**draft, "batch_sha256": seal}
 
 
-async def test_seals_batch_without_persisting_fills(
+async def test_persists_immutable_fills_and_deduplicates_replay(
     ingest_client: AsyncClient, db_connection: AsyncConnection
 ) -> None:
     account = AccountFactory()
@@ -68,6 +83,12 @@ async def test_seals_batch_without_persisting_fills(
         assert batch is not None
         assert batch.batch_type == "execution"
         assert batch.records == 2
+        assert len((await session2.execute(ExecutionFill.__table__.select())).all()) == 2
+
+    replay = await ingest_client.post("/ingest/execution", json=payload, headers=HEADERS)
+    assert replay.status_code == 200
+    assert replay.json()["accepted"] == 0
+    assert replay.json()["duplicated"] == 2
 
 
 async def test_tampered_seal_is_rejected(
@@ -84,3 +105,23 @@ async def test_tampered_seal_is_rejected(
 
     response = await ingest_client.post("/ingest/execution", json=payload, headers=HEADERS)
     assert response.status_code == 422
+
+
+async def test_persists_a_rejected_order_without_an_invented_execution_price(
+    ingest_client: AsyncClient, db_connection: AsyncConnection
+) -> None:
+    account = AccountFactory()
+    async with _session(db_connection) as session:
+        session.add(account)
+        await session.commit()
+
+    payload = _sealed_execution_payload(account.login, 118231, [_rejected_order("ord-rejected")])
+    response = await ingest_client.post("/ingest/execution", json=payload, headers=HEADERS)
+    assert response.status_code == 200
+    assert response.json()["accepted"] == 1
+
+    async with _session(db_connection) as session:
+        fill = (await session.execute(ExecutionFill.__table__.select())).mappings().one()
+        assert fill["status"] == "REJECTED"
+        assert fill["executed_price"] is None
+        assert fill["rejection_reason"] == "MARKET_CLOSED"

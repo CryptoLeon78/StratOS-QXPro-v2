@@ -14,15 +14,23 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.auth.dependencies import get_current_user
 from core.db.base import get_session
-from core.db.enums import BotProfile, BotRole, PipelinePhase, SemaphoreState, TradeType
-from core.db.models.accounts import Baseline, Bot
+from core.db.enums import (
+    AccountDataOrigin,
+    BotOriginKind,
+    BotProfile,
+    BotRole,
+    PipelinePhase,
+    SemaphoreState,
+    TradeType,
+)
+from core.db.models.accounts import Account, Baseline, Bot
 from core.db.models.decisions import SemaphoreTransition
 from core.formulas.pipeline import trades_per_week as trades_per_week_formula
 from core.services.bot_equity import (
@@ -51,14 +59,16 @@ class BotResponse(BaseModel):
     name: str
     market: str
     timeframe: str
-    profile: BotProfile
+    profile: BotProfile | None
     role: BotRole
+    origin_kind: BotOriginKind
+    account_origin: AccountDataOrigin
     slot: str | None
     pipeline_phase: PipelinePhase
     semaphore_state: SemaphoreState
     entered_state_at: datetime
-    capital_allocated_pct: Decimal
-    risk_per_trade_pct: Decimal
+    capital_allocated_pct: Decimal | None
+    risk_per_trade_pct: Decimal | None
     sizing_multiplier: Decimal
     sizing_current_pct: Decimal
     kelly_fraction: Decimal | None
@@ -137,8 +147,20 @@ class SemaphoreHistoryRow(BaseModel):
 
 
 @router.get("", response_model=list[BotResponse])
-async def list_bots(session: AsyncSession = Depends(get_session)) -> list[Bot]:
-    return list((await session.execute(select(Bot))).scalars().all())
+async def list_bots(
+    account_id: int | None = Query(default=None),
+    data_origin: AccountDataOrigin | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> list[BotResponse]:
+    statement = select(Bot, Account.data_origin).join(Account, Account.id == Bot.account_id)
+    if account_id is not None:
+        statement = statement.where(Bot.account_id == account_id)
+    if data_origin is not None:
+        statement = statement.where(Account.data_origin == data_origin)
+    return [
+        BotResponse.model_validate({**bot.__dict__, "account_origin": origin})
+        for bot, origin in (await session.execute(statement)).all()
+    ]
 
 
 @router.get("/{bot_id}", response_model=BotResponse)
@@ -146,7 +168,8 @@ async def get_bot(bot_id: int, session: AsyncSession = Depends(get_session)) -> 
     bot = await session.get(Bot, bot_id)
     if bot is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "bot no encontrado")
-    return bot
+    account = await session.get(Account, bot.account_id)
+    return BotResponse.model_validate({**bot.__dict__, "account_origin": account.data_origin})
 
 
 @router.get("/{bot_id}/open-positions", response_model=list[OpenPositionRow])

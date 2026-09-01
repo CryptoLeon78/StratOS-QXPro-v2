@@ -13,14 +13,14 @@ verificado contra hardware real (mismo patron que G4)."""
 
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.db.enums import AlertLevel, SemaphoreState
+from core.db.enums import AlertLevel, BotOriginKind, SemaphoreState
 from core.db.models.accounts import Bot
 from core.db.models.decisions import Alert
 from core.db.models.market import EaState
@@ -37,6 +37,9 @@ class ConfigDriftRow:
     expected_mode: str
     reported_mode: str
     drift: bool
+    expected_autotrading: bool
+    reported_autotrading: bool
+    autotrading_drift: bool
     expected_sizing_pct: Decimal
     reported_sizing_pct: Decimal | None
     sizing_drift: bool | None
@@ -48,12 +51,25 @@ class OrphanReport:
     missing_magics: list[tuple[int, int]]
 
 
-def _expected_mode(semaphore_state: SemaphoreState) -> str:
+def _expected_mode(bot: Bot, now: datetime) -> str:
+    """La gracia de incubacion es explicita y no convierte un F3 en VERDE.
+
+    Durante ella el EA demo debe poder generar OOS real; fuera de ese intervalo
+    vuelve a regir exclusivamente el semaforo persistido.
+    """
+    if (
+        bot.origin_kind == BotOriginKind.INCUBATION
+        and bot.incubation_grace_until is not None
+        and now < bot.incubation_grace_until
+    ):
+        return _REAL
+    semaphore_state = bot.semaphore_state
     return _PAPER if semaphore_state == SemaphoreState.NARANJA else _REAL
 
 
 async def compute_drift(session: AsyncSession) -> list[ConfigDriftRow]:
     bots = (await session.execute(select(Bot))).scalars().all()
+    now = datetime.now(UTC)
     rows: list[ConfigDriftRow] = []
     for bot in bots:
         ea_state = (
@@ -66,7 +82,7 @@ async def compute_drift(session: AsyncSession) -> list[ConfigDriftRow]:
         if ea_state is None:
             continue
 
-        expected = _expected_mode(bot.semaphore_state)
+        expected = _expected_mode(bot, now)
         reported = ea_state.mode.upper()
         reported_sizing = ea_state.sizing_pct
         sizing_drift = (
@@ -80,6 +96,9 @@ async def compute_drift(session: AsyncSession) -> list[ConfigDriftRow]:
                 expected_mode=expected,
                 reported_mode=reported,
                 drift=expected != reported,
+                expected_autotrading=expected == _REAL,
+                reported_autotrading=ea_state.autotrading,
+                autotrading_drift=ea_state.autotrading != (expected == _REAL),
                 expected_sizing_pct=bot.sizing_current_pct,
                 reported_sizing_pct=reported_sizing,
                 sizing_drift=sizing_drift,
@@ -117,17 +136,30 @@ async def run_drift_check(session: AsyncSession, redis: Redis, now: datetime) ->
             )
         ).scalar_one_or_none()
 
-        if row.drift:
+        has_drift = row.drift or row.autotrading_drift or row.sizing_drift is True
+        if has_drift:
             if existing is None:
+                details: list[str] = []
+                if row.drift:
+                    details.append(
+                        f"modo incorrecto (esperado {row.expected_mode}, reportado {row.reported_mode})"
+                    )
+                if row.autotrading_drift:
+                    details.append(
+                        "permiso AutoTrading incorrecto "
+                        f"(esperado {row.expected_autotrading}, reportado {row.reported_autotrading})"
+                    )
+                if row.sizing_drift is True:
+                    details.append(
+                        "sizing incorrecto "
+                        f"(esperado {row.expected_sizing_pct}, reportado {row.reported_sizing_pct})"
+                    )
                 alert = Alert(
                     ts=now,
                     level=AlertLevel.CRITICA,
                     module="config_drift",
-                    message=(
-                        f"Bot {row.bot_id} (magic {row.magic_number}): EA en modo incorrecto "
-                        f"(esperado {row.expected_mode}, reportado {row.reported_mode})."
-                    ),
-                    action_required="Corregir el modo del EA en el terminal MT5.",
+                    message=f"Bot {row.bot_id} (magic {row.magic_number}): " + "; ".join(details) + ".",
+                    action_required="Corregir el contrato operativo del EA en el terminal MT5.",
                     dedup_key=dedup_key,
                 )
                 session.add(alert)

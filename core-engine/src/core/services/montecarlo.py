@@ -56,7 +56,7 @@ async def bots_due_for_recalc(
                     Trade.close_time > last_run.ts,
                 )
             )
-        ).scalar_one()
+        ).scalar() or 0
         if trades_since >= config.recalc_every_trades:
             due.append(bot)
     return due

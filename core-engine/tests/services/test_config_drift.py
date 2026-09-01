@@ -52,6 +52,8 @@ class TestComputeDrift:
         assert row.drift is True
         assert row.expected_mode == "PAPER"
         assert row.reported_mode == "REAL"
+        assert row.expected_autotrading is False
+        assert row.autotrading_drift is True
 
     async def test_orange_bot_correctly_in_paper_mode_is_not_drift(
         self, db_session: object
@@ -144,6 +146,23 @@ class TestSizingDrift:
         assert row.sizing_drift is True
         assert row.expected_sizing_pct == Decimal("50.00")
         assert row.reported_sizing_pct == Decimal("100.00")
+
+    async def test_sizing_drift_creates_critica_alert(self, db_session: object) -> None:
+        account = await _account(db_session)
+        bot = BotFactory(account_id=account.id, sizing_current_pct=Decimal("50.00"))
+        db_session.add(bot)  # type: ignore[attr-defined]
+        await db_session.flush()  # type: ignore[attr-defined]
+        await _ea_state(db_session, account, bot.magic_number, "REAL", sizing_pct=Decimal("100.00"))
+
+        redis = fakeredis.FakeAsyncRedis()
+        await run_drift_check(db_session, redis, datetime.now(UTC))  # type: ignore[arg-type]
+        alert = (
+            await db_session.execute(  # type: ignore[attr-defined]
+                select(Alert).where(Alert.dedup_key == f"config_drift:{bot.id}")
+            )
+        ).scalar_one()
+        assert "sizing incorrecto" in alert.message
+        await redis.aclose()
 
     async def test_reported_sizing_matching_bot_is_not_drift(self, db_session: object) -> None:
         account = await _account(db_session)

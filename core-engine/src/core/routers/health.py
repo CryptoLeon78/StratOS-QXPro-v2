@@ -33,7 +33,7 @@ class HealthRow(BaseModel):
     bot_id: int
     magic_number: int
     name: str
-    profile: BotProfile
+    profile: BotProfile | None
     pipeline_phase: PipelinePhase
     semaphore_state: SemaphoreState
     days_in_state: int

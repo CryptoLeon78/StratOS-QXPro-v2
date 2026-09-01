@@ -51,6 +51,7 @@ class TestSweepAllBots:
             # AMARILLO (pf_rolling bajo), no el CONTRACT_BREACH del propio
             # dd_bot_pct reconstruido de la curva sintetica de trades.
             dd_contract_pct=Decimal("20.000"),
+            created_at=datetime.now(UTC) - timedelta(days=6),
         )
         db_session.add(baseline)  # type: ignore[attr-defined]
         await db_session.flush()  # type: ignore[attr-defined]
@@ -105,6 +106,22 @@ class TestSweepAllBots:
 
         refreshed = await db_session.get(BotModel, bot.id)  # type: ignore[attr-defined]
         assert refreshed.semaphore_state == SemaphoreState.VERDE
+        await redis.aclose()
+
+    async def test_new_baseline_respects_grace_period(self, db_session: object) -> None:
+        account = await _account(db_session)
+        bot = BotFactory(account_id=account.id, semaphore_state=SemaphoreState.VERDE)
+        db_session.add(bot)  # type: ignore[attr-defined]
+        await db_session.flush()  # type: ignore[attr-defined]
+        baseline = BaselineFactory(bot_id=bot.id, profit_factor=1.94, expectancy_r=0.2)
+        db_session.add(baseline)  # type: ignore[attr-defined]
+        await db_session.flush()  # type: ignore[attr-defined]
+        bot.baseline_id = baseline.id
+        await db_session.flush()  # type: ignore[attr-defined]
+
+        redis = fakeredis.FakeAsyncRedis()
+        await sweep_all_bots(db_session, redis, CONFIG, SWEEP_CONFIG, datetime.now(UTC))  # type: ignore[arg-type]
+        assert bot.semaphore_state == SemaphoreState.VERDE
         await redis.aclose()
 
     async def test_cemetery_bot_is_skipped(self, db_session: object) -> None:

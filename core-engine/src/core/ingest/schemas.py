@@ -36,9 +36,9 @@ vinieran del cliente."""
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from core.db.enums import TradeType
 
@@ -137,10 +137,22 @@ class SignalsIngestRequest(_Strict):
 class FillIn(_Strict):
     order_id: str
     symbol: str
+    type: LaxTradeType
+    volume: LaxDecimal
     requested_price: LaxDecimal
-    executed_price: LaxDecimal
+    status: Literal["FILLED", "REJECTED"] = "FILLED"
+    rejection_reason: str | None = None
+    executed_price: LaxDecimal | None = None
     spread: LaxDecimal | None = None
     ts: LaxDatetime
+
+    @model_validator(mode="after")
+    def validate_execution_outcome(self) -> "FillIn":
+        if self.status == "FILLED" and self.executed_price is None:
+            raise ValueError("FILLED requiere executed_price")
+        if self.status == "REJECTED" and not self.rejection_reason:
+            raise ValueError("REJECTED requiere rejection_reason")
+        return self
 
 
 class ExecutionIngestRequest(_Strict):

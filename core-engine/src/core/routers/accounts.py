@@ -17,7 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.auth.dependencies import get_current_user
 from core.db.base import get_session
-from core.db.models.accounts import Account
+from core.db.enums import AccountDataOrigin
+from core.db.models.accounts import Account, Bot
 from core.db.models.market import EaState, EquitySnapshot
 from core.services.config_drift import compute_drift
 
@@ -34,6 +35,7 @@ class AccountResponse(BaseModel):
     server: str
     currency: str
     is_demo: bool
+    data_origin: AccountDataOrigin
     is_active: bool
     equity: Decimal | None
     balance: Decimal | None
@@ -51,8 +53,9 @@ class EaStateResponse(BaseModel):
     news_windows: list[Any] | None
     sizing_pct: Decimal | None
     last_ingested_at: datetime
-
-    model_config = {"from_attributes": True}
+    ea_required_version: str | None
+    version_verifiable: bool
+    version_matches: bool | None
 
 
 class DriftRowResponse(BaseModel):
@@ -62,6 +65,9 @@ class DriftRowResponse(BaseModel):
     expected_mode: str
     reported_mode: str
     drift: bool
+    expected_autotrading: bool
+    reported_autotrading: bool
+    autotrading_drift: bool
     expected_sizing_pct: Decimal
     reported_sizing_pct: Decimal | None
     sizing_drift: bool | None
@@ -96,6 +102,7 @@ async def list_accounts(session: AsyncSession = Depends(get_session)) -> list[Ac
                 server=account.server,
                 currency=account.currency,
                 is_demo=account.is_demo,
+                data_origin=account.data_origin,
                 is_active=account.is_active,
                 equity=snapshot.equity if snapshot else None,
                 balance=snapshot.balance if snapshot else None,
@@ -114,12 +121,40 @@ async def account_drift(session: AsyncSession = Depends(get_session)) -> list[Dr
 
 
 @router.get("/{account_id}/eas", response_model=list[EaStateResponse])
-async def list_eas(account_id: int, session: AsyncSession = Depends(get_session)) -> list[EaState]:
+async def list_eas(
+    account_id: int, session: AsyncSession = Depends(get_session)
+) -> list[EaStateResponse]:
     account = await session.get(Account, account_id)
     if account is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "cuenta no encontrada")
-    return list(
+    eas = list(
         (await session.execute(select(EaState).where(EaState.account_id == account_id)))
         .scalars()
         .all()
     )
+    required_versions = {
+        bot.magic_number: bot.ea_required_version
+        for bot in (await session.execute(select(Bot).where(Bot.account_id == account_id)))
+        .scalars()
+        .all()
+    }
+    return [
+        EaStateResponse(
+            magic_number=ea.magic_number,
+            ea_version=ea.ea_version,
+            mode=ea.mode,
+            autotrading=ea.autotrading,
+            schedule_filter=ea.schedule_filter,
+            news_windows=ea.news_windows,
+            sizing_pct=ea.sizing_pct,
+            last_ingested_at=ea.last_ingested_at,
+            ea_required_version=required_versions.get(ea.magic_number),
+            version_verifiable=required_versions.get(ea.magic_number) is not None,
+            version_matches=(
+                ea.ea_version == required_versions[ea.magic_number]
+                if required_versions.get(ea.magic_number) is not None
+                else None
+            ),
+        )
+        for ea in eas
+    ]

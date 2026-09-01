@@ -81,7 +81,7 @@ async def evaluate_all_bots(
                     Trade.bot_id == bot.id, Trade.open_time >= window_start
                 )
             )
-        ).scalar_one()
+        ).scalar() or 0
         expected: int | None = None
         if bot.baseline_id is not None:
             expected = (

@@ -97,7 +97,7 @@ async def compute_reconciliation(
                 Trade.account_id == account_id, Trade.close_time.is_not(None)
             )
         )
-    ).scalar_one()
+    ).scalar() or Decimal("0")
     flows = Decimal(flows)
     expected = first_snapshot + flows
 
@@ -152,14 +152,14 @@ async def compute_send_continuity(
 
 
 async def compute_seals_summary(session: AsyncSession) -> SealsSummary:
-    total_batches = (await session.execute(select(func.count(IngestBatch.id)))).scalar_one()
-    total_trades = (await session.execute(select(func.count(Trade.id)))).scalar_one()
-    ticket_min = (await session.execute(select(func.min(Trade.ticket_mt5)))).scalar_one()
-    ticket_max = (await session.execute(select(func.max(Trade.ticket_mt5)))).scalar_one()
-    history_start = (await session.execute(select(func.min(Trade.open_time)))).scalar_one()
+    total_batches = (await session.execute(select(func.count(IngestBatch.id)))).scalar() or 0
+    total_trades = (await session.execute(select(func.count(Trade.id)))).scalar() or 0
+    ticket_min = (await session.execute(select(func.min(Trade.ticket_mt5)))).scalar()
+    ticket_max = (await session.execute(select(func.max(Trade.ticket_mt5)))).scalar()
+    history_start = (await session.execute(select(func.min(Trade.open_time)))).scalar()
     history_end = (
         await session.execute(select(func.max(func.coalesce(Trade.close_time, Trade.open_time))))
-    ).scalar_one()
+    ).scalar()
     return SealsSummary(
         total_batches=total_batches,
         total_trades=total_trades,
