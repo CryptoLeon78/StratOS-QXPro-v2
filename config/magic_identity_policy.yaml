@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "policy_version": "g13-magic-identity-v2",
+  "comment": {
+    "separator": "_MN",
+    "max_chars": 30,
+    "label_pattern": "[A-Za-z0-9_.-]+",
+    "label_source": "legacy_comment_without_magic",
+    "filename_equals_comment": true
+  },
+  "magic": {
+    "minimum": 1,
+    "maximum": 2147483647,
+    "reserved": [0],
+    "assignment": "next_free_non_reusable"
+  },
+  "strategy_key": {
+    "algorithm": "sha256-json-v1",
+    "required_evidence": ["ea_sha256", "symbol", "timeframe"]
+  },
+  "material_change": {
+    "requires_new_magic": ["signal_logic", "position_management", "operational_version"]
+  },
+  "deployment": {
+    "identity": ["account_login", "magic_number", "ea_sha256", "chart_id"],
+    "multi_account_same_magic_allowed": true
+  },
+  "symbol_aliases": [
+    {
+      "alias_id": "darwinex-dax-gdaxi-v1",
+      "source_symbol": "DAX",
+      "broker_symbol": "GDAXI",
+      "account_logins": ["4000059903", "4000055216"],
+      "scope": "F7/SQX canonical symbol to Darwinex MT5 deployment symbol"
+    },
+    {
+      "alias_id": "darwinex-dax40-gdaxi-v1",
+      "source_symbol": "DAX40",
+      "broker_symbol": "GDAXI",
+      "account_logins": ["4000059903", "4000055216"],
+      "scope": "F7/SQX canonical symbol to Darwinex MT5 deployment symbol"
+    }
+  ]
+}

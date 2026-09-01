@@ -1,0 +1,6 @@
+{
+  "$comment": "Formato obligatorio del comentario de operaciones de EAs externos.",
+  "schema_version": 1,
+  "format": "strategy_name|magic={magic_number}",
+  "example": "AUDCAD_H4_SHORT|magic=123456789"
+}
