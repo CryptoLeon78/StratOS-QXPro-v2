@@ -1,6 +1,96 @@
 # Backlog — StratOS-QXPro
 
-Cosas detectadas fuera del scope de la fase en curso. No se actúa sobre ellas hasta que el operador las priorice.
+## Deuda de garantía — abierta desde la auditoría 2026-09-02
+
+Detalle y comandos en [`AUDITORIA_2026-09-02.md`](AUDITORIA_2026-09-02.md). Nada de esto es un hueco
+de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
+
+- **[A1] G11/G12/G13 sin commitear** — 194 ficheros en el working tree, último commit `a55694c`.
+  Incluye 7 migraciones Alembic, 53 scripts y 11 documentos. Bloquea cualquier CI, cualquier
+  revisión y cualquier vuelta atrás. Prioridad máxima; el resto de esta lista depende de ello para
+  poder verificarse en CI real.
+- **[A2] `lint-backend` rojo** — 7 errores de ruff en `db/models/__init__.py`, `db/sa_enums.py`,
+  `routers/pipeline.py`, `services/config_drift.py`; 8 ficheros que `ruff format` reescribiría.
+- **[A3] `mypy --strict` rojo** — 7 errores. `services/tca.py:60` sin anotación de `account_brokers`;
+  `routers/pipeline.py:250/276/319` y `routers/bots.py:172` declaran `-> PipelineCandidate` / `-> Bot`
+  pero devuelven la respuesta Pydantic; `routers/bots.py:172` accede a `account.data_origin` sin
+  guarda de `None` (no explotable hoy porque `Bot.account_id` es `NOT NULL` con FK, pero es el patrón
+  exacto que `--strict` existe para atrapar).
+- **[A4] `test_migration.py::test_all_tables_created` rojo** — `EXPECTED_TABLE_COUNT = 30` contra 36
+  tablas reales; faltan las 6 de G11/G13 (`import_artifact`, `execution_fill`,
+  `pipeline_phase_transition`, `external_ea_inventory`, `operational_asset`,
+  `operational_asset_event`). Mientras siga rojo, el guardia de esquema no protege nada.
+- **[A5] `test_import_external_ea_inventory_records.py` rojo y ambigüedad de rol documental** —
+  el test verifica la colisión BEPB `magic=10827` que `ASSUMPTIONS.md` G13-14 sella como retenida;
+  `docs/registro_BEPB_MN_bots_real_mt5_vps.md` se reescribió con los magics post-migración y ya sólo
+  tiene una fila. Hay que decidir si ese fichero es la observación pre-migración (evidencia, y
+  entonces el registro post-MN va a otro fichero) o el estado actual (y entonces el test debe apuntar
+  al manifiesto sellado `bepb_magic_manifest.json`, que sí conserva el duplicado).
+- **[A6] `dist/StratOS_Operational.exe` desfasado** — binario del 30/08 frente a 23 scripts
+  posteriores, entre ellos el contrato direccional y toda la cola alineada v2. Regenerarlo con
+  `scripts/build_stratos_operational_exe.ps1` tras cerrar A1-A4, o retirarlo de la documentación
+  como punto de entrada hasta entonces.
+- **[A7] Reclasificación direccional no persistida** — `directional_reclassification_20260901.json`
+  cambia 3 veredictos de 11 y no existe como evento en `operational_asset_event`. No hay riesgo
+  operativo (los F7 externos siguen `WITHHELD` correctamente) pero sí de trazabilidad. Ver G13-25.
+- **[A8] `scan_hardcoding` de G12/G13 sin consolidar** — 340 hallazgos en `scripts/`, mayoría deuda
+  conocida de `seed_lib/` y falsos positivos (índices de columna, colores nativos MT5, codec
+  `utf-16` de los `.chr`, algunos ya justificados en G13-19/G13-22). Falta el barrido clasificado
+  uno a uno que G10 sí cerró en su grupo (o).
+- **[A9] `alias_simbolos` de `SQX_vs_MT5_Panel` contaminado** — contiene
+  `"AUDNZDH4BUY_edge_1.16.34": "AUDNZD"` (un nombre de estrategia, no un símbolo) y
+  `"USDJPY": "USDJPY"` (alias identidad redundante). Son parches puntuales sobre un fallo de
+  extracción de símbolo; cada estrategia futura con el mismo patrón necesitaría su propia línea.
+  Arreglar la extracción y limpiar el diccionario.
+- **[A10] `SQX_Edge_Suite_v1` sin versionar ni indexar** — proyecto grande con gobierno propio
+  (`gbrain`, `DISCIPLINA_OPERATIVA.md`), sin git, inactivo desde 2026-08-14, ausente de todos los
+  índices. Decidir si se versiona, se archiva o se retira. `PIPELINE_MINADO_A_FINALISTAS.md` sigue
+  hablando de "9 apps de entorno" cuando `Apps_entorno_SQX/` tiene 14 directorios.
+
+## Estado activo G13 — operación separada
+
+- **G13 bootstrap local:** falta materializar `.env.operational` con secretos propios y crear el usuario operador de la base nueva; queda prohibido copiar o leer los secretos de G12.
+- **G13 histórico real:** los HTML MT5 sellados importaron 4.304 posiciones cerradas reconciliadas (JJTI 1.945, BEPB 2.359) y retuvieron 205 ambiguas; el magic no expuesto queda huérfano auditable. El importador canónico ya convierte hora Darwinex/SQX `Europe/Helsinki` a UTC y archiva el CSV como evidencia inmutable. Falta ejecutar el exportador MQL5 desde la sesión interactiva de cada terminal real y sellar/importar sus CSV desde 2018.
+- **G13 alpha decay real:** el inventario de gráfico, magic y fuente EA de JJTI/BEPB ya ancla las 40 altas F7 externas. El preflight de 35 pares dejó 8 aptos, 25 `WITHHELD_TICKS` y 2 `WITHHELD_SOURCE`; una sola corrida apta está iniciada en el Tester Darwinex aislado. Tras cada resultado sellado se compararán baseline/backtest, OOS real sellado y ventana forward creciente. El histórico HTML sin magic permanece huérfano, y ningún resultado implica promoción ni altera cuentas reales.
+- **G13 reconstrucción AlgoWizard de retenidos:** `OROLONGLIMITSPPSTRH1D1 4.7.77` (BEPB/JJTI), `SP500LONGD1 REVERSION SL 2.86.54` y `SPA35LONGD1 REVERSION SL 1.31.56` tienen fuente `.mq5` y un plan de reconstrucción semántica sellada; los nuevos `.sqx` llevarán procedencia `RECONSTRUCTED_FROM_MQL5` y exigirán comparación fuente-vs-reconstruido antes del OOS real. `EURUSD_SELL_STOP_H4_LC_3.8.141` sólo conserva `.ex5`: queda bloqueada hasta recuperar un `.mq5` verificable, sin ingeniería inversa ni aproximación. Ver `docs/g13_algowizard_reconstruction_plan.md`.
+- **G13 inventario EA externo:** los dos registros de magic del operador ya están sellados; las 40 asociaciones verificadas se incorporaron idempotentemente a F7 como `EXTERNAL_PRODUCTION` y a `external_ea_inventory` (BEPB 26, JJTI 14), con cuenta, comentario, magic, archivo/ruta `.ex5` y SHA-256. Quedan fuera 13 asociaciones ambiguas entre binarios con misma versión y hash distinto, una sin versión contrastable y dos filas BEPB con colisión `magic=10827`; no se seleccionan por nombre.
+- **G13 identidad compacta de magics/comments:** Fase B quedó registrada tras aprobar el hash de propuesta: el registro local append-only contiene 40 `ASSIGNED` y 40 `MIGRATION_PLANNED`, con cadena validada e idempotencia comprobada. El comentario y nombre de archivo son idénticos: `<label histórico>_MN<nuevo_magic>`. Los dos hashes EX5 compartidos se desdoblan por cuenta (`a` BEPB, `b` JJTI) y conservan su `technical_strategy_key` común. StratOS no autoriza ni ejecuta cambios de EA, gráfico, Forja o cuenta.
+- **G13 post-scan de migración — COMPLETADO EN LECTURA:** la lectura SSH/SFTP tras la persistencia manual observa los 40 pares aprobados cuenta+magic como `MIGRATION_OBSERVED`. JJTI conserva dos pares de ficheros `.chr` que serializan respectivamente el mismo gráfico interno: `chart17`/`chart19` (magic `30`) y `chart18`/`chart20` (magic `19`); EA, magic, comment y símbolo son idénticos y sólo cambia información visual. El escáner los deduplica por ID raíz MT5, mantiene todas las rutas como evidencia y falla cerradamente si un mismo ID declara otra identidad. El NQ de JJTI magic `38` queda sellado como `OPERATOR_RETAINED_OUT_OF_PROPOSAL`, sin reasignar ese magic ni alterar el lote aprobado. El comparador acepta sólo las formas exactas `.`/`_` de `CustomComment` y conserva el alias explícito Darwinex `DAX|DAX40` → `GDAXI`, manteniendo ambos símbolos. Hash EX5 y timeframe se heredan del F7 sellado bajo la confirmación del operador de que sólo variaron archivo/magic/comment; cuenta, gráfico, archivo, magic, comment y símbolo se vuelven a observar. Referencias: `docs/g13_magic_identity_migration_plan.md`, `docs/g13_magic_identity_operator_review.md` e informe local `runtime/operational/magic_identity/post_migration_scan_report.json`.
+- **G13 análisis/backtest:** 227 parejas mantienen la admisión de inventario `STATIC_VALIDATED` y además su fuente WFM queda registrada como `STATIC_VALIDATED_WFM`, con criterios extraídos del `project.cfx` sellado. Esto no es `BACKTEST_VALIDATED`: falta ejecutar `SQX_vs_MT5` secuencialmente desde 2018 hasta la fecha de cada corrida, sellar report/trades/comparación y aplicar el veredicto propio de la herramienta. La razón WFM OOS/IS es `DERIVED_UNMAPPED` hasta validar su equivalencia con F2 o disponer de evidencia forward/MT5.
+- **G13 terminal de backtest:** el operador autorizó el terminal Darwinex seleccionado en `SQX_vs_MT5` para Strategy Tester exclusivamente. El lanzador exige manifiesto F7, preflight `PREFLIGHT_OK`, `--max-runs` positivo, AutoTrading desactivado, identidad exacta de terminal y ticks completos; no usa ni cambia `terminal_despliegue`. El primer arranque fue rechazado antes del Tester porque la instancia configurada no aceptó cierre limpio; hay que liberar o corregir sólo ese terminal, nunca forzar el cierre de JJTI/BEPB.
+- **G13 incubadora:** no hay candidatos de `ANALYSIS` elegibles ni gráficos adjuntados; los F7 externos son observabilidad y no cuentan para incubación. La cola FIFO y el límite de 8 sólo pueden actuar después del gate de backtest/baseline; el contrato demo será 10 % de capital, 0,2 % por trade y DD contractual 5 % durante la gracia explícita.
+- **G13 UI:** Bots, Pipeline y Cuentas/EA exponen procedencia y filtros de API. Faltan selectores/etiquetas consistentes para Portfolio, Salud, Riesgo, Auditoría y Dominical, más el recorrido autenticado/WebSocket que diferencie `BROKER_REAL`, `BROKER_DEMO`, `FIXTURE`, `DERIVED` y `ABSENT`.
+- **G13 ejecución segura del histórico:** el terminal remoto JJTI tiene EAs reales en funcionamiento. No se debe usar `terminal64.exe /config` para lanzar un script de exportación sobre esa instancia hasta contar con un procedimiento que no abra/cierre ni cambie el perfil de la terminal activa; el CSV legado no se importa porque no cumple el contrato de deduplicación sellada.
+
+## Estado activo G12
+
+### Defectos a corregir
+
+- ~~G12 Cuentas/EA: modo operativo, permiso por gráfico, sizing y panel de deriva.~~ **RESUELTO Y REPETIDO EN G12-02**: 11/11 `PAPER`/OFF/50 %, alerta de deriva de tres campos y cobertura de contrato documentadas.
+- G12 procedencia de pestañas: Pipeline, Bots, Portfolio, Salud, Riesgo, Auditoría y Dominical mezclan fixture `full`, derivadas y telemetría demo sin una etiqueta/contrato de procedencia visible. Ver `docs/g12_tabs_provenance_validation.md`.
+- G12 Pipeline: `USDJPYH1Lcity_5.15.110` tiene candidato F4 y bot F3. Requiere una transición append-only auditada; queda prohibida una edición directa.
+- G12 Portfolio: el benchmark devuelve `FileNotFoundError` dentro del contenedor en vez de un estado de ausencia controlada.
+- `e2e-acceptance-full`, criterio 9 Lyra×Phoenix: fixture `full` no determinista respecto al umbral de redundancia.
+- Precios sintéticos no realistas para GDAXI/NDX/SPX500/US30: degradan la interpretabilidad de `r_multiple`.
+- Auditoría de agregados `.scalar_one()` sobre hypertables: cada uso debe clasificarse y los agregados que pueden no devolver fila física deben tener regresión contra TimescaleDB real.
+- Fixture de salud: 28/32 bots quedan AMARILLO por aplicar métricas acumulativas a 5,5 años sintéticos. G11 lo corrige solo en el fixture, sin cambiar la política productiva.
+
+### Capacidades bloqueadas por datos o artefactos externos
+
+- Backtest vs Forward: RESUELTO EN CÓDIGO. El importador local SQX144 crea baselines append-only con SHA-256 y procedencia; Pipeline/UI comparan baseline con forward y muestran ausencia sin inventar métricas.
+- FX en EUR: RESUELTO EN CÓDIGO. El importador local sellado de CSV fechado preserva procedencia, falla cerrado ante conflicto y Riesgo conserva `unconverted_currencies` sin tasa válida. Falta únicamente el CSV operativo del operador.
+- Fecha de entrada a pipeline/Graveyard: las transiciones nuevas ya se conservan append-only; no existe dato histórico que se pueda backfillear con honestidad.
+- EA reporter v1.1: estados `ea_state`, heartbeat, equity y posiciones ya llegan desde MT5 demo con sellos válidos. Faltan fills/rechazos reales de EA para TCA; no se inventa esa evidencia.
+
+### Decisiones deliberadamente fuera de G11
+
+- `small_scale.yaml` sigue siendo una guía manual, no una configuración runtime.
+- Tipos de API generados manualmente se reevaluarán solo si la superficie vuelve a crecer de forma sustancial.
+- El paso a producción no forma parte de G11; exige confirmación posterior tras la validación demo.
+
+## Evidencia y contexto histórico
+
+Las entradas siguientes preservan el detalle de hallazgos y decisiones previas. Los elementos tachados están resueltos; los abiertos se reflejan en las categorías de G11 anteriores.
 
 - **Docs sueltos en `doc_app\` ajenos al prompt maestro**: `Documento_Auditoria_Estrategias_SQX.md`, `Documento_Auditoria_Estrategias_SQX (1).md` y `Strategy_Robustness_Auditor_SRA_Especificacion_Proyecto.md` pertenecen a otro proyecto ("SQX Analyzer Pro"), no al árbol de referencias de PARTE 0.1. Ver `ASSUMPTIONS.md` G0-09. Han sido movidos a su carpeta ( `doc_app` es solo lectura para el agente).
 - ~~**`api-gateway\` real**~~ **RESUELTO en G9** (ver `ASSUMPTIONS.md` G9-00): proxy transparente + rate-limit + WS broker, con CI propio.

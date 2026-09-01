@@ -2,7 +2,7 @@
 
 Panel maestro de gestión de portfolios de bots de trading MetaTrader 5. Réplica production-grade del sistema mostrado en el vídeo de referencia (`doc_app\transcripcion_video_SIN__minutaje_donde_explica_funcionamiento_StratOS.md`): semáforos de salud por bot, kill-switch de portfolio, pipeline de validación F1→F7, rotación champion/challenger, auditoría inmutable con sellado SHA-256, escalado UMS y diario de impulsos.
 
-La especificación contractual completa está en [`doc_app\PROMPT_MAESTRO.md`](doc_app/PROMPT_MAESTRO.md) (PARTES 0–17). Léela antes de tocar cualquier fase. El estado de avance vive en [`docs\phase_status.md`](docs/phase_status.md); las decisiones ante ambigüedades, en [`ASSUMPTIONS.md`](ASSUMPTIONS.md).
+La especificación contractual completa está en [`doc_app\PROMPT_MAESTRO.md`](doc_app/PROMPT_MAESTRO.md) (PARTES 0–17). Léela antes de tocar cualquier fase. El estado de avance vive en [`docs\phase_status.md`](docs/phase_status.md); las decisiones ante ambigüedades, en [`ASSUMPTIONS.md`](ASSUMPTIONS.md). El estado de las garantías (CI, tests, lint) y la deuda abierta, en [`docs\AUDITORIA_2026-09-02.md`](docs/AUDITORIA_2026-09-02.md); el orden de trabajo hacia producción, en [`docs\PLAN_CONTINUACION_2026-09-02.md`](docs/PLAN_CONTINUACION_2026-09-02.md). Los agentes leen [`AGENTS.md`](AGENTS.md) (Codex) o [`CLAUDE.md`](CLAUDE.md) (Claude) antes de tocar nada.
 
 ## Requisitos
 
@@ -47,6 +47,133 @@ python scripts\guardrails\pre_commit_scan.py < payload.json   # hook de pre-comm
 #   get_thresholds | get_module_spec | get_design_tokens | get_formula_signature
 #   get_acceptance_criteria | get_seed_scenario | scan_hardcoding | get_project_status
 ```
+
+## Stack operacional (G13)
+
+El stack operacional está aislado de G12 y no admite fixtures. Cree una configuración nueva con secretos propios en `.env.operational` a partir de `.env.operational.example`; no copie secretos ni URLs de una campaña anterior. Declare las rutas privadas en `runtime\operational\sources.yaml` a partir de `config\operational_sources.example.yaml`.
+
+```powershell
+# No ejecutar seed: DEPLOYMENT_PROFILE=operational lo rechaza expresamente.
+docker compose -p stratos_operational -f docker-compose.yml -f docker-compose.operational.yml --env-file .env.operational up -d
+.venv\Scripts\python.exe -m alembic -c core-engine\alembic.ini upgrade head
+
+# Inventario de Análisis: sólo escribe un manifiesto; --apply requiere la
+# base operacional ya migrada y persiste eventos de admisión append-only.
+$env:PYTHONPATH = "core-engine\src"
+.venv\Scripts\python.exe scripts\operational_inventory.py --root "C:\ruta\privada\Analisis" --source-group ANALYSIS --manifest runtime\operational\analysis-inventory.json
+```
+
+Para validar una pareja admitida de Análisis con el Strategy Tester, use el
+lanzador operacional. Antes, construya el prefiltro: usa los mínimos únicos de
+`config\thresholds.seed.json`, excluye hashes ya probados y sólo genera cola
+cuando existen evidencias selladas de Monte Carlo P95 y costes por sesión. La
+razón OOS/IS de WFM se conserva como `DERIVED_UNMAPPED`: es informativa y no
+activa el gate F2 mientras no haya una equivalencia validada o evidencia
+forward/MT5 correspondiente.
+Una frecuencia menor a dos trades semanales se marca para revisión, pero no se
+descarta si supera el mínimo contractual de trades. La plantilla de evidencia
+es `config\operational_quality_evidence.example.json`; sus rutas reales se
+guardan fuera de Git.
+
+```powershell
+$env:PYTHONPATH = "core-engine\src;scripts"
+.venv\Scripts\python.exe scripts\resolve_operational_validation_sources.py `
+  --inventory runtime\operational\analysis-inventory.json `
+  --projects-root "C:\ruta\privada\user\projects" `
+  --output runtime\operational\analysis-validation-sources.json
+
+# El resolutor exige SHA exacto o firma histórica SQX (orders.bin +
+# lastSettings.xml); si varias copias coinciden, usa el linaje de la carpeta
+# de Análisis y retiene cualquier resultado que no sea único.
+.venv\Scripts\python.exe scripts\extract_operational_validation_evidence.py `
+  --sources-manifest runtime\operational\analysis-validation-sources.json `
+  --thresholds config\thresholds.seed.json `
+  --output runtime\operational\analysis-validation-evidence.json
+
+# El extractor verifica el hash de cada SQX usado y registra el pase SQX como
+# STATIC_VALIDATED_WFM, con la tarea y criterios reales de project.cfx. Conserva
+# la razón OOS/IS de la celda WFM como DERIVED_UNMAPPED; Monte Carlo se recalcula
+# de RETEST OOS con mc_sims/mc_seed y los costes se leen del Setup efectivo de
+# lastSettings.xml. No usa nombres de carpetas como veredicto.
+.venv\Scripts\python.exe scripts\operational_prefilter.py `
+  --inventory runtime\operational\analysis-inventory.json `
+  --quality-evidence runtime\operational\analysis-validation-evidence.json `
+  --completed-backtests runtime\operational\backtests `
+  --output runtime\operational\analysis-prefilter.json
+```
+
+El primer comando de Tester es sólo preflight; `--launch` es el
+único que compila el EA y abre MT5 para el Tester. El lanzador no despliega,
+no consulta `terminal_despliegue`, requiere AutoTrading desactivado, ticks
+reales de todo el rango y que la instancia de backtest esté cerrada. Nunca
+cierra procesos por sí mismo.
+
+```powershell
+$panel = "C:\ruta\a\SQX_vs_MT5_Panel"
+$sqx = "C:\ruta\privada\Analisis\candidate.sqx"
+$mq5 = "C:\ruta\privada\Analisis\candidate.mq5"
+$terminal = "terminal_backtest configurado en SQX_vs_MT5"
+
+# Preflight sellado, sin compilar ni iniciar MT5.
+.venv\Scripts\python.exe scripts\run_operational_sqx_mt5_backtest.py `
+  --panel-dir $panel --sqx $sqx --mq5 $mq5 `
+  --output-root runtime\operational\backtests `
+  --expected-terminal $terminal --allow-real-strategy-tester
+
+# Sólo tras un preflight correcto y con la instancia objetivo cerrada.
+# Añada --launch al mismo comando para abrir el Strategy Tester.
+# Si la instancia objetivo quedó abierta, --manage-backtest-terminal solicita
+# únicamente su cierre limpio; no mata procesos ni toca otras instalaciones MT5.
+```
+
+JJTI y BEPB son observabilidad read-only. El exportador `mt5-connector\mql5\StratOSHistoryExport.mq5` sólo puede usarse para generar CSV de histórico con `HistorySelect`/`HistoryDealGet*`; no envía ni modifica órdenes. Ningún EA se adjunta a la Incubadora hasta que un candidato tenga resultado reproducible de `SQX_vs_MT5`, baseline importada y plaza libre dentro del límite de ocho.
+
+Para cuentas reales externas, el alta de cuenta y la recuperación de evidencia
+están separadas del alta F7 del bot: no se infiere perfil, sizing o identidad
+de EA desde un filename o un deal aislado.
+
+```powershell
+# Sólo registra la cuenta como BROKER_REAL; no crea bots ni toca MT5.
+docker compose -p stratos_operational -f docker-compose.yml -f docker-compose.operational.yml --env-file .env.operational run --rm -T --no-deps `
+  --volume "${PWD}:/workspace:ro" core-engine python /workspace/scripts/register_external_account.py `
+  --login <login> --account-name <name> --broker Darwinex --server Darwinex-Live --currency USD --apply
+
+# Descarga un fichero existente vía SSH/SFTP en lectura y conserva sus bytes.
+.venv\Scripts\python.exe scripts\fetch_mt5_history_artifact.py `
+  --bridge-root "C:\BOTS\Versiones\SQX_144_Full2\Apps_entorno_SQX\mt5_bridge" `
+  --terminal contabo_jjti --remote-mql5-path "Files\Detallado_....csv" `
+  --output-dir runtime\operational\history\JJTI
+```
+
+Los `Detallado_*` heredados se guardan como artefactos `MT5_DETAILED_LEGACY`
+sellados y nunca se convierten en trades si les falta `DEAL_ENTRY`. El CSV
+canónico de `StratOSHistoryExport.mq5` conserva `position_id`, entrada/salida
+y ticket; sólo ese formato puede pasar a `import_mt5_history_export.py`.
+
+### Ejecutable guiado para nuevos candidatos
+
+`dist\StratOS_Operational.exe` es un asistente de consola para el host
+operacional, no un ejecutable autónomo: usa el repositorio, `.venv`, Docker y
+el terminal Darwinex que ya están configurados localmente. La primera vez se
+genera la configuración privada (sin secretos en el binario):
+
+```powershell
+Copy-Item config\operational_launcher.example.json runtime\operational\launcher.json
+notepad runtime\operational\launcher.json
+
+# Sólo inventario, evidencias y prefiltro: no abre MT5.
+dist\StratOS_Operational.exe --refresh-only
+
+# Modo guiado: solicita escribir SI antes de CADA backtest MT5.
+dist\StratOS_Operational.exe
+```
+
+Al terminar cada Tester correcto, el asistente localiza su manifiesto sellado y
+lo registra append-only en `stratos_operational`. La Incubadora permanece
+explícitamente bloqueada: esta versión no adjunta EAs ni puede enviar órdenes;
+se habilitará sólo tras registrar una cuenta `BROKER_DEMO`, implementar el
+attach por gráfico y validar su contrato de riesgo. Para reconstruir el binario
+tras cambios: `powershell -ExecutionPolicy Bypass -File scripts\build_stratos_operational_exe.ps1`.
 
 ## Seed y escenarios
 
@@ -122,7 +249,7 @@ StratOS-QXPro\
 ├── mcp\stratos_mcp_server.py
 ├── config\thresholds.seed.json
 ├── core-engine\                (FastAPI; formulas/+state_machines/ puros, servicios, API 9.x, WS, Telegram — G1-G5)
-├── api-gateway\                (placeholder: el frontend habla directo con core-engine, decisión G5-00/G6-00)
+├── api-gateway\                (proxy transparente, rate-limit y broker WebSocket; G9)
 ├── frontend\                   (React 18 + TS + Vite + Tailwind desde design_tokens.json — G6-G7, 11 pestañas)
 ├── mt5-connector\ · mt5-simulator\  (conector Windows read-only + simulador de escenarios — G4)
 ├── shared-ingest-seal\         (sellado SHA-256 stdlib-only, compartido por core-engine y mt5-connector — G4)
@@ -133,4 +260,4 @@ StratOS-QXPro\
 
 ## Fases de construcción
 
-El proyecto se construye G0→G9 (`PROMPT_MAESTRO.md` PARTE 12): G0 Scaffold+gobierno · G1 Modelo de datos · G2 Fórmulas (TDD) · G3 Máquinas de estado · G4 mt5-connector+simulador · G5 core-engine (servicios/API/WS) · G6 Frontend shell+Resumen · G7 Frontend resto de pestañas · G8 Seed+E2E · G9 Hardening. Un PHASE REPORT cierra cada fase.
+El plan contractual G0→G9 (`PROMPT_MAESTRO.md` PARTE 12) está cerrado, igual que el cierre de huecos G10. G11 cerró coherencia documental, determinismo de fixtures, trazabilidad de datos y reporter v1.1. G12 levantó la campaña de validación demo aislada (`stratos_g12`) y G13 —la fase activa— construye el stack operacional real/incubadora/análisis (`stratos_operational`), con procedencia persistente, admisión append-only y comparación SQX↔MT5 a tick real. El estado vivo está en `docs\phase_status.md`; la auditoría de garantías, en `docs\AUDITORIA_2026-09-02.md`. Un PHASE REPORT cierra cada bloque.

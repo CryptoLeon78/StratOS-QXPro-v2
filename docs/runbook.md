@@ -29,7 +29,7 @@ El Nodo A llama al Nodo B por HTTPS (`CORE_ENGINE_URL` del conector apuntando al
 
 1. Instalar Docker + Docker Compose v2 en el VPS.
 2. Clonar el repo, copiar `.env.example` → `.env`, rellenar TODOS los `change-me` (contraseñas de Postgres, `JWT_SECRET` con una cadena aleatoria real ≥32 bytes, `INGEST_API_KEYS`, `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` si aplica).
-3. `docker compose --profile prod up -d --build` (perfil `prod`, cuando se añada el servicio `nginx` — ver §8, pendiente en esta iteración de G9; hasta entonces, `docker compose up -d --build` expone `frontend`/`api-gateway` directo en los puertos de host ya mapeados, sin TLS).
+3. Construir y levantar el perfil de producción con `docker compose -f docker-compose.yml -f docker-compose.override.prod.yml --profile prod up -d --build`. `nginx` y el contenedor de renovación Certbot ya forman parte del despliegue; el certificado y el dominio reales siguen siendo una precondición operativa, no una tarea pendiente de código.
 4. TLS con certbot (modo webroot, sin exponer el puerto 80 de otro servicio):
    ```bash
    docker run --rm -v /etc/letsencrypt:/etc/letsencrypt -v /var/www/certbot:/var/www/certbot \
@@ -38,7 +38,7 @@ El Nodo A llama al Nodo B por HTTPS (`CORE_ENGINE_URL` del conector apuntando al
    ```
    Renovación: cron diario ejecutando el mismo contenedor con `renew` en vez de `certonly` (certbot es idempotente, no renueva si no toca).
 5. WAL archiving (RPO 24h/RTO 2h junto con los backups diarios de §4): montar `infra/postgres/postgresql.conf.example` como el `postgresql.conf` real del contenedor `postgres`, tras rellenar `WAL_ARCHIVE_DIR` con un destino real (disco separado o almacenamiento remoto montado) — ver los comentarios del propio fichero para el porqué de no montarlo por defecto en `docker-compose.yml`.
-6. Verificar: `curl https://<dominio-real>/health` (vía nginx, cuando exista) o `curl http://<ip-vps>:8180/health` (api-gateway directo, hoy).
+6. Verificar: `curl https://<dominio-real>/health` vía nginx. Los puertos directos del core, gateway, frontend, Postgres y Redis no se publican al host bajo el override de producción.
 
 ## 4. Backups (G9, verificado de verdad)
 
@@ -86,7 +86,7 @@ Una entrada por combinación real `module`×`level` que el código ya emite (ver
 |---|---|---|---|
 | `ingest_positions` | CRITICA | posición abierta sin SL (P5) | "Colocar SL de inmediato (P5)." |
 | `audit` | CRITICA | discrepancia balance+flujos > tolerancia | "Revisar reconciliación en la pestaña Auditoría." |
-| `config_drift` | CRITICA | EA en modo incorrecto (NARANJA + `EaState.mode=="REAL"`) | "Corregir el modo del EA en el terminal MT5." |
+| `config_drift` | CRITICA | Modo, permiso AutoTrading o sizing del EA distintos del contrato | "Corregir el contrato operativo del EA en el terminal MT5." |
 | `ums` | CRITICA | downgrade automático de fase (equity cae bajo el rango) | "Revisar la causa de la caída de equity." |
 | `watchdog` | CRITICA | bot muerto o desbocado | "Revisar el bot en el terminal MT5." |
 | `watchdog` | SUAVE | drift horario del VPS >120s | "Resincronizar el reloj del VPS." |
