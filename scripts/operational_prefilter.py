@@ -55,6 +55,39 @@ def load_thresholds(path: Path) -> dict[str, float]:
     return {key: float(data[key]) for key in REQUIRED_THRESHOLD_KEYS}
 
 
+def _normalise_caps(data: dict[str, Any]) -> None:
+    """Separa el tope de validación del de admisión, aceptando el formato v2.
+
+    Hasta la v2 un único `max_per_symbol_timeframe` gobernaba la cola al Strategy
+    Tester, mezclando dos decisiones que no son la misma: cuántas estrategias se
+    *validan* (un presupuesto de CPU) y cuántas pueden *convivir* en Incubadora (una
+    restricción de riesgo de portfolio). El efecto medido fue que 215 de 217 candidatas
+    quedaban en `HOLD_DIVERSITY_CAP` por ser todas `AUDCAD/H4`, sin que nadie las
+    estuviera admitiendo a ninguna parte.
+
+    Una política v2 se lee como antes -- su tope se aplica a la validación y se
+    reutiliza como tope de admisión -- para que una configuración existente no cambie
+    de comportamiento en silencio.
+    """
+    if "validation_queue" not in data:
+        legacy_bucket_cap = data.get("max_per_symbol_timeframe")
+        data["validation_queue"] = {
+            "max_queue": data.get("max_mt5_queue"),
+            "max_per_symbol_timeframe": legacy_bucket_cap,
+        }
+        data.setdefault(
+            "incubator_admission",
+            {"max_per_symbol_timeframe": legacy_bucket_cap, "max_concurrent": None},
+        )
+
+
+def _require_positive_int_or_none(value: Any, name: str) -> None:
+    if value is None:
+        return
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        raise ValueError(f"{name} debe ser entero positivo o null")
+
+
 def load_policy(path: Path) -> dict[str, Any]:
     data = load_object(path)
     required = (
@@ -62,19 +95,32 @@ def load_policy(path: Path) -> dict[str, Any]:
         "wfe_f2_gate",
         "require_monte_carlo_evidence",
         "require_cost_evidence",
-        "max_per_symbol_timeframe",
-        "max_mt5_queue",
     )
     missing = [key for key in required if key not in data]
     if missing:
         raise ValueError(f"política incompleta: {', '.join(missing)}")
-    if (
-        not isinstance(data["max_per_symbol_timeframe"], int)
-        or data["max_per_symbol_timeframe"] < 1
-    ):
-        raise ValueError("max_per_symbol_timeframe debe ser entero positivo")
-    if not isinstance(data["max_mt5_queue"], int) or data["max_mt5_queue"] < 1:
-        raise ValueError("max_mt5_queue debe ser entero positivo")
+    _normalise_caps(data)
+
+    queue_policy = data["validation_queue"]
+    if not isinstance(queue_policy, dict):
+        raise ValueError("validation_queue debe ser un objeto")
+    if not isinstance(queue_policy.get("max_queue"), int) or queue_policy["max_queue"] < 1:
+        raise ValueError("validation_queue.max_queue debe ser entero positivo")
+    _require_positive_int_or_none(
+        queue_policy.get("max_per_symbol_timeframe"),
+        "validation_queue.max_per_symbol_timeframe",
+    )
+
+    admission = data.get("incubator_admission")
+    if not isinstance(admission, dict):
+        raise ValueError("incubator_admission debe ser un objeto")
+    _require_positive_int_or_none(
+        admission.get("max_per_symbol_timeframe"),
+        "incubator_admission.max_per_symbol_timeframe",
+    )
+    _require_positive_int_or_none(
+        admission.get("max_concurrent"), "incubator_admission.max_concurrent"
+    )
     f2_gate = data["wfe_f2_gate"]
     if not isinstance(f2_gate, dict) or not isinstance(f2_gate.get("enabled"), bool):
         raise ValueError("wfe_f2_gate.enabled debe ser booleano")
@@ -313,20 +359,35 @@ def select_queue(decisions: list[dict[str, Any]], policy: dict[str, Any]) -> lis
             str(item["sqx_sha256"]),
         )
     )
+    # Una política v2 (topes planos) puede llegar aquí sin pasar por load_policy; la
+    # normalización es idempotente y evita que el formato antiguo reviente la cola.
+    _normalise_caps(policy)
+    queue_policy = policy["validation_queue"]
+    validation_bucket_cap = queue_policy.get("max_per_symbol_timeframe")
+    admission_bucket_cap = policy["incubator_admission"].get("max_per_symbol_timeframe")
+
     per_bucket: dict[tuple[str, str], int] = {}
     queue: list[dict[str, Any]] = []
     for item in eligible:
         bucket = (str(item.get("symbol")), str(item.get("timeframe")))
-        if per_bucket.get(bucket, 0) >= policy["max_per_symbol_timeframe"]:
+        rank_en_bucket = per_bucket.get(bucket, 0) + 1
+        if validation_bucket_cap is not None and rank_en_bucket > validation_bucket_cap:
             item["decision"] = "HOLD_DIVERSITY_CAP"
             item["reasons"] = ["SYMBOL_TIMEFRAME_CAP"]
             continue
-        if len(queue) >= policy["max_mt5_queue"]:
+        if len(queue) >= queue_policy["max_queue"]:
             item["decision"] = "HOLD_QUEUE_CAP"
             item["reasons"] = ["MT5_QUEUE_CAP"]
             continue
-        per_bucket[bucket] = per_bucket.get(bucket, 0) + 1
+        per_bucket[bucket] = rank_en_bucket
         item["queue_rank"] = len(queue) + 1
+        # Concentración anotada, no aplicada: validar no admite a ninguna parte. Cuando
+        # exista admisión a Incubadora, el tope de portfolio se aplica allí y esta marca
+        # dice cuántas del mismo bucket llegarían por delante.
+        item["admission_bucket_rank"] = rank_en_bucket
+        item["exceeds_incubator_admission_cap"] = (
+            admission_bucket_cap is not None and rank_en_bucket > admission_bucket_cap
+        )
         queue.append(item)
     return queue
 

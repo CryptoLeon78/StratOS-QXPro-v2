@@ -197,3 +197,96 @@ def test_prefilter_applies_diversity_cap(tmp_path: Path, monkeypatch) -> None:
 
     assert len(queue) == 1
     assert any(item["decision"] == "HOLD_DIVERSITY_CAP" for item in result)
+
+
+# --- Separación del tope de validación y el de admisión (P5.0) -------------------------
+#
+# Hasta la v2 un único `max_per_symbol_timeframe` gobernaba la cola al Strategy Tester,
+# mezclando un presupuesto de CPU (cuántas se validan) con una restricción de riesgo de
+# portfolio (cuántas conviven en Incubadora). El efecto medido: 215 de 217 candidatas en
+# `HOLD_DIVERSITY_CAP` por ser todas AUDCAD/H4, sin que nadie las estuviera admitiendo.
+
+def _politica_v3(validation_bucket_cap, admission_bucket_cap, max_queue=10):
+    return {
+        "version": "test-v3",
+        "wfe_f2_gate": {"enabled": False, "accepted_statuses": ["FORWARD_VALIDATED"]},
+        "require_monte_carlo_evidence": True,
+        "require_cost_evidence": False,
+        "validation_queue": {
+            "max_queue": max_queue,
+            "max_per_symbol_timeframe": validation_bucket_cap,
+        },
+        "incubator_admission": {
+            "max_per_symbol_timeframe": admission_bucket_cap,
+            "max_concurrent": 8,
+        },
+    }
+
+
+def _elegibles(n: int) -> list[dict[str, object]]:
+    """n candidatas ELIGIBLE del mismo símbolo/timeframe, que es el caso real."""
+    return [
+        {
+            "decision": "ELIGIBLE",
+            "symbol": "AUDCAD",
+            "timeframe": "H4",
+            "sqx_sha256": f"sha{i:03d}",
+            "metrics": {
+                "profit_factor": 2.0,
+                "sharpe": 1.5,
+                "expectancy_r": 0.3,
+                "max_dd_pct": 10.0,
+            },
+        }
+        for i in range(n)
+    ]
+
+
+def test_validation_queue_without_bucket_cap_admits_the_whole_bucket() -> None:
+    """Validar veinte AUDCAD/H4 no concentra riesgo: sólo gasta CPU."""
+    decisions = _elegibles(6)
+
+    queue = select_queue(decisions, _politica_v3(None, 2))
+
+    assert len(queue) == 6
+    assert not any(item["decision"] == "HOLD_DIVERSITY_CAP" for item in decisions)
+
+
+def test_validation_queue_still_respects_its_own_size_budget() -> None:
+    decisions = _elegibles(6)
+
+    queue = select_queue(decisions, _politica_v3(None, 2, max_queue=4))
+
+    assert len(queue) == 4
+    assert sum(item["decision"] == "HOLD_QUEUE_CAP" for item in decisions) == 2
+
+
+def test_queue_annotates_incubator_concentration_without_enforcing_it() -> None:
+    """La concentración se anota, no se aplica: la cola es de validación, no de admisión."""
+    decisions = _elegibles(5)
+
+    queue = select_queue(decisions, _politica_v3(None, 2))
+
+    assert [item["admission_bucket_rank"] for item in queue] == [1, 2, 3, 4, 5]
+    excede = [item["exceeds_incubator_admission_cap"] for item in queue]
+    assert excede == [False, False, True, True, True]
+
+
+def test_a_validation_bucket_cap_still_works_when_configured() -> None:
+    """Quien quiera limitar también la validación puede: deja de ser null."""
+    decisions = _elegibles(5)
+
+    queue = select_queue(decisions, _politica_v3(2, 2))
+
+    assert len(queue) == 2
+    assert sum(item["decision"] == "HOLD_DIVERSITY_CAP" for item in decisions) == 3
+
+
+def test_v2_policy_keeps_its_previous_behaviour() -> None:
+    """Una configuración antigua no cambia de comportamiento en silencio."""
+    decisions = _elegibles(5)
+
+    queue = select_queue(decisions, dict(POLICY))
+
+    assert len(queue) == 1  # max_per_symbol_timeframe=1 en POLICY
+    assert sum(item["decision"] == "HOLD_DIVERSITY_CAP" for item in decisions) == 4

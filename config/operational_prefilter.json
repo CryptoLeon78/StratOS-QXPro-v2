@@ -1,6 +1,6 @@
 {
-  "$comment": "Política de selección previa a SQX_vs_MT5. Los mínimos cuantitativos viven exclusivamente en thresholds.seed.json; este archivo sólo gobierna evidencia y capacidad de la cola.",
-  "version": "operational-prefilter-v2",
+  "$comment": "Política de selección previa a SQX_vs_MT5. Los mínimos cuantitativos viven exclusivamente en thresholds.seed.json; este archivo sólo gobierna evidencia y capacidad.",
+  "version": "operational-prefilter-v3",
   "wfe_f2_gate": {
     "enabled": false,
     "accepted_statuses": [
@@ -12,6 +12,14 @@
   },
   "require_monte_carlo_evidence": true,
   "require_cost_evidence": true,
-  "max_per_symbol_timeframe": 2,
-  "max_mt5_queue": 24
+  "validation_queue": {
+    "$comment": "Cuántas estrategias van al Strategy Tester. Es un presupuesto de CPU, no de riesgo: validar veinte AUDCAD/H4 no concentra nada, sólo gasta cómputo. Por eso max_per_symbol_timeframe es null aquí.",
+    "max_queue": 24,
+    "max_per_symbol_timeframe": null
+  },
+  "incubator_admission": {
+    "$comment": "Cuántas pueden CONVIVIR en Incubadora. Aquí el tope por símbolo/timeframe sí protege: ocho bots del mismo par y marco temporal no son ocho apuestas, son una con ocho nombres, y el kill-switch las vería caer juntas. DECLARADO, NO APLICADO: la Incubadora está bloqueada y ningún código admite todavía. El prefiltro sólo marca qué candidatas lo excederían, sin retenerlas.",
+    "max_per_symbol_timeframe": 2,
+    "max_concurrent": 8
+  }
 }
