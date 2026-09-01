@@ -13,7 +13,7 @@ maestro no da esos numeros."""
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _CONNECTOR_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
@@ -38,7 +38,16 @@ class ConnectorSettings(BaseSettings):
     backoff_max_seconds: float = 300.0
 
     buffer_db_path: str = Field(default=r"C:\ProgramData\StratOSQXPro\mt5-connector\buffer.sqlite")
+    reporter_outbox_dir: str | None = None
+    reporter_outbox_filename: str = "*.jsonl"
     mt5_terminal_path: str | None = None
+
+    @field_validator("reporter_outbox_filename")
+    @classmethod
+    def reporter_outbox_filename_is_local(cls, value: str) -> str:
+        if not value or Path(value).name != value:
+            raise ValueError("reporter_outbox_filename debe ser un patrón de archivo local")
+        return value
 
 
 @lru_cache

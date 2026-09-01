@@ -1,6 +1,7 @@
 """PARTE 12 (G4): buffer SQLite store-and-forward. TDD puro -- rojo
 confirmado contra el stub `NotImplementedError` antes de implementar."""
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -100,3 +101,11 @@ async def test_data_survives_reconnect(tmp_path: Path) -> None:
     assert len(due) == 1
     assert await buf2.get_meta("connector_instance_id") == "uuid-abc"
     await buf2.close()
+
+
+async def test_concurrent_enqueue_once_serializes_one_sqlite_transaction(buffer: Buffer) -> None:
+    accepted = await asyncio.gather(
+        *(buffer.enqueue_once(f"event-{index}", "ea_state", f'{{"index":{index}}}') for index in range(20))
+    )
+    assert all(accepted)
+    assert len(await buffer.due_batches(datetime.now(UTC), limit=30)) == 20

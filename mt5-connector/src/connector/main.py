@@ -25,6 +25,7 @@ from connector.poller import (
 )
 from connector.protocol import Mt5ClientProtocol
 from connector.real_adapter import RealMt5Client
+from connector.reporter_outbox import enqueue_reporter_outbox_once
 from connector.sender import drain_once
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,25 @@ async def _run_sender_loop(
             await drain_once(client, buffer, api_key, backoff, datetime.now(UTC))
         except Exception:
             logger.exception("sender: fallo drenando el buffer, se reintenta")
+        await asyncio.sleep(1.0)
+
+
+async def _run_reporter_outbox_loop(
+    buffer: Buffer,
+    directory: str,
+    filename_pattern: str,
+    account_login: str,
+    connector_instance_id: str,
+) -> None:
+    while True:
+        try:
+            await enqueue_reporter_outbox_once(
+                buffer, directory, account_login, connector_instance_id, filename_pattern
+            )
+        except Exception:
+            logger.exception(
+                "reporter outbox: lectura rechazada; se conserva el fichero original"
+            )
         await asyncio.sleep(1.0)
 
 
@@ -126,6 +146,18 @@ async def run(mt5_client: Mt5ClientProtocol, settings: ConnectorSettings | None 
                 _run_sender_loop(http_client, buffer, settings.ingest_api_key, backoff)
             ),
         ]
+        if settings.reporter_outbox_dir:
+            tasks.append(
+                asyncio.create_task(
+                    _run_reporter_outbox_loop(
+                        buffer,
+                        settings.reporter_outbox_dir,
+                        settings.reporter_outbox_filename,
+                        settings.account_login,
+                        connector_instance_id,
+                    )
+                )
+            )
         try:
             await asyncio.gather(*tasks)
         finally:
