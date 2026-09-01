@@ -5,22 +5,22 @@
 Detalle y comandos en [`AUDITORIA_2026-09-02.md`](AUDITORIA_2026-09-02.md). Nada de esto es un hueco
 de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
 
-- **[A1] G11/G12/G13 sin commitear** — 194 ficheros en el working tree, último commit `a55694c`.
+- ~~**[A1] G11/G12/G13 sin commitear**~~ **CERRADO 2026-09-02**: 9 commits temáticos; falta el `push` y el primer CI real. Salieron dos fugas de `.gitignore`: `.env.operational.example` estaba ignorado pese a declararse versionada, y `docs/history_deals_*.csv` (9.082 deals de cuentas reales) se habrían commiteado. Antes decía: — 194 ficheros en el working tree, último commit `a55694c`.
   Incluye 7 migraciones Alembic, 53 scripts y 11 documentos. Bloquea cualquier CI, cualquier
   revisión y cualquier vuelta atrás. Prioridad máxima; el resto de esta lista depende de ello para
   poder verificarse en CI real.
-- **[A2] `lint-backend` rojo** — 7 errores de ruff en `db/models/__init__.py`, `db/sa_enums.py`,
+- ~~**[A2] `lint-backend` rojo**~~ **CERRADO 2026-09-02**: `ruff check` y `ruff format --check` limpios. Antes: — 7 errores de ruff en `db/models/__init__.py`, `db/sa_enums.py`,
   `routers/pipeline.py`, `services/config_drift.py`; 8 ficheros que `ruff format` reescribiría.
-- **[A3] `mypy --strict` rojo** — 7 errores. `services/tca.py:60` sin anotación de `account_brokers`;
+- ~~**[A3] `mypy --strict` rojo**~~ **CERRADO 2026-09-02**: Success en 108 ficheros; `get_bot` tiene ya su guarda de `None`. Antes: — 7 errores. `services/tca.py:60` sin anotación de `account_brokers`;
   `routers/pipeline.py:250/276/319` y `routers/bots.py:172` declaran `-> PipelineCandidate` / `-> Bot`
   pero devuelven la respuesta Pydantic; `routers/bots.py:172` accede a `account.data_origin` sin
   guarda de `None` (no explotable hoy porque `Bot.account_id` es `NOT NULL` con FK, pero es el patrón
   exacto que `--strict` existe para atrapar).
-- **[A4] `test_migration.py::test_all_tables_created` rojo** — `EXPECTED_TABLE_COUNT = 30` contra 36
+- ~~**[A4] `test_migration.py::test_all_tables_created` rojo**~~ **CERRADO 2026-09-02**: 36 tablas, y un test aparte las verifica por nombre. Antes: — `EXPECTED_TABLE_COUNT = 30` contra 36
   tablas reales; faltan las 6 de G11/G13 (`import_artifact`, `execution_fill`,
   `pipeline_phase_transition`, `external_ea_inventory`, `operational_asset`,
   `operational_asset_event`). Mientras siga rojo, el guardia de esquema no protege nada.
-- **[A5] `test_import_external_ea_inventory_records.py` rojo y ambigüedad de rol documental** —
+- ~~**[A5] test rojo y ambigüedad de rol documental**~~ **CERRADO 2026-09-02**: la migración MN resolvió la colisión (`5.29.24`→`10829`); cada propiedad se verifica contra su fuente real y ambos registros llevan cabecera de momento. Antes: —
   el test verifica la colisión BEPB `magic=10827` que `ASSUMPTIONS.md` G13-14 sella como retenida;
   `docs/registro_BEPB_MN_bots_real_mt5_vps.md` se reescribió con los magics post-migración y ya sólo
   tiene una fila. Hay que decidir si ese fichero es la observación pre-migración (evidencia, y
@@ -42,6 +42,27 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   `"USDJPY": "USDJPY"` (alias identidad redundante). Son parches puntuales sobre un fallo de
   extracción de símbolo; cada estrategia futura con el mismo patrón necesitaría su propia línea.
   Arreglar la extracción y limpiar el diccionario.
+- **[A11] El histórico exportado no llega a 2018** — `StratOSHistoryExport.mq5` se ejecutó en
+  los dos terminales (2026-09-02) y el caché de deals empieza en **2025-02-03** (BEPB) y
+  **2025-03-20** (JJTI): 19 meses, no 8 años. `phase_status.md` y este backlog prometían
+  "sellar su importación desde 2018". Decidir con el operador: otra fuente para el tramo
+  anterior (estados de cuenta Darwinex) o declarar la ventana real. En cualquier caso, la
+  documentación que promete 2018 hay que corregirla.
+- **[A12] Dos EAs rezagados tras la migración MN** — medido sobre los deals del 1-2 de
+  septiembre: `2004262` en BEPB (debería emitir el magic de `EUUSH1Seof_7.30.121_MN5`) y
+  `2084` en JJTI (el de `EURJPYM15L_1.29.59_MN9`) siguen emitiendo su magic anterior.
+  Además, tres magics desplegados no pertenecen al lote aprobado de 40: `9519` (BEPB),
+  `90727` (JJTI) y `0` (operaciones sin EA). Revisar en el terminal antes de dar la
+  migración por cerrada.
+- **[A13] Los `docs/registro_*_MN_*.md` se mantienen a mano y divergen del despliegue** —
+  ninguno de sus 56 `comment_identity` coincide con los 40 `ASSIGNED` aprobados, porque
+  registran el comment con el magic *legacy* mientras la propuesta asigna magics cortos. Los
+  deals reales demuestran que lo desplegado usa los magics **nuevos**, así que son esos
+  documentos los que están desactualizados. Regenerarlos desde el post-scan en vez de
+  mantenerlos a mano.
+- **[A14] `docs/history_deals_*.csv` viven en `docs/`** — son evidencia operativa, no
+  documentación. Moverlos a `runtime/operational/history/` cuando la ingesta deje de leerlos
+  de ahí; hoy están ignorados por Git en su ubicación actual.
 - **[A10] `SQX_Edge_Suite_v1` sin versionar ni indexar** — proyecto grande con gobierno propio
   (`gbrain`, `DISCIPLINA_OPERATIVA.md`), sin git, inactivo desde 2026-08-14, ausente de todos los
   índices. Decidir si se versiona, se archiva o se retira. `PIPELINE_MINADO_A_FINALISTAS.md` sigue
@@ -50,7 +71,8 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
 ## Estado activo G13 — operación separada
 
 - **G13 bootstrap local:** falta materializar `.env.operational` con secretos propios y crear el usuario operador de la base nueva; queda prohibido copiar o leer los secretos de G12.
-- **G13 histórico real:** los HTML MT5 sellados importaron 4.304 posiciones cerradas reconciliadas (JJTI 1.945, BEPB 2.359) y retuvieron 205 ambiguas; el magic no expuesto queda huérfano auditable. El importador canónico ya convierte hora Darwinex/SQX `Europe/Helsinki` a UTC y archiva el CSV como evidencia inmutable. Falta ejecutar el exportador MQL5 desde la sesión interactiva de cada terminal real y sellar/importar sus CSV desde 2018.
+- **G13 histórico real — cerrado para la exportación disponible:** los HTML MT5 sellados importaron 4.304 posiciones cerradas reconciliadas (JJTI 1.945, BEPB 2.359) y retuvieron 205 ambiguas; el magic no expuesto queda huérfano auditable. El exportador read-only ya produjo/importó CSV sellados: JJTI 2.041 trades completos + 5 retenidos (`cedc0cb8174c…`) y BEPB 2.486 + 15 (`3804c3ea5ff6…`), ambos idempotentes al reimportar. La ventana efectiva observada empieza en 2025, pese a solicitar 2018: no se afirma cobertura anterior inexistente. Magics grandes se preservan como histórico `BIGINT` sin mapearlos al rango compacto de bots.
+- **G13 cola de candidatas:** `StratOS_Operational` ya crea la vista FIFO sellada `runtime/operational/operational-tester-queue.json` y el diario append-only `operational-tester-queue-events.jsonl`; Pipeline sólo puede leer la vista. Cada apertura del Tester requiere confirmación individual en el ejecutable. El siguiente paso funcional es convertir resultados `VALIDADA` de Análisis en `BACKTEST_VALIDATED` y habilitar la cola de Incubadora, no abrir testers desde la UI.
 - **G13 alpha decay real:** el inventario de gráfico, magic y fuente EA de JJTI/BEPB ya ancla las 40 altas F7 externas. El preflight de 35 pares dejó 8 aptos, 25 `WITHHELD_TICKS` y 2 `WITHHELD_SOURCE`; una sola corrida apta está iniciada en el Tester Darwinex aislado. Tras cada resultado sellado se compararán baseline/backtest, OOS real sellado y ventana forward creciente. El histórico HTML sin magic permanece huérfano, y ningún resultado implica promoción ni altera cuentas reales.
 - **G13 reconstrucción AlgoWizard de retenidos:** `OROLONGLIMITSPPSTRH1D1 4.7.77` (BEPB/JJTI), `SP500LONGD1 REVERSION SL 2.86.54` y `SPA35LONGD1 REVERSION SL 1.31.56` tienen fuente `.mq5` y un plan de reconstrucción semántica sellada; los nuevos `.sqx` llevarán procedencia `RECONSTRUCTED_FROM_MQL5` y exigirán comparación fuente-vs-reconstruido antes del OOS real. `EURUSD_SELL_STOP_H4_LC_3.8.141` sólo conserva `.ex5`: queda bloqueada hasta recuperar un `.mq5` verificable, sin ingeniería inversa ni aproximación. Ver `docs/g13_algowizard_reconstruction_plan.md`.
 - **G13 inventario EA externo:** los dos registros de magic del operador ya están sellados; las 40 asociaciones verificadas se incorporaron idempotentemente a F7 como `EXTERNAL_PRODUCTION` y a `external_ea_inventory` (BEPB 26, JJTI 14), con cuenta, comentario, magic, archivo/ruta `.ex5` y SHA-256. Quedan fuera 13 asociaciones ambiguas entre binarios con misma versión y hash distinto, una sin versión contrastable y dos filas BEPB con colisión `magic=10827`; no se seleccionan por nombre.

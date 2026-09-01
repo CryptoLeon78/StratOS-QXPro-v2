@@ -9,6 +9,7 @@ contenedor operacional como hecho append-only.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
@@ -16,11 +17,13 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 
 LAUNCHER_VERSION = "stratos-operational-launcher-v1"
+QUEUE_SNAPSHOT_VERSION = "operational-tester-queue-v1"
 
 
 def project_root() -> Path:
@@ -149,6 +152,73 @@ def runtime_path(config: LauncherConfig, filename: str) -> Path:
     return config.root / "runtime" / "operational" / filename
 
 
+def _sha256_bytes(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _queue_snapshot_path(config: LauncherConfig) -> Path:
+    return runtime_path(config, "operational-tester-queue.json")
+
+
+def _queue_events_path(config: LauncherConfig) -> Path:
+    return runtime_path(config, "operational-tester-queue-events.jsonl")
+
+
+def write_queue_snapshot(
+    config: LauncherConfig, prefilter: Path, queue: list[dict[str, Any]], states: dict[int, str] | None = None,
+) -> Path:
+    """Publica el estado derivado de la cola, sin rutas locales ni secretos.
+
+    Es una vista local, reemplazable y sellada. El historial inmutable vive en
+    ``operational-tester-queue-events.jsonl``; la API sólo monta esta vista en
+    lectura para que Pipeline no pueda ejecutar ni modificar el host Windows.
+    """
+    states = states or {}
+    items = [
+        {
+            "rank": index,
+            "strategy_name": str(item.get("strategy_name", "sin nombre")),
+            "symbol": item.get("symbol"),
+            "timeframe": item.get("timeframe"),
+            "state": states.get(index, "PENDING_OPERATOR_CONFIRMATION"),
+        }
+        for index, item in enumerate(queue, start=1)
+    ]
+    body = {
+        "version": QUEUE_SNAPSHOT_VERSION,
+        "generated_at_utc": datetime.now(UTC).isoformat(),
+        "prefilter_sha256": _sha256_bytes(prefilter.read_bytes()),
+        "max_backtests_per_run": config.max_backtests_per_run,
+        "entries": items,
+    }
+    encoded = json.dumps(body, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    body["snapshot_sha256"] = _sha256_bytes(encoded)
+    target = _queue_snapshot_path(config)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(body, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return target
+
+
+def append_queue_event(config: LauncherConfig, *, rank: int, event: str, item: dict[str, Any], detail: str | None = None) -> None:
+    """Añade evidencia append-only de cada presentación/decisión de Tester."""
+    payload: dict[str, Any] = {
+        "occurred_at_utc": datetime.now(UTC).isoformat(),
+        "rank": rank,
+        "event": event,
+        "strategy_name": str(item.get("strategy_name", "sin nombre")),
+        "symbol": item.get("symbol"),
+        "timeframe": item.get("timeframe"),
+    }
+    if detail:
+        payload["detail"] = detail
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    payload["event_sha256"] = _sha256_bytes(canonical)
+    path = _queue_events_path(config)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8", newline="\n") as handle:
+        handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
+
+
 def apply_inventory(config: LauncherConfig, manifest: Path) -> None:
     runtime_dir = runtime_path(config, "").resolve()
     command = [
@@ -198,27 +268,49 @@ def run_guided(config: LauncherConfig) -> None:
     ensure_stack(config)
     prefilter = refresh_pipeline(config)
     queue = load_queue(prefilter)[:config.max_backtests_per_run]
+    states = {index: "PENDING_OPERATOR_CONFIRMATION" for index in range(1, len(queue) + 1)}
+    write_queue_snapshot(config, prefilter, queue, states)
     print(f"\nCola disponible para esta ejecución: {len(queue)} candidato(s).")
     for index, item in enumerate(queue, start=1):
         name = item.get("strategy_name", "sin nombre")
         symbol = item.get("symbol", "—")
         timeframe = item.get("timeframe", "—")
         print(f"\n[{index}/{len(queue)}] {name} | {symbol} {timeframe}")
+        append_queue_event(config, rank=index, event="PRESENTED_FOR_CONFIRMATION", item=item)
         if not confirm("¿Lanzar exclusivamente el Strategy Tester MT5 para este candidato?"):
+            states[index] = "OPERATOR_SKIPPED"
+            append_queue_event(config, rank=index, event="OPERATOR_SKIPPED", item=item)
+            write_queue_snapshot(config, prefilter, queue, states)
             print("Omitido por el operador.")
             continue
+        states[index] = "OPERATOR_CONFIRMED"
+        append_queue_event(config, rank=index, event="OPERATOR_CONFIRMED", item=item)
+        write_queue_snapshot(config, prefilter, queue, states)
         before = {path.resolve() for path in runtime_path(config, "backtests").glob("*/run-manifest.json")}
-        python_script(
-            config, "run_operational_sqx_mt5_backtest.py",
-            "--panel-dir", str(config.panel_dir), "--sqx", str(item["sqx_path"]), "--mq5", str(item["mql5_path"]),
-            "--output-root", str(runtime_path(config, "backtests")), "--expected-terminal", config.expected_terminal,
-            "--allow-real-strategy-tester", "--manage-backtest-terminal", "--launch",
-        )
+        try:
+            python_script(
+                config, "run_operational_sqx_mt5_backtest.py",
+                "--panel-dir", str(config.panel_dir), "--sqx", str(item["sqx_path"]), "--mq5", str(item["mql5_path"]),
+                "--output-root", str(runtime_path(config, "backtests")), "--expected-terminal", config.expected_terminal,
+                "--allow-real-strategy-tester", "--manage-backtest-terminal", "--launch",
+            )
+        except subprocess.CalledProcessError as exc:
+            states[index] = "TESTER_FAILED"
+            append_queue_event(config, rank=index, event="TESTER_FAILED", item=item, detail=str(exc))
+            write_queue_snapshot(config, prefilter, queue, states)
+            raise
         after = {path.resolve() for path in runtime_path(config, "backtests").glob("*/run-manifest.json")}
         created = sorted(after - before)
         if len(created) != 1:
+            states[index] = "MANIFEST_UNRESOLVED"
+            append_queue_event(config, rank=index, event="MANIFEST_UNRESOLVED", item=item)
+            write_queue_snapshot(config, prefilter, queue, states)
             raise ValueError("no se pudo identificar un único manifiesto de la corrida MT5")
         persist_manifest(config, created[0])
+        states[index] = "SEALED_AND_REGISTERED"
+        append_queue_event(config, rank=index, event="SEALED_AND_REGISTERED", item=item,
+                           detail=_sha256_bytes(created[0].read_bytes()))
+        write_queue_snapshot(config, prefilter, queue, states)
         print(f"Backtest sellado y registrado: {created[0]}")
     print("\nIncubación: BLOQUEADA. No hay integración operativa demo configurada en este ejecutable; ningún EA se adjuntó ni se envió orden alguna.")
 
@@ -240,7 +332,10 @@ def main() -> None:
         if args.refresh_only:
             ensure_stack(config)
             prefilter = refresh_pipeline(config)
+            queue = load_queue(prefilter)[:config.max_backtests_per_run]
+            snapshot = write_queue_snapshot(config, prefilter, queue)
             print(f"Prefiltro actualizado: {prefilter}")
+            print(f"Cola local sellada: {snapshot}")
         else:
             run_guided(config)
     except (ValueError, subprocess.CalledProcessError) as exc:

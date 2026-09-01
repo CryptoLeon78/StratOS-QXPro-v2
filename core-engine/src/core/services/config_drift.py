@@ -142,12 +142,14 @@ async def run_drift_check(session: AsyncSession, redis: Redis, now: datetime) ->
                 details: list[str] = []
                 if row.drift:
                     details.append(
-                        f"modo incorrecto (esperado {row.expected_mode}, reportado {row.reported_mode})"
+                        "modo incorrecto "
+                        f"(esperado {row.expected_mode}, reportado {row.reported_mode})"
                     )
                 if row.autotrading_drift:
                     details.append(
                         "permiso AutoTrading incorrecto "
-                        f"(esperado {row.expected_autotrading}, reportado {row.reported_autotrading})"
+                        f"(esperado {row.expected_autotrading}, "
+                        f"reportado {row.reported_autotrading})"
                     )
                 if row.sizing_drift is True:
                     details.append(
@@ -158,7 +160,9 @@ async def run_drift_check(session: AsyncSession, redis: Redis, now: datetime) ->
                     ts=now,
                     level=AlertLevel.CRITICA,
                     module="config_drift",
-                    message=f"Bot {row.bot_id} (magic {row.magic_number}): " + "; ".join(details) + ".",
+                    message=f"Bot {row.bot_id} (magic {row.magic_number}): "
+                    + "; ".join(details)
+                    + ".",
                     action_required="Corregir el contrato operativo del EA en el terminal MT5.",
                     dedup_key=dedup_key,
                 )

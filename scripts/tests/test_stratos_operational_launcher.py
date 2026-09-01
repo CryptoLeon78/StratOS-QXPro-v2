@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from stratos_operational_launcher import LAUNCHER_VERSION, load_config
+from stratos_operational_launcher import LAUNCHER_VERSION, load_config, write_queue_snapshot
 
 
 def write_config(root: Path, **overrides: object) -> Path:
@@ -49,3 +49,32 @@ def test_load_config_rejects_non_operational_env(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match=".env.operational"):
         load_config(tmp_path, target)
+
+
+def test_queue_snapshot_is_sealed_and_hides_local_source_paths(tmp_path: Path) -> None:
+    target = write_config(tmp_path)
+    config = load_config(tmp_path, target)
+    prefilter = tmp_path / "runtime" / "operational" / "analysis-prefilter.json"
+    prefilter.parent.mkdir(parents=True)
+    prefilter.write_text("{}", encoding="utf-8")
+
+    snapshot = write_queue_snapshot(
+        config,
+        prefilter,
+        [{
+            "strategy_name": "Candidate A",
+            "symbol": "AUDCAD",
+            "timeframe": "H4",
+            "sqx_path": r"C:\private\source.sqx",
+        }],
+    )
+
+    payload = json.loads(snapshot.read_text(encoding="utf-8"))
+    assert payload["entries"] == [{
+        "rank": 1,
+        "strategy_name": "Candidate A",
+        "symbol": "AUDCAD",
+        "timeframe": "H4",
+        "state": "PENDING_OPERATOR_CONFIRMATION",
+    }]
+    assert len(payload["snapshot_sha256"]) == 64

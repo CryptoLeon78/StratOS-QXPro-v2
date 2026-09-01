@@ -1,3 +1,9 @@
+> **Estado POST-migración de identidad compacta** (ASSUMPTIONS G13-18/G13-20). Los magics y los
+> `CustomComment` de este documento son los **vigentes** en el terminal BEPB tras el lote MN
+> aprobado, no la observación previa. La observación anterior a la migración se conserva inmutable
+> en `runtime/operational/external_inventory/bepb_magic_manifest.json`; no reescribas
+> este fichero con datos históricos ni al revés (ver `docs/AUDITORIA_2026-09-02.md` H3).
+
 - BEPB: 
 Estrategia 1: XAU1H1BUYSTOP_0620_Strategy 3.10.66 (XAUUSD,H1)
 CustomComment: XAU1H1BUYSTP_3.10.66_MN7507 | MagicNumber: 7507 | ProfitTargetCoef1: 8.8 | StopLossCoef1: 2.2 | TrailingStopCoef1: 1.1 | UseMoneyManagement: true | mmRiskedMoney: 200.0 | mmDecimals: 2 | mmLotsIfNoMM: 0.01 | mmMaxLots: 5.0 | mmMultiplier: 1.0 | mmStep: 0.01 | InitialCapital: 100000.0

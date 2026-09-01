@@ -50,9 +50,7 @@ class TestPipelineBoard:
     async def test_filters_by_account_and_data_origin(
         self, api_client: AsyncClient, db_connection: AsyncConnection
     ) -> None:
-        _, real_bot_id = await _candidate(
-            db_connection, data_origin=AccountDataOrigin.BROKER_REAL
-        )
+        _, real_bot_id = await _candidate(db_connection, data_origin=AccountDataOrigin.BROKER_REAL)
         await _candidate(db_connection, data_origin=AccountDataOrigin.FIXTURE)
 
         response = await api_client.get("/api/v1/pipeline/board?data_origin=BROKER_REAL")

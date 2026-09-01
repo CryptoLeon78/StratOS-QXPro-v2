@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     deployment_profile: str = Field(default="full", validation_alias="DEPLOYMENT_PROFILE")
     tz_display: str = Field(default="Europe/Madrid", validation_alias="TZ_DISPLAY")
     base_currency: str = Field(default="EUR", validation_alias="BASE_CURRENCY")
+    # Sólo lectura: el lanzador Windows publica aquí la vista sellada de su
+    # cola. El core nunca recibe permiso para ejecutar el terminal local.
+    operational_runtime_dir: Path = Field(
+        default=Path("/runtime"), validation_alias="OPERATIONAL_RUNTIME_DIR"
+    )
 
     news_provider: str = Field(default="ics", validation_alias="NEWS_PROVIDER")
     news_source_url: str = Field(default="", validation_alias="NEWS_SOURCE_URL")

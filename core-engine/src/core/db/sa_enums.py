@@ -10,9 +10,11 @@ from core.db.enums import (
     AccountDataOrigin,
     ActorType,
     AlertLevel,
+    AssetAdmissionStatus,
+    AssetSourceGroup,
     BaselineSource,
-    BotProfile,
     BotOriginKind,
+    BotProfile,
     BotRole,
     CemeteryCause,
     ChecklistType,
@@ -24,8 +26,6 @@ from core.db.enums import (
     SemaphoreState,
     TradeType,
     Verdict,
-    AssetAdmissionStatus,
-    AssetSourceGroup,
 )
 
 bot_profile = SAEnum(BotProfile, name="bot_profile")

@@ -164,11 +164,15 @@ async def list_bots(
 
 
 @router.get("/{bot_id}", response_model=BotResponse)
-async def get_bot(bot_id: int, session: AsyncSession = Depends(get_session)) -> Bot:
+async def get_bot(bot_id: int, session: AsyncSession = Depends(get_session)) -> BotResponse:
     bot = await session.get(Bot, bot_id)
     if bot is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "bot no encontrado")
     account = await session.get(Account, bot.account_id)
+    if account is None:
+        # Bot.account_id es NOT NULL con FK, asi que esto no deberia ocurrir. Si ocurre, la
+        # procedencia del bot es desconocida: se declara ausente en vez de inventarla.
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "cuenta del bot no encontrada")
     return BotResponse.model_validate({**bot.__dict__, "account_origin": account.data_origin})
 
 

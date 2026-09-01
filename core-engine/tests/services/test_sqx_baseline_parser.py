@@ -26,8 +26,8 @@ def _artifact(build: str = "SQX Build 144.2938", include_orders: bool = True) ->
         archive.writestr("strategy_Portfolio.xml", f'<Strategy AppVersion="{build}"/>')
         archive.writestr(
             "lastSettings.xml",
-            "<Chart symbol=\"EURUSD\" timeframe=\"H1\"/>"
-            "<Setup dateFrom=\"2024.01.01\" dateTo=\"2025.01.01\"/>"
+            '<Chart symbol="EURUSD" timeframe="H1"/>'
+            '<Setup dateFrom="2024.01.01" dateTo="2025.01.01"/>'
             "<InitialCapital>10000</InitialCapital>",
         )
         if include_orders:

@@ -6,6 +6,8 @@ unico camino real es `pipeline_gate.py::evaluate_and_persist` (barrido,
 ya existe G5). `kill` reutiliza `apply_cemetery_archival` (G3, ya existe:
 autopsia obligatoria, valida antes de tocar la sesion)."""
 
+import hashlib
+import json
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -16,8 +18,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.auth.dependencies import get_current_user
+from core.config import Settings, get_settings
 from core.db.base import get_session
-from core.db.enums import AccountDataOrigin, ActorType, BotOriginKind, CemeteryCause, PipelinePhase, Verdict
+from core.db.enums import (
+    AccountDataOrigin,
+    ActorType,
+    BotOriginKind,
+    CemeteryCause,
+    PipelinePhase,
+    Verdict,
+)
 from core.db.models.accounts import Account, Baseline, Bot
 from core.db.models.market import ImportArtifact
 from core.db.models.pipeline import CemeteryEntry, PipelineCandidate, PipelinePhaseTransition
@@ -129,6 +139,44 @@ class PipelinePhaseTransitionResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class OperationalQueueEntryResponse(BaseModel):
+    rank: int
+    strategy_name: str
+    symbol: str | None
+    timeframe: str | None
+    state: str
+
+
+class OperationalQueueResponse(BaseModel):
+    status: str
+    detail: str | None = None
+    generated_at_utc: datetime | None = None
+    snapshot_sha256: str | None = None
+    entries: list[OperationalQueueEntryResponse] = []
+
+
+def _load_operational_queue_snapshot(settings: Settings) -> OperationalQueueResponse:
+    """Expone sólo la vista sellada que Windows publica en modo lectura."""
+    path = settings.operational_runtime_dir / "operational-tester-queue.json"
+    if not path.is_file():
+        return OperationalQueueResponse(status="ABSENT", detail="cola local aún no publicada")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        seal = payload.pop("snapshot_sha256")
+        canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        if not isinstance(seal, str) or hashlib.sha256(canonical).hexdigest() != seal:
+            return OperationalQueueResponse(status="INVALID", detail="sello de cola local no válido")
+        entries = [OperationalQueueEntryResponse.model_validate(item) for item in payload["entries"]]
+        return OperationalQueueResponse(
+            status="READY",
+            generated_at_utc=payload["generated_at_utc"],
+            snapshot_sha256=seal,
+            entries=entries,
+        )
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return OperationalQueueResponse(status="INVALID", detail="formato de cola local no válido")
+
+
 async def _get_candidate(session: AsyncSession, candidate_id: int) -> PipelineCandidate:
     candidate = await session.get(PipelineCandidate, candidate_id)
     if candidate is None:
@@ -195,9 +243,7 @@ async def _candidate_response(
         ),
         delta_sharpe=forward.sharpe - baseline.sharpe if forward.sharpe is not None else None,
         delta_max_dd_pct=(
-            forward.max_dd_pct - baseline.max_dd_pct
-            if forward.max_dd_pct is not None
-            else None
+            forward.max_dd_pct - baseline.max_dd_pct if forward.max_dd_pct is not None else None
         ),
     )
     return response
@@ -222,10 +268,18 @@ async def pipeline_board(
     return [await _candidate_response(session, candidate) for candidate in candidates]
 
 
+@router.get("/operational-queue", response_model=OperationalQueueResponse)
+async def operational_queue(
+    settings: Settings = Depends(get_settings),
+) -> OperationalQueueResponse:
+    """Estado read-only de la cola local; no abre ni controla MT5."""
+    return _load_operational_queue_snapshot(settings)
+
+
 @router.post("/candidates", response_model=CandidateResponse, status_code=status.HTTP_201_CREATED)
 async def create_candidate(
     body: CreateCandidateRequest, session: AsyncSession = Depends(get_session)
-) -> PipelineCandidate:
+) -> CandidateResponse:
     bot = await session.get(Bot, body.bot_id)
     if bot is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "bot no encontrado")
@@ -253,7 +307,7 @@ async def create_candidate(
 @router.post("/{candidate_id}/promote", response_model=CandidateResponse)
 async def promote_candidate(
     candidate_id: int, session: AsyncSession = Depends(get_session)
-) -> PipelineCandidate:
+) -> CandidateResponse:
     candidate = await _get_candidate(session, candidate_id)
     if candidate.current_phase not in _MANUAL_PHASES:
         raise HTTPException(
@@ -315,7 +369,7 @@ async def kill_candidate(
 @router.get("/{candidate_id}/gate", response_model=CandidateResponse)
 async def candidate_gate(
     candidate_id: int, session: AsyncSession = Depends(get_session)
-) -> PipelineCandidate:
+) -> CandidateResponse:
     return await _candidate_response(session, await _get_candidate(session, candidate_id))
 
 

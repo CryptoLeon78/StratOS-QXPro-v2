@@ -137,6 +137,4 @@ class Baseline(Base):
     dd_contract_pct: Mapped[Decimal] = mapped_column(DrawdownPct)  # misma familia que max_dd_pct
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
-    artifact_id: Mapped[int | None] = mapped_column(
-        ForeignKey("import_artifact.id"), nullable=True
-    )
+    artifact_id: Mapped[int | None] = mapped_column(ForeignKey("import_artifact.id"), nullable=True)

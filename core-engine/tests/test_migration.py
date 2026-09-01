@@ -7,11 +7,22 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 # PARTE 5.2 (25) + ea_state/virtual_trade (G4) + checklist_item_signature (G5)
-# + instrument_spec/symbol_currency (G10, docs/backlog.md)
-EXPECTED_TABLE_COUNT = 30
+# + instrument_spec/symbol_currency (G10, docs/backlog.md) + las 6 de G11/G13 de abajo.
+EXPECTED_TABLE_COUNT = 36
+
+# Tablas anadidas despues de G10. Se comprueban por nombre y no solo por recuento: un
+# recuento suelto no dice cual falta ni cual sobra cuando una migracion se olvida.
+EXPECTED_G11_G13_TABLES = {
+    "import_artifact",  # G11, importacion administrativa trazable
+    "execution_fill",  # G11, fills y rechazos del reporter v1.1
+    "pipeline_phase_transition",  # G11, historico de pipeline
+    "external_ea_inventory",  # G13, inventario de EAs externos observados
+    "operational_asset",  # G13, catalogo de Analisis
+    "operational_asset_event",  # G13, admision append-only
+}
 
 
-async def test_all_tables_created(db_connection: AsyncConnection) -> None:
+async def _table_names(db_connection: AsyncConnection) -> set[str]:
     result = await db_connection.execute(
         text(
             "SELECT table_name FROM information_schema.tables "
@@ -20,7 +31,23 @@ async def test_all_tables_created(db_connection: AsyncConnection) -> None:
     )
     names = {row[0] for row in result}
     names.discard("alembic_version")
-    assert len(names) == EXPECTED_TABLE_COUNT
+    return names
+
+
+async def test_all_tables_created(db_connection: AsyncConnection) -> None:
+    names = await _table_names(db_connection)
+    assert len(names) == EXPECTED_TABLE_COUNT, (
+        f"se esperaban {EXPECTED_TABLE_COUNT} tablas y hay {len(names)}. "
+        "Si una migracion nueva anade o quita una tabla, actualiza tambien esta constante."
+    )
+
+
+async def test_g11_g13_tables_created(db_connection: AsyncConnection) -> None:
+    """Las 6 tablas posteriores a G10 existen con su nombre exacto."""
+    names = await _table_names(db_connection)
+    assert EXPECTED_G11_G13_TABLES <= names, (
+        f"faltan tablas de G11/G13: {sorted(EXPECTED_G11_G13_TABLES - names)}"
+    )
 
 
 async def test_hypertables_created(db_connection: AsyncConnection) -> None:

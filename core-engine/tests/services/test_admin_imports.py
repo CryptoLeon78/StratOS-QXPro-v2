@@ -23,9 +23,7 @@ async def test_fx_import_keeps_artifact_and_is_idempotent(
     assert artifact.kind == "FX_CSV"
 
 
-async def test_fx_import_rejects_conflicting_rate(
-    db_session: AsyncSession, tmp_path: Path
-) -> None:
+async def test_fx_import_rejects_conflicting_rate(db_session: AsyncSession, tmp_path: Path) -> None:
     first = tmp_path / "first.csv"
     second = tmp_path / "second.csv"
     first.write_text("ts,base,quote,rate\n2026-08-01T00:00:00Z,USD,EUR,0.92\n", encoding="utf-8")

@@ -99,9 +99,7 @@ class TestListEas:
         session.add(batch)
         await session.flush()
         session.add(
-            EaStateFactory(
-                account_id=account.id, magic_number=118232, ingest_batch_id=batch.id
-            )
+            EaStateFactory(account_id=account.id, magic_number=118232, ingest_batch_id=batch.id)
         )
         await session.commit()
 
