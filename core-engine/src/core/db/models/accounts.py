@@ -3,13 +3,30 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.db import sa_enums
 from core.db.base import Base
 from core.db.column_types import DrawdownPct
-from core.db.enums import BaselineSource, BotProfile, BotRole, PipelinePhase, SemaphoreState
+from core.db.enums import (
+    AccountDataOrigin,
+    BaselineSource,
+    BotOriginKind,
+    BotProfile,
+    BotRole,
+    PipelinePhase,
+    SemaphoreState,
+)
 
 
 class Account(Base):
@@ -25,6 +42,11 @@ class Account(Base):
     server: Mapped[str] = mapped_column(String)
     currency: Mapped[str] = mapped_column(String(3))
     is_demo: Mapped[bool] = mapped_column(Boolean)
+    data_origin: Mapped[AccountDataOrigin] = mapped_column(
+        sa_enums.account_data_origin,
+        default=AccountDataOrigin.FIXTURE,
+        server_default=AccountDataOrigin.FIXTURE.value,
+    )
     connector_instance_id: Mapped[str | None] = mapped_column(String, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
 
@@ -35,7 +57,18 @@ class Bot(Base):
     `entered_state_at` alimenta el contador "N dias en estado/fase"."""
 
     __tablename__ = "bot"
-    __table_args__ = (UniqueConstraint("account_id", "magic_number"),)
+    __table_args__ = (
+        UniqueConstraint("account_id", "magic_number"),
+        # G13: un EA que StratOS solo observa en una cuenta real puede carecer
+        # legítimamente de perfil/sizing internos. Los orígenes que sí son
+        # gestionados por StratOS conservan el contrato completo.
+        CheckConstraint(
+            "origin_kind = 'EXTERNAL_PRODUCTION' OR "
+            "(profile IS NOT NULL AND capital_allocated_pct IS NOT NULL AND "
+            "risk_per_trade_pct IS NOT NULL)",
+            name="ck_bot_internal_contract_complete",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     account_id: Mapped[int] = mapped_column(ForeignKey("account.id"))
@@ -43,8 +76,13 @@ class Bot(Base):
     name: Mapped[str] = mapped_column(String)
     market: Mapped[str] = mapped_column(String)
     timeframe: Mapped[str] = mapped_column(String)
-    profile: Mapped[BotProfile] = mapped_column(sa_enums.bot_profile)
+    profile: Mapped[BotProfile | None] = mapped_column(sa_enums.bot_profile, nullable=True)
     role: Mapped[BotRole] = mapped_column(sa_enums.bot_role)
+    origin_kind: Mapped[BotOriginKind] = mapped_column(
+        sa_enums.bot_origin_kind,
+        default=BotOriginKind.ANALYSIS,
+        server_default=BotOriginKind.ANALYSIS.value,
+    )
     slot: Mapped[str | None] = mapped_column(String, nullable=True)
     pipeline_phase: Mapped[PipelinePhase] = mapped_column(sa_enums.pipeline_phase)
     semaphore_state: Mapped[SemaphoreState] = mapped_column(
@@ -53,8 +91,8 @@ class Bot(Base):
         server_default=SemaphoreState.VERDE.value,
     )
     entered_state_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    capital_allocated_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2))
-    risk_per_trade_pct: Mapped[Decimal] = mapped_column(Numeric(4, 3))
+    capital_allocated_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    risk_per_trade_pct: Mapped[Decimal | None] = mapped_column(Numeric(4, 3), nullable=True)
     sizing_multiplier: Mapped[Decimal] = mapped_column(
         Numeric(4, 2), default=Decimal("1.0"), server_default="1.0"
     )
@@ -69,6 +107,12 @@ class Bot(Base):
     baseline_id: Mapped[int | None] = mapped_column(
         ForeignKey("baseline.id", use_alter=True, name="fk_bot_baseline_id"),
         nullable=True,
+    )
+    # G11: un requisito de versión sólo es verificable cuando el EA reporter
+    # lo declara. NULL significa "sin evidencia", nunca "conforme".
+    ea_required_version: Mapped[str | None] = mapped_column(String, nullable=True)
+    incubation_grace_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
 
 
@@ -93,3 +137,6 @@ class Baseline(Base):
     dd_contract_pct: Mapped[Decimal] = mapped_column(DrawdownPct)  # misma familia que max_dd_pct
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    artifact_id: Mapped[int | None] = mapped_column(
+        ForeignKey("import_artifact.id"), nullable=True
+    )

@@ -107,3 +107,34 @@ class DecisionStatus(StrEnum):
     CONFIRMED = "CONFIRMED"
     POSTPONED = "POSTPONED"
     DISMISSED = "DISMISSED"
+
+
+class AccountDataOrigin(StrEnum):
+    """Procedencia visible de la cuenta; ``is_demo`` no basta para distinguir fixture."""
+
+    BROKER_REAL = "BROKER_REAL"
+    BROKER_DEMO = "BROKER_DEMO"
+    FIXTURE = "FIXTURE"
+
+
+class BotOriginKind(StrEnum):
+    EXTERNAL_PRODUCTION = "EXTERNAL_PRODUCTION"
+    INCUBATION = "INCUBATION"
+    ANALYSIS = "ANALYSIS"
+
+
+class AssetSourceGroup(StrEnum):
+    REAL = "REAL"
+    INCUBATOR = "INCUBATOR"
+    ANALYSIS = "ANALYSIS"
+
+
+class AssetAdmissionStatus(StrEnum):
+    DISCOVERED = "DISCOVERED"
+    WITHHELD = "WITHHELD"
+    STATIC_VALIDATED = "STATIC_VALIDATED"
+    BACKTEST_VALIDATED = "BACKTEST_VALIDATED"
+    WAITING_CAPACITY = "WAITING_CAPACITY"
+    INCUBATING = "INCUBATING"
+    CLASSIFIED = "CLASSIFIED"
+    REJECTED = "REJECTED"

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from core.db import sa_enums
 from core.db.base import Base
 from core.db.column_types import DrawdownPct
-from core.db.enums import CemeteryCause, PipelinePhase, Verdict
+from core.db.enums import ActorType, CemeteryCause, PipelinePhase, Verdict
 
 
 class PipelineCandidate(Base):
@@ -41,6 +41,20 @@ class PipelineCandidate(Base):
     verdict_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     decision_eta_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
     evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class PipelinePhaseTransition(Base):
+    """Rastro append-only de fases creado desde G11; no inventa pasado."""
+
+    __tablename__ = "pipeline_phase_transition"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    candidate_id: Mapped[int] = mapped_column(ForeignKey("pipeline_candidate.id"))
+    from_phase: Mapped[PipelinePhase | None] = mapped_column(sa_enums.pipeline_phase, nullable=True)
+    to_phase: Mapped[PipelinePhase] = mapped_column(sa_enums.pipeline_phase)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    actor: Mapped[ActorType] = mapped_column(sa_enums.actor_type)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class ChallengerEvaluation(Base):

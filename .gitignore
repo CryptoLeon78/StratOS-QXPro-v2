@@ -17,11 +17,16 @@ frontend/.vite/
 frontend/test-results/
 frontend/playwright-report/
 frontend/blob-report/
+output/playwright/
+.playwright-cli/
 
 # Env / secrets
 .env
 .env.*
 !.env.example
+# Las plantillas *.example son las unicas versionadas (phase_status G13): la regla
+# `.env.*` de arriba tambien las capturaba, asi que se desexcluyen explicitamente.
+!.env.*.example
 
 # Docker / infra local state
 postgres-data/
@@ -31,6 +36,16 @@ redis-data/
 # sinteticos densos, nunca al repo (BACKUP_DIR por defecto).
 backups/
 *.dump
+
+# Runtime evidence / secrets of the isolated G12 demo campaign.
+runtime/
+dist/
+
+# Historico de deals de cuentas Darwinex REALES exportado por StratOSHistoryExport.mq5.
+# Es evidencia operativa voluminosa (9.082 deals con precio, volumen y profit), no
+# documentacion: su sitio es runtime/operational/history/, ignorado como el resto de
+# la evidencia. Se ignora tambien en docs/ mientras la ingesta los lea de ahi.
+docs/history_deals_*.csv
 
 # Editors / OS
 .vscode/

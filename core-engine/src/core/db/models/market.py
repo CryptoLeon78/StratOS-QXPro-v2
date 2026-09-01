@@ -18,6 +18,7 @@ from typing import Any
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
@@ -59,7 +60,10 @@ class Trade(Base):
     id: Mapped[int] = mapped_column(BigInteger, autoincrement=True)
     bot_id: Mapped[int | None] = mapped_column(ForeignKey("bot.id"), nullable=True)
     account_id: Mapped[int] = mapped_column(ForeignKey("account.id"))
-    magic_number: Mapped[int] = mapped_column(Integer)
+    # MT5 magics are unsigned 64-bit identifiers. Historical terminals can
+    # contain values above PostgreSQL INTEGER even when current deployments
+    # use the compact operational range.
+    magic_number: Mapped[int] = mapped_column(BigInteger)
     ticket_mt5: Mapped[int] = mapped_column(BigInteger)
     symbol: Mapped[str] = mapped_column(String)
     open_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -128,6 +132,60 @@ class FxRate(Base):
     base: Mapped[str] = mapped_column(String(3))
     quote: Mapped[str] = mapped_column(String(3))
     rate: Mapped[Decimal] = mapped_column(FxRateValue)
+    artifact_id: Mapped[int | None] = mapped_column(ForeignKey("import_artifact.id"), nullable=True)
+
+
+class ImportArtifact(Base):
+    """Artefacto administrativo local, inmutable y sin ruta HTTP de escritura.
+
+    Guardar los bytes, hash y procedencia permite reproducir una baseline o
+    una tasa aun si el fichero local original deja de existir.
+    """
+
+    __tablename__ = "import_artifact"
+    __table_args__ = (UniqueConstraint("kind", "sha256"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(20))
+    sha256: Mapped[str] = mapped_column(String(64))
+    original_filename: Mapped[str] = mapped_column(String)
+    source_path: Mapped[str] = mapped_column(String)
+    parser_version: Mapped[str] = mapped_column(String)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    payload: Mapped[bytes] = mapped_column()
+    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ExecutionFill(Base):
+    """Ejecución v1.1 inmutable e idempotente del EA reporter.
+
+    ``order_id`` identifica la solicitud MT5 para una cuenta. El conector
+    puede reenviar el mismo evento desde su outbox sin alterar el histórico.
+    """
+
+    __tablename__ = "execution_fill"
+    __table_args__ = (
+        UniqueConstraint("account_id", "order_id"),
+        CheckConstraint("status IN ('FILLED', 'REJECTED')", name="ck_execution_fill_status"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("account.id"))
+    bot_id: Mapped[int | None] = mapped_column(ForeignKey("bot.id"), nullable=True)
+    magic_number: Mapped[int] = mapped_column(Integer)
+    order_id: Mapped[str] = mapped_column(String)
+    symbol: Mapped[str] = mapped_column(String)
+    type: Mapped[TradeType] = mapped_column(sa_enums.trade_type)
+    volume: Mapped[Decimal] = mapped_column(Volume)
+    requested_price: Mapped[Decimal] = mapped_column(Price)
+    # Un rechazo conserva la solicitud y su motivo, pero nunca fabrica un
+    # precio ejecutado. Sólo FILLED alimenta las métricas TCA.
+    status: Mapped[str] = mapped_column(String, default="FILLED", server_default="FILLED")
+    rejection_reason: Mapped[str | None] = mapped_column(String, nullable=True)
+    executed_price: Mapped[Decimal | None] = mapped_column(Price, nullable=True)
+    spread: Mapped[Decimal | None] = mapped_column(Price, nullable=True)
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    ingest_batch_id: Mapped[int] = mapped_column(ForeignKey("ingest_batch.id"))
 
 
 class VirtualTrade(Base):

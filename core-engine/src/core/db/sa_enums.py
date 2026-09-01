@@ -7,10 +7,12 @@ columnas de `SemaphoreTransition`)."""
 from sqlalchemy import Enum as SAEnum
 
 from core.db.enums import (
+    AccountDataOrigin,
     ActorType,
     AlertLevel,
     BaselineSource,
     BotProfile,
+    BotOriginKind,
     BotRole,
     CemeteryCause,
     ChecklistType,
@@ -22,6 +24,8 @@ from core.db.enums import (
     SemaphoreState,
     TradeType,
     Verdict,
+    AssetAdmissionStatus,
+    AssetSourceGroup,
 )
 
 bot_profile = SAEnum(BotProfile, name="bot_profile")
@@ -39,3 +43,7 @@ checklist_type = SAEnum(ChecklistType, name="checklist_type")
 actor_type = SAEnum(ActorType, name="actor_type")
 news_impact = SAEnum(NewsImpact, name="news_impact")
 decision_status = SAEnum(DecisionStatus, name="decision_status")
+account_data_origin = SAEnum(AccountDataOrigin, name="account_data_origin")
+bot_origin_kind = SAEnum(BotOriginKind, name="bot_origin_kind")
+asset_source_group = SAEnum(AssetSourceGroup, name="asset_source_group")
+asset_admission_status = SAEnum(AssetAdmissionStatus, name="asset_admission_status")
