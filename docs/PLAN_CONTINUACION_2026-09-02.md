@@ -72,12 +72,12 @@ manifiesto sellado (evidencia inmutable), la unicidad de magics y la coherencia
 `comment == <label>_MN<magic>` contra los registros post-migración. Ambos documentos llevan
 ya una cabecera que declara a qué momento corresponden.
 
-### P0.3 — Retirar o regenerar el `.exe` · `backlog A6` — PENDIENTE
+### P0.3 — Regenerar el `.exe` · `backlog A6` — HECHO
 
-`dist/StratOS_Operational.exe` sigue siendo del 30/08, ahora **con más scripts por detrás**.
-Regenerarlo con `scripts/build_stratos_operational_exe.ps1` tras el push, o dejar de
-presentarlo como punto de entrada. Es la vía más probable de que una decisión se tome con el
-criterio anterior al contrato direccional.
+Regenerado con `scripts/build_stratos_operational_exe.ps1` tras conservar copia del binario
+anterior. **0 scripts por detrás** (antes 23) y arranque verificado sin abrir MT5. Ya no es
+una vía por la que una decisión pueda tomarse con el criterio anterior al contrato
+direccional.
 
 ---
 
@@ -123,29 +123,54 @@ la raíz corregidos (apuntaban a un `instrucciones para Codex\` inexistente) y
 
 ---
 
-## P1 — Cerrar lo que corrompe decisiones
+## P1 — Cerrar lo que corrompe decisiones · EJECUTADO 2026-09-02
 
-### P1.1 — Persistir la reclasificación direccional · `backlog A7`
+### P1.1 — Persistir la reclasificación direccional · `backlog A7` — HECHO
 
-Añadir un evento append-only a `operational_asset_event` por cada corrida reevaluada, con el
-veredicto nuevo, el hash del manifiesto original y la referencia a G13-25. No sustituye a los
-eventos previos: los complementa. Hoy la verdad contractual vigente vive en un JSON suelto y el
-sistema no la conoce.
+`record_directional_reclassification.py` añade un evento append-only por cada corrida cuyo
+veredicto **cambió**, enlazado al `run_id`, al hash del manifiesto original y al del propio
+payload de reclasificación. No reescribe nada; reafirmar un veredicto idéntico no se
+registra. Un F7 externo se mantiene `WITHHELD` aunque suba a `VALIDADA`: la reclasificación
+es contractual, no una promoción.
 
-### P1.2 — Arreglar la extracción de símbolo · `backlog A9`
+Aplicado al stack operacional: **2 eventos persistidos** (`asset_id=244`
+TOLERABLE→VALIDADA, `asset_id=246` DISCREPANTE→TOLERABLE), idempotencia verificada con una
+segunda ejecución.
 
-Quitar de `alias_simbolos` las dos entradas que no son alias (`AUDNZDH4BUY_edge_1.16.34` y la
-identidad `USDJPY: USDJPY`) y arreglar el resolutor que las hizo necesarias. Con test sobre la
-estrategia que falló. Cada estrategia futura con ese patrón necesitaría hoy su propia línea de
-configuración.
+**Hallazgo nuevo**: la tercera corrida con cambio, `20260830T210536Z_91538465c20a`
+(TOLERABLE→VALIDADA), quedó **RETENIDA** — su evidencia está sellada en disco pero **nunca
+se registró en la base**. Hay una comparación completada que el sistema no conoce. El
+fail-closed es por entrada, no por lote: se retiene y se reporta, sin impedir que las demás
+se persistan y sin inventar el evento que falta. Registrarla con
+`record_operational_backtest.py` es tarea pendiente (`backlog A15`).
 
-### P1.3 — `scan_hardcoding` consolidado de G12/G13 · `backlog A8`
+### P1.2 — Arreglar la extracción de símbolo · `backlog A9` — HECHO
 
-Barrido clasificado uno a uno, como el que cerró G10 en su grupo (o): cada hallazgo o se migra a
-configuración, o se justifica en `ASSUMPTIONS.md` con su origen. Los de `seed_lib/` ya están
-aceptados como deuda de fixture; los de los scripts operacionales nuevos, no.
+La causa raíz no era el alias: **el campo `symbol` de la cabecera binaria del `.sqx` no
+siempre contiene un símbolo**. En **27 de 73** `.sqx` reales del stock trae el nombre de la
+estrategia (`AUDNZDH4BUY_edge_1.16.34`, `EURGBP_H1_LS_volumen_Strategy 2.4.18`), mientras el
+`Chart` de `lastSettings.xml` sí declara el instrumento (`AUDNZD_darwinex`,
+`EURGBP_darwinex`). El 37 % de los `.sqx`, no un caso aislado.
 
----
+`resolver_simbolo_del_sqx()` hace que **mande `lastSettings.xml`**, con la cabecera como
+único fallback, y deja aviso en el informe cuando discrepan para que la sustitución no sea
+silenciosa. `alias_simbolos` queda limpio con sus **3 alias reales** (`NASDAQ→NDX`,
+`DAX40→GDAXI`, `USA30IDXUSD→WS30`); las entradas parche desaparecen. Verificado: **73/73
+`.sqx` resuelven su símbolo sin ningún alias parche**.
+
+### P1.3 — `scan_hardcoding` consolidado · `backlog A8` — HECHO
+
+Barrido clasificado uno a uno, como el de G10 en su grupo (o). Cinco literales migrados a
+constante con nombre y origen (`SECRET_TOKEN_BYTES`, `MIN_OPERATOR_PASSWORD_LENGTH`,
+`EXPECTED_SURVIVOR_COUNT`, `EXPECTED_READY_COUNT`, `MT5_CHART_ID_BASE`). El resto,
+clasificado y justificado en `ASSUMPTIONS.md` G13-28: formato de fichero ajeno (la plantilla
+`.chr` de MetaTrader y el codec `utf-16`), estructura de datos externos (tipos de registro
+del parser binario SQX, celdas del HTML de Darwinex, timeout de subproceso) y el prefijo de
+hash ya justificado en G13-19. Los ~250 de `seed_lib/` siguen siendo deuda de fixture
+aceptada desde G8.
+
+**El único hallazgo que resultó ser un umbral real** —y no un falso positivo— fue el tope de
+diversidad del prefiltro, corregido en P5.0.
 
 ## P2 — Observatorio fiel: atribuir los trades reales a sus bots
 
@@ -166,11 +191,11 @@ la ingesta no se construya sobre supuestos.
 
 **Tres consecuencias que cambian el plan:**
 
-1. **El histórico NO llega a 2018.** El caché de deals del terminal empieza en feb/mar de
-   2025 — unos 19 meses, no 8 años. `docs/backlog.md` y `phase_status.md` daban por hecho
-   "sellar su importación desde 2018"; eso **no es alcanzable con este export**. La ventana
-   real hay que declararla como tal y decidir si se busca otra fuente (estados de cuenta de
-   Darwinex) o si 19 meses bastan para el propósito.
+1. **El histórico NO llega a 2018 — DECIDIDO 2026-09-02.** El caché de deals del terminal
+   empieza en feb/mar de 2025: unos 19 meses, no 8 años. `docs/backlog.md` y
+   `phase_status.md` daban por hecho "sellar su importación desde 2018". **El operador
+   confirma que 19 meses bastan**: no se busca otra fuente para el tramo anterior, la ventana
+   real es la ventana del sistema y la documentación que prometía 2018 queda corregida.
 2. **Hay 203 y 128 magics distintos frente a 32 y 24 EAs registrados.** Es lo esperable
    tras años de rotación y tras la migración MN, pero significa que la atribución **no puede
    ser un `JOIN` por magic actual**: la mayoría de los deals históricos llevan magics de EAs
@@ -189,9 +214,14 @@ guardados) contra los 40 `ASSIGNED` aprobados:
 | BEPB | 14 deals | 1 (`2004262`) | `9519`, `0` |
 | JJTI | 14 deals | 1 (`2084`) | `90727` |
 
-- **La migración está aplicada casi por completo**, pero quedan **dos EAs rezagados** que
-  siguen emitiendo su magic anterior: `2004262` (debería emitir el de
-  `EUUSH1Seof_7.30.121_MN5`) y `2084` (el de `EURJPYM15L_1.29.59_MN9`). Revisar esos dos
+- **MIGRACIÓN CERRADA 2026-09-02**: el operador revisó ambos terminales y confirma que la
+  configuración es correcta. Los dos EAs que se midieron emitiendo su magic anterior
+  (`2004262` y `2084`) y los tres magics fuera del lote (`9519`, `90727`, `0`) no son un
+  fallo de la migración: corresponden a EAs desplegados que no entraron en la propuesta y a
+  operaciones sin EA. Lo que sigue es el detalle de la medición, conservado como evidencia.
+- La migración estaba aplicada casi por completo cuando se midió: **dos EAs seguían
+  emitiendo su magic anterior**, `2004262` (el de `EUUSH1Seof_7.30.121_MN5`) y `2084` (el de
+  `EURJPYM15L_1.29.59_MN9`). Se revisaron esos dos
   gráficos en el terminal.
 - **Tres magics no pertenecen al lote aprobado de 40**: `9519` y `90727` corresponden a EAs
   desplegados que no entraron en la propuesta, y `0` son operaciones sin EA (manuales o del
@@ -204,18 +234,34 @@ guardados) contra los 40 `ASSIGNED` aprobados:
   desactualizados respecto al despliegue, no al revés. **Conviene regenerarlos desde el
   post-scan** en vez de mantenerlos a mano.
 
-### P2.2 — Ingesta y reconciliación
+### P2.2 — Atribución del histórico · HECHO 2026-09-02
 
-Con los CSV sellados por `import_mt5_history_export.py` (que ya convierte
-`Europe/Helsinki`→UTC y archiva el CSV como evidencia inmutable):
+`build_legacy_magic_map()` traduce los magics anteriores a la migración usando
+**exclusivamente** los `legacy_magic_numbers` del registro append-only aprobado — nunca por
+nombre ni por comentario. Si dos identidades declarasen el mismo legacy, ese magic no
+traduce: una atribución ambigua es peor que ninguna. 34 magics resultan traducibles.
 
-- Atribuir cada deal vía magic actual **o** `legacy_magic_numbers`, registrando por cuál de
-  los dos caminos se resolvió. Lo que no resuelva ninguno queda huérfano y se declara.
-- Contrastar contra los 4.304 trades HTML ya importados: donde coincidan posición, símbolo,
-  volumen, hora y precio, el CSV aporta el magic que al HTML le falta. **Sin heurística de
-  nombre ni de comentario** — se mantiene el criterio de G13-12.
-- Cuidado con el solape: el HTML y el CSV cubren periodos que se pisan. La ingesta tiene que
-  ser idempotente por `deal_ticket`/`position_id`, no crear duplicados.
+`import_mt5_history_export.py` acepta `--identity-registry` y **sella la traducción en el
+artefacto** (`legacy_magic_translations`, con el recuento por magic viejo), para que la
+atribución quede auditable en vez de aplicarse en silencio. Sin el flag, el magic entra tal
+cual y nada cambia.
+
+`report_history_attribution.py` mide la cobertura **antes** de importar, en cuatro
+categorías excluyentes. Sobre el export real:
+
+| | Deals | Sin traducir | Traduciendo | Sin identidad |
+|---|---|---|---|---|
+| BEPB | 4.993 | 2,3 % | **10,3 %** | 87,2 % |
+| JJTI | 4.087 | 1,1 % | **8,2 %** | 90,4 % |
+
+**La traducción triplica la cobertura, y aun así el 87-90 % del histórico queda huérfano.**
+No es un fallo del importador: son EAs ya retirados, lo que hay en un portfolio con años de
+rotación. Conviene tenerlo medido antes de prometer métricas por bot sobre el histórico
+completo — las métricas por bot de cuentas reales sólo cubrirán, de forma realista, a los EAs
+vivos y su ventana desde 2025.
+
+**Falta ejecutar la importación** contra el stack operacional. La pieza está construida y
+probada; el paso es una decisión de cuándo, no de si se puede.
 
 ### P2.3 — Telemetría viva de las cuentas reales
 
@@ -254,41 +300,33 @@ alimenta las decisiones de retirada que el registro de veredictos ya empezó en 
 
 ## P5 — Incubadora: abrir la puerta a más candidatas, y de observatorio a gestor
 
-### P5.0 — El tope de diversidad, decidido · ACLARADO POR EL OPERADOR 2026-09-02
+### P5.0 — El tope de diversidad, separado · HECHO 2026-09-02
 
-Hoy 217 estrategias superan el prefiltro y sólo **2** llegan a la cola: el tope de
-diversidad por `símbolo/timeframe` deja 215 en `HOLD_DIVERSITY_CAP` porque todas son
-`AUDCAD/H4`. El operador pide abrir la puerta a más candidatas.
+El tope mezclaba dos decisiones distintas: cuántas estrategias se **validan** contra MT5 (un
+presupuesto de CPU) y cuántas pueden **convivir** en Incubadora (una restricción de riesgo de
+portfolio). Un solo número hacía las dos, y por eso 215 de 217 candidatas estaban paradas.
 
-**Lo importante es no confundir dos cosas que el tope actual mezcla:** limitar cuántas
-estrategias *entran a la Incubadora* (una restricción de portfolio, correcta y necesaria) y
-limitar cuántas *se comparan contra MT5* (una restricción de CPU, que no tiene por qué ser
-la misma). Hoy un solo número hace las dos, y por eso 215 candidatas están paradas.
+La política `operational-prefilter-v3` los separa:
 
-**Propuesta — separar el tope en dos, ambos configurables en `operational_prefilter.json`:**
+- **`validation_queue`** — `max_queue` y un `max_per_symbol_timeframe` que admite `null`.
+  Con `null`, **la cola pasa de 2 a 24** y las 193 restantes esperan por presupuesto de cola
+  (`HOLD_QUEUE_CAP`), no por diversidad. Validar veinte `AUDCAD/H4` no concentra riesgo.
+- **`incubator_admission`** — `max_per_symbol_timeframe` y `max_concurrent`. **Declarado y no
+  aplicado**: la Incubadora sigue bloqueada y ningún código admite todavía. El prefiltro se
+  limita a anotar `admission_bucket_rank` y `exceeds_incubator_admission_cap` en cada entrada
+  de la cola —**22 de las 24 lo excederían**— para que la concentración no se pierda cuando
+  llegue la admisión.
 
-1. **Tope de validación** (cuántas van al Strategy Tester por tanda). Sube de 2 a lo que
-   admita el presupuesto de CPU, sin límite por símbolo: validar 20 `AUDCAD/H4` no
-   concentra riesgo, sólo gasta cómputo. Es reversible y no toca ninguna cuenta.
-2. **Tope de admisión a Incubadora** (cuántas de las validadas pueden convivir). **Aquí sí**
-   se conserva el límite por `símbolo/timeframe`, porque ocho bots del mismo par en el mismo
-   marco temporal no son ocho apuestas: son una apuesta con ocho nombres, y el kill-switch
-   las vería caer juntas.
+Una política v2 se sigue leyendo con su comportamiento anterior, sin cambiar en silencio.
 
-**Además, un criterio de diversidad que hoy no existe y es el que de verdad importa**: la
-correlación entre curvas de equity. Dos `AUDCAD/H4` con reglas distintas y correlación 0,2
-diversifican; dos con correlación 0,9 no, aunque el tope por símbolo las deje pasar. El
-sistema **ya tiene la pieza**: `services/correlations.py` y `is_redundant_pair` (G8, criterio
-9). Reutilizarla en la admisión es más trabajo que subir un número, pero es la diferencia
-entre un tope que aproxima la diversidad y uno que la mide.
+**Pendiente para cuando exista admisión**: el filtro de correlación entre curvas de equity,
+que es lo que mide diversidad de verdad. Dos `AUDCAD/H4` con correlación 0,2 diversifican;
+dos con 0,9 no, aunque el tope por símbolo las deje pasar. La pieza ya existe
+(`services/correlations.py`, `is_redundant_pair`, G8 criterio 9).
 
-**Orden sugerido**: (1) subir el tope de validación ya — desbloquea las 215 sin ningún riesgo;
-(2) al admitir a Incubadora, aplicar tope por símbolo/TF **más** el filtro de correlación.
-
-**Conclusión de negocio que no hay que perder de vista**: que 215 de 217 candidatas sean el
-mismo par y marco temporal dice que el universo de Análisis está mucho más concentrado de lo
-que un portfolio debería aceptar. Subir el tope resuelve el atasco; **no** resuelve la
-concentración. Eso se arregla minando otros activos, no ajustando la cola.
+**Esto resuelve el atasco, no la concentración.** Que 215 de 217 candidatas sean el mismo par
+y marco temporal es una conclusión sobre el universo de Análisis, y se corrige minando otros
+activos, no ajustando la cola.
 
 ### P5.1 — Gates hacia gestor
 
@@ -316,26 +354,42 @@ Sólo después de P0-P4. En orden:
 
 | Orden | Bloque | Estado | Quién |
 |---|---|---|---|
-| 1 | P0.1 commit + P0.2 CI verde | **HECHO 2026-09-02** (falta el `push`) | agente |
-| 2 | P0-bis salvaguarda de símbolo en lote | **HECHO 2026-09-02** | agente |
-| 3 | P2.1 exportador de histórico | **HECHO** — CSV en `docs/`, analizándose | **Ivan** |
-| 4 | P0.3 exe, P1.1 persistir reclasificación, P1.2 alias | pendiente | agente |
-| 5 | P2.2 ingesta y reconciliación del histórico | pendiente | agente |
-| 6 | **P5.0 subir el tope de validación** | pendiente — desbloquea 215 candidatas sin riesgo | agente |
-| 7 | P1.3 scan consolidado | pendiente | agente |
-| 8 | P3 cola F7 | esperando confirmación de Ivan sobre los retests SQX | agente + Ivan |
-| 9 | P2.3 telemetría viva + P4 UI y retirada del fixture | pendiente | agente |
-| 10 | P5.1 Incubadora | pendiente — necesita cuenta demo | agente + Ivan |
+| 1 | P0.1 commit + P0.2 CI verde | **HECHO** — 11 commits, pusheados | agente |
+| 2 | P0-bis salvaguarda de símbolo en lote | **HECHO** — panel v1.3.1 | agente |
+| 3 | P2.1 exportador de histórico | **HECHO** — CSV en `docs/` | Ivan |
+| 4 | P0.3 regenerar el exe | **HECHO** — 0 scripts por detrás | agente |
+| 5 | P1.1 persistir la reclasificación | **HECHO** — 2 eventos, 1 retenida | agente |
+| 6 | P1.2 extracción de símbolo | **HECHO** — 73/73 sin alias parche | agente |
+| 7 | P1.3 scan consolidado | **HECHO** — G13-28 | agente |
+| 8 | P5.0 separar el tope de validación | **HECHO** — cola de 2 a 24 | agente |
+| 9 | P2.2 atribución del histórico | **HECHO** — falta ejecutar la importación | agente |
+| 10 | P3 cola F7 | esperando confirmación de Ivan sobre los retests SQX | agente + Ivan |
+| 11 | P2.3 telemetría viva + P4 UI y retirada del fixture | pendiente | agente |
+| 12 | P5.1 Incubadora | pendiente — necesita cuenta demo | agente + Ivan |
 
-**Lo más rentable ahora mismo**: (4) y (5) — la reclasificación y el alias corrompen
-decisiones, y la ingesta del histórico es lo que convierte a StratOS en observatorio real.
-**Y (6), que es una línea de configuración y libera 215 candidatas paradas.**
+## Lo que sigue
 
-## Dos cosas que exigen decisión del operador
+**Inmediato, sin dependencias**: ejecutar la importación del histórico (P2.2 está construido
+y probado, falta correrlo contra el stack) y registrar la corrida
+`20260830T210536Z_91538465c20a` que quedó retenida (`backlog A15`).
 
-1. **El histórico no llega a 2018, sino a feb/mar 2025** (P2.0). ¿Se busca otra fuente para
-   el tramo anterior, o 19 meses bastan? La documentación actual promete 2018 y eso hay que
-   corregirlo en cualquier caso.
-2. **Dos EAs rezagados siguen emitiendo su magic legacy** tras la migración MN (P2.1), y
-   tres magics desplegados no pertenecen al lote aprobado de 40. Revisar en el terminal
-   antes de dar la migración por cerrada.
+**Luego**: P4 (procedencia en las 5 pestañas que faltan y retirada del fixture `full`, que es
+por lo que los números del Resumen no son de fiar) y P2.3 (telemetría viva read-only de
+JJTI/BEPB, que es lo que da sentido a los semáforos sobre cuentas reales).
+
+## Decisiones del operador — 2026-09-02
+
+**Resueltas:**
+
+1. ~~El histórico no llega a 2018.~~ **19 meses bastan**; no se busca otra fuente para el
+   tramo anterior. La documentación que prometía 2018 queda corregida.
+2. ~~Dos EAs rezagados y tres magics fuera del lote.~~ **Terminales revisados, todo correcto:
+   la migración MN se da por cerrada.**
+
+**Siguen esperando:**
+
+3. **El 87-90 % del histórico es de EAs ya retirados.** Decidir si las métricas por bot se
+   presentan sólo sobre los EAs vivos o si merece la pena inventariar los retirados. No
+   bloquea la importación: sólo cómo se presenta lo importado.
+4. **La cola F7 sigue en pausa** desde el 2026-08-31, esperando tu confirmación de que los
+   retests SQX están alineados.

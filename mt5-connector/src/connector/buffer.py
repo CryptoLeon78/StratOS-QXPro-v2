@@ -122,7 +122,9 @@ class Buffer:
                 (_utc_iso(now), limit),
             )
             rows = await cursor.fetchall()
-            return [OutboxRow(id=r[0], batch_type=r[1], payload_json=r[2], attempts=r[3]) for r in rows]
+            return [
+                OutboxRow(id=r[0], batch_type=r[1], payload_json=r[2], attempts=r[3]) for r in rows
+            ]
 
     async def mark_sent(self, row_id: int) -> None:
         async with self._lock:

@@ -48,45 +48,66 @@ G13 crea `stratos_operational` como instalación local aislada de G12: volumen P
 
 **Post-scan G13 — perfiles persistidos, verificación estricta:** el 2026-09-01 se releyeron los perfiles `Default` remotos de JJTI/BEPB sin arrancar MT5, después de su guardado manual. El informe `runtime/operational/magic_identity/post_migration_scan_report.json` registra 40 `MIGRATION_OBSERVED`, uno por cada par aprobado cuenta+magic; el NQ/JJTI magic `38` se conserva bajo `OPERATOR_RETAINED_OUT_OF_PROPOSAL` en un manifiesto sellado separado. Las copias JJTI `chart17`/`chart19` (magic `30`) y `chart18`/`chart20` (magic `19`) son serializaciones físicas del mismo ID raíz de gráfico MT5 y se contabilizan una sola vez; no son EAs ni identidades duplicadas. Sólo se colapsan si EA, magic, comment y símbolo coinciden; un desacuerdo para el mismo ID queda `MIGRATION_UNVERIFIED`. Se aceptan exclusivamente las dos codificaciones exactas comprobadas de `CustomComment`: puntos configurados o guiones bajos persistidos. Los aliases de símbolo conservan literal y auditadamente `DAX`/`DAX40` F7-SQX junto a `GDAXI` Darwinex MT5. La propuesta F7 sellada aporta hash EX5/timeframe porque el operador confirmó una migración exclusiva de archivo/magic/comment; cuenta, gráfico, archivo, magic, comment y símbolo se contrastan de nuevo desde el perfil.
 
-## Auditoría de estado — 2026-09-02 — CÓDIGO FUNCIONAL, GARANTÍAS ROJAS
+## Auditoría de estado y cierre de deuda — 2026-09-02 — GARANTÍAS RECUPERADAS
 
-Auditoría independiente tras el trabajo en paralelo con Codex. Informe completo, con comandos de
-reproducción, en [`docs/AUDITORIA_2026-09-02.md`](AUDITORIA_2026-09-02.md).
+Auditoría independiente tras el trabajo en paralelo con Codex, y ejecución de los bloques
+P0-P2 del plan que salió de ella. Informe completo con comandos de reproducción en
+[`docs/AUDITORIA_2026-09-02.md`](AUDITORIA_2026-09-02.md); orden de trabajo y decisiones
+pendientes en [`docs/PLAN_CONTINUACION_2026-09-02.md`](PLAN_CONTINUACION_2026-09-02.md).
 
-**Verde y verificado en esta sesión:** el stack `stratos_operational` responde 7/7 contenedores y
-HTTP 200 en core/gateway/frontend; la base contiene 2 cuentas, 40 bots y 4.304 trades, que cuadran
-exactamente con los HTML sellados (JJTI 1.945 + BEPB 2.359). Todas las cifras de G13 contrastables
-contra artefactos coinciden con lo declarado aquí: prefiltro (237/4/2), cola alineada (13 fuentes),
-preflight (6 `PREFLIGHT_OK` / 7 `WITHHELD_TICKS`), reclasificación (11 corridas, 3 cambios) y
-registro append-only (227 `STATIC_VALIDATED` + 24 `WITHHELD`). El frontend pasa 50/50 en vitest y
-`SQX_vs_MT5_Panel` 8/8. **La documentación de dominio es fiel al sistema.**
+### Lo que estaba roto y ya no
 
-**Rojo, y es lo que impide declarar StratOS productivo:**
+| | Antes | Ahora |
+|---|---|---|
+| Historial | último commit en G10, **194 ficheros sólo en el working tree** | 15 commits temáticos, **pusheados a `origin/main`** |
+| `ruff` / `format` | 7 errores, 8 ficheros | limpio, 210 formateados |
+| `mypy --strict` | 7 errores en 3 ficheros | Success, 108 ficheros |
+| `pytest core-engine` | 598 + 1 fallo | **600 passed** |
+| `pytest scripts` | 120 + 1 fallo | **150 passed** |
+| `SQX_vs_MT5_Panel` | 8 tests | **21 passed** |
+| `dist/StratOS_Operational.exe` | 23 scripts por detrás | **0**, arranque verificado |
 
-1. **G11, G12 y G13 están sin commitear.** El último commit del repo es `a55694c` (G10/G11
-   temprano); 194 ficheros viven sólo en el working tree, incluidas 7 migraciones Alembic, 53
-   scripts y 11 documentos. Sin historial, sin CI, sin punto de retorno.
-2. **CI fallaría hoy.** `lint-backend`: 7 errores de ruff y 8 ficheros sin formatear.
-   `mypy --strict`: 7 errores en `services/tca.py`, `routers/pipeline.py` y `routers/bots.py`
-   (anotaciones de retorno desfasadas al introducir la procedencia, más un `Account | None` sin
-   guarda). `test-backend`: `test_migration.py::test_all_tables_created` espera 30 tablas y el
-   esquema tiene 36 tras las migraciones de G11/G13.
-3. **`scripts/tests` tiene un test rojo** que verifica la colisión BEPB `magic=10827`:
-   `docs/registro_BEPB_MN_bots_real_mt5_vps.md` fue reescrito con los magics post-migración y ya
-   sólo contiene una fila. La evidencia original se conserva intacta en
-   `runtime/operational/external_inventory/bepb_magic_manifest.json`, pero ese documento cambió de
-   significado sin que el test ni la doc lo declaren.
-4. **`dist/StratOS_Operational.exe` está desfasado.** Es del 30/08 y hay 23 scripts `.py`
-   posteriores. Lanzarlo hoy ejecuta la lógica anterior al contrato direccional, a la cola alineada
-   v2 y al post-scan de migración. No usarlo como punto de entrada hasta regenerarlo.
-5. **La reclasificación direccional no está en el sistema**, sólo en un JSON suelto (ver G13-25).
-6. **Sin `scan_hardcoding` consolidado de G12/G13.** 340 hallazgos en `scripts/`, mayoría deuda de
-   fixture ya conocida en `seed_lib/`, pero G12/G13 nunca hicieron el barrido clasificado que sí
-   cerró G10 en su grupo (o).
+Dos fugas del `.gitignore` corregidas antes del push: `.env.operational.example` estaba
+ignorado pese a declararse la única plantilla versionada, y `docs/history_deals_*.csv`
+—9.082 deals de cuentas reales— se habrían commiteado.
 
-Corregido en la propia auditoría: la colisión de numeración `G13-24`, la contradicción de veredictos
-entre G13-21 y el contrato direccional, `README.md`/`docs/architecture.md` congelados en G11, los
-índices de contexto de la raíz y el `CHANGELOG_panel.md` de `SQX_vs_MT5_Panel`.
+### Deuda cerrada
+
+- **Reclasificación direccional persistida** (G13-25): 2 eventos append-only en
+  `operational_asset_event`, idempotente. La verdad contractual ya no vive sólo en un JSON.
+- **Extracción de símbolo corregida**: la causa raíz del `alias_simbolos` contaminado era que
+  **27 de 73 `.sqx` traen el nombre de la estrategia en el campo `symbol` de la cabecera
+  binaria**. Ahora manda `lastSettings.xml` y los 73 resuelven sin ningún alias parche.
+- **Salvaguarda de símbolo extendida al lote** (G13-26), con una corrección de criterio: la
+  comparación era sobre símbolos crudos y saltaba en 3 de 3 estrategias por el sufijo
+  `_darwinex`. Una alerta que salta siempre entrena a confirmar por costumbre.
+- **`scan_hardcoding` consolidado** (G13-28): 5 literales migrados a constante, el resto
+  clasificado por categoría. El único que era un umbral real se corrigió en G13-29.
+- **Tope de validación separado del de admisión** (G13-29): la cola pasa de **2 a 24** y las
+  193 restantes esperan por presupuesto de CPU, no por diversidad. El tope de portfolio queda
+  declarado y anotado, no aplicado, hasta que exista admisión a Incubadora.
+- **Atribución del histórico** (G13-27): traducción de magics anteriores a la migración desde
+  los `legacy_magic_numbers` del registro aprobado, sellada en el artefacto de importación, y
+  un informe que mide la cobertura antes de importar.
+
+### Lo que la auditoría descubrió y sigue abierto
+
+1. **El histórico exportado no llega a 2018**, sino a `2025-02-03` (BEPB) y `2025-03-20`
+   (JJTI). El caché de deals del terminal guarda ~19 meses. La documentación que prometía
+   2018 queda corregida; la decisión sobre el tramo anterior es del operador.
+2. **La migración MN está aplicada casi por completo, no del todo**: medido sobre los deals
+   del 1-2 de septiembre, 14 por cuenta llevan magic nuevo pero **dos EAs siguen emitiendo su
+   legacy** (`2004262` en BEPB, `2084` en JJTI) y tres magics desplegados no pertenecen al
+   lote aprobado de 40 (`9519`, `90727`, `0`).
+3. **Una comparación completada no está registrada**: `20260830T210536Z_91538465c20a` tiene
+   evidencia sellada en disco y ningún evento en la base (`backlog A15`).
+4. **El 87-90 % del histórico es de EAs ya retirados** (`backlog A17`). La traducción de
+   magics triplica la cobertura y aun así deja huérfana la mayoría. No es un fallo: es la
+   rotación real del portfolio, y conviene tenerlo medido antes de prometer métricas por bot
+   sobre el histórico completo.
+5. **Los `docs/registro_*_MN_*.md` se mantienen a mano y divergen del despliegue** — registran
+   el comment con el magic legacy mientras la propuesta aprobada asigna magics cortos, y los
+   deals demuestran que lo desplegado usa los nuevos (`backlog A13`).
 
 ## Fase actual: G12 — Validación operativa por pestaña y demo SQX — BASE DEMO OPERATIVA; G12-02 CONTRACTUAL CONFORME, OPERACIONES BLOQUEADAS POR NARANJA
 

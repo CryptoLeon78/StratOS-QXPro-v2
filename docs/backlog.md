@@ -26,34 +26,58 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   tiene una fila. Hay que decidir si ese fichero es la observación pre-migración (evidencia, y
   entonces el registro post-MN va a otro fichero) o el estado actual (y entonces el test debe apuntar
   al manifiesto sellado `bepb_magic_manifest.json`, que sí conserva el duplicado).
-- **[A6] `dist/StratOS_Operational.exe` desfasado** — binario del 30/08 frente a 23 scripts
+- ~~**[A6] `dist/StratOS_Operational.exe` desfasado**~~ **CERRADO 2026-09-02**: regenerado, 0 scripts por detrás, arranque verificado sin abrir MT5. Antes: — binario del 30/08 frente a 23 scripts
   posteriores, entre ellos el contrato direccional y toda la cola alineada v2. Regenerarlo con
   `scripts/build_stratos_operational_exe.ps1` tras cerrar A1-A4, o retirarlo de la documentación
   como punto de entrada hasta entonces.
-- **[A7] Reclasificación direccional no persistida** — `directional_reclassification_20260901.json`
+- ~~**[A7] Reclasificación direccional no persistida**~~ **CERRADO 2026-09-02**: `record_directional_reclassification.py`, 2 eventos persistidos e idempotencia verificada; la tercera quedó retenida (ver A15). Antes: — `directional_reclassification_20260901.json`
   cambia 3 veredictos de 11 y no existe como evento en `operational_asset_event`. No hay riesgo
   operativo (los F7 externos siguen `WITHHELD` correctamente) pero sí de trazabilidad. Ver G13-25.
-- **[A8] `scan_hardcoding` de G12/G13 sin consolidar** — 340 hallazgos en `scripts/`, mayoría deuda
+- ~~**[A8] `scan_hardcoding` de G12/G13 sin consolidar**~~ **CERRADO 2026-09-02**: barrido clasificado en ASSUMPTIONS G13-28; 5 literales migrados a constante, el resto justificado por categoría. Antes: — 340 hallazgos en `scripts/`, mayoría deuda
   conocida de `seed_lib/` y falsos positivos (índices de columna, colores nativos MT5, codec
   `utf-16` de los `.chr`, algunos ya justificados en G13-19/G13-22). Falta el barrido clasificado
   uno a uno que G10 sí cerró en su grupo (o).
-- **[A9] `alias_simbolos` de `SQX_vs_MT5_Panel` contaminado** — contiene
+- ~~**[A9] `alias_simbolos` contaminado**~~ **CERRADO 2026-09-02**: la causa raíz era que 27 de 73 `.sqx` traen el nombre de la estrategia en el campo `symbol` de la cabecera binaria; ahora manda `lastSettings.xml` y 73/73 resuelven sin alias parche. Antes: — contiene
   `"AUDNZDH4BUY_edge_1.16.34": "AUDNZD"` (un nombre de estrategia, no un símbolo) y
   `"USDJPY": "USDJPY"` (alias identidad redundante). Son parches puntuales sobre un fallo de
   extracción de símbolo; cada estrategia futura con el mismo patrón necesitaría su propia línea.
   Arreglar la extracción y limpiar el diccionario.
-- **[A11] El histórico exportado no llega a 2018** — `StratOSHistoryExport.mq5` se ejecutó en
-  los dos terminales (2026-09-02) y el caché de deals empieza en **2025-02-03** (BEPB) y
-  **2025-03-20** (JJTI): 19 meses, no 8 años. `phase_status.md` y este backlog prometían
-  "sellar su importación desde 2018". Decidir con el operador: otra fuente para el tramo
-  anterior (estados de cuenta Darwinex) o declarar la ventana real. En cualquier caso, la
-  documentación que promete 2018 hay que corregirla.
-- **[A12] Dos EAs rezagados tras la migración MN** — medido sobre los deals del 1-2 de
-  septiembre: `2004262` en BEPB (debería emitir el magic de `EUUSH1Seof_7.30.121_MN5`) y
-  `2084` en JJTI (el de `EURJPYM15L_1.29.59_MN9`) siguen emitiendo su magic anterior.
-  Además, tres magics desplegados no pertenecen al lote aprobado de 40: `9519` (BEPB),
-  `90727` (JJTI) y `0` (operaciones sin EA). Revisar en el terminal antes de dar la
-  migración por cerrada.
+- **[A15] Una comparación SQX↔MT5 completada no está registrada** — la corrida
+  `20260830T210536Z_91538465c20a` (AUDCAD H4 `4.25.70_wfm520`) tiene manifiesto e informes
+  sellados en `runtime/operational/backtests_live/` pero **ningún evento en
+  `operational_asset_event`**. Se descubrió al persistir la reclasificación direccional, que
+  la retuvo con causa en vez de inventar el evento que falta. Es además la que pasaría de
+  `TOLERABLE` a `VALIDADA` bajo el contrato direccional. Registrarla con
+  `record_operational_backtest.py` y después reejecutar
+  `record_directional_reclassification.py --apply`.
+- **[A16] La importación del histórico está construida pero sin ejecutar** — la traducción de
+  magics legacy, el sellado de la traducción en el artefacto y el informe de cobertura están
+  probados (17 tests), pero `import_mt5_history_export.py --identity-registry` no se ha
+  corrido todavía contra el stack operacional. Cobertura esperada: 10,3 % BEPB y 8,2 % JJTI.
+- **[A17] El 87-90 % del histórico es de EAs ya retirados** — medido con
+  `report_history_attribution.py`: 4.355 deals BEPB y 3.694 JJTI con un magic que no está en
+  el registro de identidad. No es un fallo: es la rotación real del portfolio. Decidir si las
+  métricas por bot se presentan sólo sobre los EAs vivos o si merece la pena inventariar los
+  retirados; hasta entonces, no prometer métricas por bot sobre el histórico completo.
+- **[A18] El filtro de correlación no participa en la admisión** — el tope por
+  símbolo/timeframe aproxima la diversidad; la correlación entre curvas de equity la mide.
+  Dos `AUDCAD/H4` con correlación 0,2 diversifican y dos con 0,9 no, aunque el tope los trate
+  igual. La pieza existe (`services/correlations.py`, `is_redundant_pair`) y hay que cablearla
+  cuando exista admisión a Incubadora (ver `incubator_admission` en
+  `config/operational_prefilter.json`, hoy declarado y no aplicado).
+- ~~**[A11] El histórico exportado no llega a 2018**~~ **RESUELTO POR DECISIÓN DEL OPERADOR
+  2026-09-02**: la ventana real del export es `2025-02-03` → `2026-09-01` (BEPB) y
+  `2025-03-20` → `2026-09-01` (JJTI) — unos 19 meses, porque el caché de deals del terminal
+  no guarda más. **El operador confirma que 19 meses bastan**: no se busca otra fuente para el
+  tramo anterior. La ventana real es la ventana del sistema, y toda promesa de "importación
+  desde 2018" queda corregida en esta documentación.
+- ~~**[A12] Dos EAs rezagados tras la migración MN**~~ **CERRADO POR REVISIÓN DEL OPERADOR
+  2026-09-02**: se midió sobre los deals del 1-2 de septiembre que `2004262` (BEPB) y `2084`
+  (JJTI) seguían emitiendo su magic anterior, y que `9519`, `90727` y `0` no pertenecen al
+  lote aprobado de 40. El operador revisó los terminales y confirma que la configuración es
+  correcta. **La migración MN se da por cerrada.** Los magics fuera del lote corresponden a
+  EAs desplegados que no entraron en la propuesta y a operaciones sin EA (`magic=0`), no a un
+  fallo de la migración.
 - **[A13] Los `docs/registro_*_MN_*.md` se mantienen a mano y divergen del despliegue** —
   ninguno de sus 56 `comment_identity` coincide con los 40 `ASSIGNED` aprobados, porque
   registran el comment con el magic *legacy* mientras la propuesta asigna magics cortos. Los

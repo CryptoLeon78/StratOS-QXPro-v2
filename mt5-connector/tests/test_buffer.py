@@ -105,7 +105,10 @@ async def test_data_survives_reconnect(tmp_path: Path) -> None:
 
 async def test_concurrent_enqueue_once_serializes_one_sqlite_transaction(buffer: Buffer) -> None:
     accepted = await asyncio.gather(
-        *(buffer.enqueue_once(f"event-{index}", "ea_state", f'{{"index":{index}}}') for index in range(20))
+        *(
+            buffer.enqueue_once(f"event-{index}", "ea_state", f'{{"index":{index}}}')
+            for index in range(20)
+        )
     )
     assert all(accepted)
     assert len(await buffer.due_batches(datetime.now(UTC), limit=30)) == 20

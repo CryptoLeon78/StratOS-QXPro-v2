@@ -76,9 +76,7 @@ class TestInitializePropagatesTerminalPath:
 
     def test_path_is_forwarded_to_the_real_package(self, monkeypatch: pytest.MonkeyPatch) -> None:
         calls: list[dict[str, object]] = []
-        fake_mt5 = SimpleNamespace(
-            initialize=lambda **kwargs: calls.append(kwargs) or True
-        )
+        fake_mt5 = SimpleNamespace(initialize=lambda **kwargs: calls.append(kwargs) or True)
         monkeypatch.setitem(sys.modules, "MetaTrader5", fake_mt5)
 
         result = RealMt5Client().initialize(path=r"C:\Program Files\MetaTrader 5\terminal64.exe")

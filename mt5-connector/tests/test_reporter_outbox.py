@@ -81,15 +81,17 @@ async def test_reporter_outbox_canonicalizes_ea_state_decimal_before_sealing(tmp
     event = {
         "batch_type": "ea_state",
         "account_login": "demo-1",
-        "eas": [{
-            "magic": 118231,
-            "ea_version": "g12-reporter-v1.1",
-            "mode": "DEMO",
-            "autotrading": True,
-            "schedule_filter": {},
-            "news_windows": [],
-            "sizing_pct": 100.0,
-        }],
+        "eas": [
+            {
+                "magic": 118231,
+                "ea_version": "g12-reporter-v1.1",
+                "mode": "DEMO",
+                "autotrading": True,
+                "schedule_filter": {},
+                "news_windows": [],
+                "sizing_pct": 100.0,
+            }
+        ],
     }
     (outbox_dir / "stratos_g12.jsonl").write_text(json.dumps(event) + "\n", encoding="utf-8")
     buffer = Buffer(str(tmp_path / "buffer.sqlite"))

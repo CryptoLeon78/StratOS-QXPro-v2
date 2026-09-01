@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 EXPORTER = Path(__file__).parents[1] / "mql5" / "StratOSHistoryExport.mq5"
 
 

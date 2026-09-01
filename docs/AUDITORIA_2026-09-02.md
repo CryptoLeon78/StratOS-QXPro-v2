@@ -11,6 +11,22 @@
 
 ---
 
+> ## Estado de este informe
+>
+> **El diagnóstico de las secciones 1-3 describe el estado ANTES de los arreglos.** Se conserva
+> tal cual porque es lo que se encontró y el porqué de cada corrección — no como estado vigente.
+>
+> Cerrados en la misma sesión: **H1** (15 commits pusheados), **H2** (ruff, format y mypy
+> limpios), **H3** (600 + 150 tests verdes), **H4** (exe regenerado, 0 scripts por detrás),
+> **H5** (reclasificación persistida), **H6/H7** (numeración y contradicción resueltas),
+> **H8/H9** (changelog del panel y extracción de símbolo), **H10/H11** (índices y README).
+>
+> Sigue abierto: **H12** (`SQX_Edge_Suite_v1` sin versionar) y los hallazgos nuevos que
+> salieron al arreglar, en `docs/backlog.md` **A11-A18**. El orden de trabajo está en
+> `docs/PLAN_CONTINUACION_2026-09-02.md`; el hand-off para Codex, en la **sección 5**.
+
+---
+
 ## 1. Resumen ejecutivo
 
 El sistema **funciona y su documentación de dominio es honesta y detallada** — `phase_status.md`,
@@ -307,25 +323,81 @@ lo confirmo aquí para que sirva de índice:
 
 ---
 
-## 5. Para Codex — cómo usar este documento
+## 5. Para Codex — qué pasó en esta sesión y qué cambia para ti
 
-1. **Lee `docs/phase_status.md` + `ASSUMPTIONS.md` + `docs/backlog.md` antes de tocar nada.** Ahora
-   hay un `AGENTS.md` propio en `StratOS-QXPro-v2/` que lo recuerda y fija las reglas de gobierno
-   del subproyecto.
-2. **La numeración de `ASSUMPTIONS.md` es la autoritativa.** Antes de añadir una entrada `G13-NN`,
-   comprueba el último número usado con `grep -o 'G13-[0-9]*' ASSUMPTIONS.md | sort -u | tail -1`.
-   La colisión de H6 nació de no hacerlo.
-3. **Toda decisión de contrato va a `ASSUMPTIONS.md`, no sólo a `phase_status.md`.** El contrato
-   direccional (G13-25) es el ejemplo: cambia qué se considera validado y sólo estaba en el estado
-   de fase.
-4. **Antes de cerrar una unidad**: `ruff check core-engine/`, `ruff format --check core-engine/`,
-   `mypy --strict core-engine/src/`, `pytest` de la suite tocada. Hoy los tres primeros están rojos.
-5. **No regeneres `dist/StratOS_Operational.exe` sin decírselo al operador**, pero tampoco lo
-   presentes como punto de entrada válido mientras esté desfasado respecto a `scripts/`.
-6. **Añade el MCP `stratos` a `.codex/config.toml`** si vas a tocar código de StratOS: es el que
-   expone `scan_hardcoding`, obligatorio por P11.
+Esta sección es el hand-off. Trabajamos en paralelo sobre el mismo repo: mientras tú cerrabas
+G13 (cola local auditada, estado en Pipeline, ingesta del CSV de histórico), esta sesión hizo
+la auditoría y ejecutó los bloques P0-P2 del plan. **Nada de lo que hiciste se ha revertido.**
 
----
+### Lo que toqué de tu trabajo
+
+- **Tres líneas largas** en el router de cola operacional de `routers/pipeline.py` (commit
+  `bcb94aa`, `style(core)`). Sólo formato, ninguna expresión cambia — el `ruff check` de CI
+  las habría rechazado.
+- **`parse_closed_positions()`** de `import_mt5_history_export.py` ahora devuelve **tres**
+  valores en vez de dos (el tercero son las traducciones de magic aplicadas) y acepta un
+  `legacy_magic_map` opcional. Si tenías código llamándola, ajusta el desempaquetado.
+- Nada más. `PipelinePage.tsx`, `useOperationalQueue.ts`, `docker-compose.operational.yml` y
+  las migraciones que estabas escribiendo quedaron intactas y sin commitear por mí.
+
+### Lo que cambió a tu alrededor
+
+1. **El repo ya tiene historial.** 15 commits temáticos pusheados a `origin/main`, desde el
+   esquema de G11 hasta esta auditoría. Antes de seguir, `git pull`. Y **commitea a menudo**:
+   194 ficheros sin commitear fue el hallazgo más grave de la auditoría.
+2. **CI está verde y hay que mantenerlo así.** `ruff check core-engine/`,
+   `ruff format --check core-engine/` y `mypy --strict core-engine/src/` pasan limpios; 600
+   tests en core-engine y 150 en scripts. Antes de cerrar cualquier unidad, corre los cuatro.
+3. **`.gitignore` cambió.** `.env.*.example` se versiona (antes la regla `.env.*` se comía
+   `.env.operational.example`, que la doc declara versionada) y `docs/history_deals_*.csv` se
+   ignora: son 9.082 deals de cuentas reales, evidencia operativa que pertenece a `runtime/`.
+   **No los muevas de `docs/` mientras tu ingesta los lea de ahí**, pero tenlo en cuenta.
+4. **La política del prefiltro es `v3`.** `max_per_symbol_timeframe` y `max_mt5_queue` planos
+   ya no existen: ahora hay `validation_queue` e `incubator_admission` (G13-29). Una política
+   v2 se sigue leyendo con su comportamiento anterior, pero el fichero del repo es v3.
+5. **La numeración de `ASSUMPTIONS.md` llega a G13-29.** Comprueba el último número real antes
+   de añadir la tuya: `grep -o 'G13-[0-9]*' ASSUMPTIONS.md | sort -u | tail -1`. Ya hubo una
+   colisión (`G13-24` significaba dos cosas distintas).
+
+### Lo que te ahorra trabajo directamente
+
+- **`build_legacy_magic_map()`** en `scripts/magic_identity.py`: traduce magics anteriores a
+  la migración MN a la identidad vigente, desde los `legacy_magic_numbers` del registro
+  aprobado. 34 magics traducibles. Si estás atribuyendo el histórico, es la pieza que
+  necesitas — y ya está cableada en `import_mt5_history_export.py --identity-registry`.
+- **`scripts/report_history_attribution.py`**: mide la cobertura de atribución **antes** de
+  importar. Correlo sobre los CSV antes de prometer nada: la respuesta es 10,3 % en BEPB y
+  8,2 % en JJTI, porque el 87-90 % del histórico es de EAs ya retirados.
+- **`scripts/record_directional_reclassification.py`**: persiste una reclasificación sellada
+  como evento append-only. Ya aplicado; idempotente si lo reejecutas.
+
+### Tres cosas que descubrí y que afectan a lo que estás haciendo
+
+1. **El histórico no llega a 2018.** Empieza en `2025-02-03` (BEPB) y `2025-03-20` (JJTI).
+   Si tu ingesta asume una ventana desde 2018, no la va a encontrar.
+2. **Dos EAs siguen emitiendo su magic legacy** tras la migración (`2004262` en BEPB, `2084`
+   en JJTI), y tres magics desplegados no están en el lote de 40 (`9519`, `90727`, `0`).
+   Medido sobre los deals del 1-2 de septiembre, no deducido de documentos.
+3. **La corrida `20260830T210536Z_91538465c20a` tiene evidencia sellada y ningún evento en la
+   base.** Si tu cola local la da por registrada, no lo está (`backlog A15`).
+
+### Convenciones que se rompieron una vez y conviene no repetir
+
+- **Toda decisión de contrato va a `ASSUMPTIONS.md`**, no sólo a `phase_status.md`. El
+  contrato direccional redefine qué se considera validado y sólo estaba en el estado de fase.
+- **Si actualizas un párrafo que otro anterior contradice**, marca el anterior como
+  supersedido en el mismo cambio. G13-21 narraba veredictos que G13-25 ya había cambiado.
+- **Si un artefacto deja de significar lo que decía, dilo.**
+  `docs/registro_BEPB_MN_bots_real_mt5_vps.md` pasó de "observación pre-migración" a "estado
+  post-migración" y dejó un test rojo verificando la realidad anterior. Ambos registros llevan
+  ya una cabecera que declara a qué momento corresponden — mantenla si los regeneras.
+- **Antes de tocar StratOS, lee `AGENTS.md`** (nuevo, en la raíz del subproyecto):
+  `docs/phase_status.md` → `ASSUMPTIONS.md` → `docs/backlog.md` → esta auditoría.
+
+### Añade el MCP `stratos` a `.codex/config.toml`
+
+Hoy sólo registra `sqx_forja`. `stratos` es el que expone `scan_hardcoding`, obligatorio por
+P11 antes de cerrar unidad.
 
 ## 6. Comandos de reproducción
 

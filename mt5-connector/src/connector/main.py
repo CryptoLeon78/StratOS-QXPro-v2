@@ -66,9 +66,7 @@ async def _run_reporter_outbox_loop(
                 buffer, directory, account_login, connector_instance_id, filename_pattern
             )
         except Exception:
-            logger.exception(
-                "reporter outbox: lectura rechazada; se conserva el fichero original"
-            )
+            logger.exception("reporter outbox: lectura rechazada; se conserva el fichero original")
         await asyncio.sleep(1.0)
 
 
