@@ -41,6 +41,11 @@ def test_account_plus_bot_parses_cleanly() -> None:
     assert args.pipeline_phase == "F1"  # default
 
 
+def test_bot_accepts_an_optional_required_ea_version() -> None:
+    args = _parse_args([*_ACCOUNT_ARGS, *_BOT_ARGS, "--ea-required-version", "1.1.0"])
+    assert args.ea_required_version == "1.1.0"
+
+
 def test_partial_bot_fields_is_rejected() -> None:
     with pytest.raises(SystemExit):
         _parse_args([*_ACCOUNT_ARGS, "--magic", "300000024"])  # falta bot-name/market/...

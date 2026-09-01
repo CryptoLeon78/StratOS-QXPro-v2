@@ -60,6 +60,11 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     bot.add_argument("--capital-pct", type=Decimal, default=None)
     bot.add_argument("--risk-pct", type=Decimal, default=None)
+    bot.add_argument(
+        "--ea-required-version",
+        default=None,
+        help="Versión exacta esperada del reporter EA; omitir = no verificable",
+    )
 
     args = parser.parse_args(argv)
     bot_fields = [args.magic, args.bot_name, args.market, args.timeframe, args.profile]
@@ -110,6 +115,7 @@ async def register(args: argparse.Namespace) -> None:
                 capital_allocated_pct=args.capital_pct,
                 risk_per_trade_pct=args.risk_pct,
                 created_at=now,
+                ea_required_version=args.ea_required_version,
             )
             session.add(bot)
 

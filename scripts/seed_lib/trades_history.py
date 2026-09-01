@@ -56,6 +56,45 @@ EXTRA_PAIR_LOADING = 5.5
 
 
 @dataclass(frozen=True)
+class SeedPriceSpec:
+    """Escala de precio exclusiva del fixture.
+
+    Los precios no representan cotizaciones actuales ni se usan para tomar
+    decisiones. Evitan que el backfill de R sobre datos sintéticos produzca
+    distancias de SL imposibles en índices.
+    """
+
+    open_price: Decimal
+    stop_distance: Decimal
+
+
+SEED_PRICE_SPECS: dict[str, SeedPriceSpec] = {
+    "EURUSD": SeedPriceSpec(Decimal("1.10000"), Decimal("0.01000")),
+    "GBPUSD": SeedPriceSpec(Decimal("1.30000"), Decimal("0.01200")),
+    "AUDUSD": SeedPriceSpec(Decimal("0.70000"), Decimal("0.00800")),
+    "USDJPY": SeedPriceSpec(Decimal("150.000"), Decimal("1.500")),
+    "XAUUSD": SeedPriceSpec(Decimal("2000.00"), Decimal("20.00")),
+    "XAGUSD": SeedPriceSpec(Decimal("24.000"), Decimal("0.240")),
+    "GDAXI": SeedPriceSpec(Decimal("18000.0"), Decimal("180.0")),
+    "NDX": SeedPriceSpec(Decimal("18000.0"), Decimal("180.0")),
+    "USTEC": SeedPriceSpec(Decimal("18000.0"), Decimal("180.0")),
+    "SPX500": SeedPriceSpec(Decimal("5000.0"), Decimal("50.0")),
+    "US30": SeedPriceSpec(Decimal("38000.0"), Decimal("380.0")),
+    "USOIL": SeedPriceSpec(Decimal("75.00"), Decimal("0.75")),
+}
+
+
+def seed_prices_for_symbol(symbol: str) -> tuple[Decimal, Decimal, Decimal]:
+    """Devuelve apertura, SL y TP simétricos para un símbolo del fixture."""
+    spec = SEED_PRICE_SPECS[symbol]
+    return (
+        spec.open_price,
+        spec.open_price - spec.stop_distance,
+        spec.open_price + spec.stop_distance,
+    )
+
+
+@dataclass(frozen=True)
 class GeneratedTrade:
     bot_id: int
     magic_number: int
@@ -277,6 +316,7 @@ async def bulk_insert_trades(
     for (_day, day_trades), batch_id in zip(sorted(by_day.items()), batch_ids, strict=True):
         for t in day_trades:
             ticket_seq += 1
+            open_price, sl, tp = seed_prices_for_symbol(t.symbol)
             trade_rows.append(
                 {
                     "bot_id": t.bot_id,
@@ -288,10 +328,10 @@ async def bulk_insert_trades(
                     "close_time": t.close_time,
                     "type": t.trade_type,
                     "volume": Decimal("0.10"),
-                    "open_price": Decimal("1.00000"),
-                    "close_price": Decimal("1.00000"),
-                    "sl": Decimal("0.99000"),
-                    "tp": Decimal("1.01000"),
+                    "open_price": open_price,
+                    "close_price": open_price,
+                    "sl": sl,
+                    "tp": tp,
                     "profit": t.profit,
                     "commission": Decimal("0"),
                     "swap": Decimal("0"),

@@ -8,18 +8,32 @@ ESTRUCTURALES que cualquier estado de cabecera coherente debe cumplir. Si
 alguna falla, el seed aborta ruidosamente (AssertionError) en vez de
 dejar datos incoherentes en la base."""
 
+from datetime import datetime
+
 from core.db.enums import SemaphoreState
 from core.db.models.accounts import Account, Bot
-from core.routers.header import header_summary
+from core.routers.header import compute_header_summary
 from core.services.audit import AuditConfig, compute_reconciliation
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def verify_header_state(
-    session: AsyncSession, account: Account, *, inject_audit_error: bool
+    session: AsyncSession,
+    account: Account,
+    *,
+    inject_audit_error: bool,
+    as_of: datetime | None = None,
 ) -> None:
-    summary = await header_summary(session=session)
+    """Verifica el fixture con su reloj lógico, nunca el reloj productivo.
+
+    El perfil ``full`` está deliberadamente congelado. Por ello su último
+    snapshot puede ser anterior al día en que se ejecute CI; evaluar la
+    cabecera contra ``datetime.now`` la convertiría artificialmente en una
+    curva vacía. El endpoint sigue usando el reloj real: esta inyección se
+    limita a la comprobación interna del seed.
+    """
+    summary = await compute_header_summary(session=session, now=as_of)
     print(
         f"[seed] cabecera: equity={summary.equity_eur} DD={summary.portfolio_dd_pct}% "
         f"KS_L{summary.ks_level} semaforo={summary.global_semaphore} "

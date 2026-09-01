@@ -9,6 +9,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 FULL_HISTORY_START = datetime(2021, 1, 4, tzinfo=UTC)
+# Fixture G11: fecha fija para que el perfil full sea reproducible entre
+# corridas de CI. No es reloj operativo ni entrada de una regla de trading.
+FULL_HISTORY_END = datetime(2026, 6, 30, 23, 59, 59, tzinfo=UTC)
 # Cifras literales de PARTE 13 -- el generador se aproxima a estas dentro
 # de una tolerancia documentada (ver trades_history.py), no persigue el
 # entero exacto: lo que se verifica con assert duro son las propiedades
@@ -38,8 +41,12 @@ class SeedProfile:
 
 
 def full_profile(now: datetime) -> SeedProfile:
+    del now  # el perfil de aceptación debe ser independiente del reloj real
     return SeedProfile(
-        name="full", history_start=FULL_HISTORY_START, history_end=now, match_literal_totals=True
+        name="full",
+        history_start=FULL_HISTORY_START,
+        history_end=FULL_HISTORY_END,
+        match_literal_totals=True,
     )
 
 

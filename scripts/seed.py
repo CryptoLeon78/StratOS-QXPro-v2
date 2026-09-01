@@ -83,6 +83,8 @@ async def _already_seeded(profile_name: str) -> bool:
 async def run_seed(
     profile_name: str, *, reset: bool, inject_audit_error: bool, seed: int = 20260101
 ) -> None:
+    if get_settings().deployment_profile == "operational":
+        raise RuntimeError("el perfil operational prohíbe cualquier seed de fixture")
     now = datetime.now(UTC)
     profile = profile_for(profile_name, now)
     rng = np.random.default_rng(seed)
@@ -196,7 +198,12 @@ async def run_seed(
         )
         await redis.aclose()
 
-        await verify_header_state(session, accounts["prod"], inject_audit_error=inject_audit_error)
+        await verify_header_state(
+            session,
+            accounts["prod"],
+            inject_audit_error=inject_audit_error,
+            as_of=profile.history_end,
+        )
 
         # Marca de idempotencia que `_already_seeded()` lee -- sin esta fila,
         # una segunda corrida sin --reset nunca detectaria un seed ya hecho
