@@ -1,0 +1,51 @@
+services:
+  postgres:
+    ports: !override
+      - "${G12_POSTGRES_PORT:-56432}:5432"
+
+  redis:
+    ports: !override
+      - "${G12_REDIS_PORT:-6480}:6379"
+
+  core-engine:
+    env_file:
+      - .env.g12
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      INGEST_API_KEYS: ${INGEST_API_KEYS}
+      OPERATOR_EMAIL: ${OPERATOR_EMAIL}
+      OPERATOR_PASSWORD_HASH: ${OPERATOR_PASSWORD_HASH}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+    ports: !override
+      - "${G12_CORE_PORT:-8200}:8000"
+
+  worker:
+    env_file:
+      - .env.g12
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      INGEST_API_KEYS: ${INGEST_API_KEYS}
+      OPERATOR_EMAIL: ${OPERATOR_EMAIL}
+      OPERATOR_PASSWORD_HASH: ${OPERATOR_PASSWORD_HASH}
+
+  scheduler:
+    env_file:
+      - .env.g12
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      INGEST_API_KEYS: ${INGEST_API_KEYS}
+      OPERATOR_EMAIL: ${OPERATOR_EMAIL}
+      OPERATOR_PASSWORD_HASH: ${OPERATOR_PASSWORD_HASH}
+
+  api-gateway:
+    env_file:
+      - .env.g12
+    ports: !override
+      - "${G12_GATEWAY_PORT:-8280}:8080"
+
+  frontend:
+    build:
+      args:
+        VITE_OPERATIONAL_MODE: g12_demo
+    ports: !override
+      - "${G12_FRONTEND_PORT:-5373}:80"

@@ -1,0 +1,22 @@
+{
+  "schema_version": "g12-survivors-v1",
+  "ea_required_version": "g12-reporter-v1.1",
+  "candidates": [
+    {"strategy_name": "DAX40H1stat_5.27.28", "darwinex_symbol": "DAX40_darwinex", "timeframe": "H1", "profile": "TREND", "preferred_path_contains": "000_StatOasis\\DAX40"},
+    {"strategy_name": "DAX40H1stat_5.29.24", "darwinex_symbol": "DAX40_darwinex", "timeframe": "H1", "profile": "TREND", "preferred_path_contains": "000_StatOasis\\DAX40"},
+    {"strategy_name": "DAX40M30stat_2.13.18", "darwinex_symbol": "DAX40_darwinex", "timeframe": "M30", "profile": "TREND", "preferred_path_contains": "000_StatOasis\\DAX40"},
+    {"strategy_name": "DAX40M30stat_4.15.28", "darwinex_symbol": "DAX40_darwinex", "timeframe": "M30", "profile": "TREND", "preferred_path_contains": "000_StatOasis\\DAX40"},
+    {"strategy_name": "WF Matrix - Strategy 3.43.69", "darwinex_symbol": "DAX40_darwinex", "timeframe": "M30", "profile": "TREND", "preferred_path_contains": "DAX40"},
+    {"strategy_name": "EURGBPH1Lcity_5.8.133", "darwinex_symbol": "EURGBP_darwinex", "timeframe": "H1", "profile": "TREND", "preferred_path_contains": "00_PORTFOLIOS\\20072026"},
+    {"strategy_name": "EURJPYM15BUYSTP_1.29.59", "darwinex_symbol": "EURJPY_darwinex", "timeframe": "M15", "profile": "MOMENTUM", "preferred_path_contains": "00_PORTFOLIOS"},
+    {"strategy_name": "EUH1SELLMKTeof_7.30.121", "darwinex_symbol": "EURUSD_darwinex", "timeframe": "H1", "profile": "MOMENTUM", "preferred_path_contains": "00_PORTFOLIOS\\bepb 22042026"},
+    {"strategy_name": "buenaWFmatrixRUN515_EURUSDM15SELLSTOP_EU_Strategy 3.76.81_SPPfail_WFMok", "darwinex_symbol": "EURUSD_darwinex", "timeframe": "M15", "profile": "MOMENTUM", "preferred_path_contains": "00_PORTFOLIOS\\JJTI a fecha 10022026"},
+    {"strategy_name": "SP500H4Lstat_Strategy 1.11.33(1) - Improved 4.10.27(1)", "darwinex_symbol": "SP500_darwinex", "timeframe": "H4", "profile": "TREND", "preferred_path_contains": "00_PORTFOLIOS\\20072026"},
+    {"strategy_name": "SP500H4Lstat_Strategy 1.25.19(3) - Improved 3.1.31(1)", "darwinex_symbol": "SP500_darwinex", "timeframe": "H4", "profile": "TREND", "preferred_path_contains": "00_PORTFOLIOS\\20072026"},
+    {"strategy_name": "SP500H4Lstat_Strategy 1.26.22 - Improved 3.5.18(1)", "darwinex_symbol": "SP500_darwinex", "timeframe": "H4", "profile": "TREND", "preferred_path_contains": "00_PORTFOLIOS\\20072026"},
+    {"strategy_name": "SP500H4Lstat_Strategy 1.26.33 - Improved 1.6.23(1)", "darwinex_symbol": "SP500_darwinex", "timeframe": "H4", "profile": "TREND", "preferred_path_contains": "00_PORTFOLIOS\\20072026"},
+    {"strategy_name": "USDJPYH1Lcity_2.22.171", "darwinex_symbol": "USDJPY_darwinex", "timeframe": "H1", "profile": "TREND", "preferred_path_contains": "00_PORTFOLIOS\\20072026"},
+    {"strategy_name": "USDJPYH1Lcity_3.40.187", "darwinex_symbol": "USDJPY_darwinex", "timeframe": "H1", "profile": "TREND", "preferred_path_contains": "00_PORTFOLIOS\\20072026"},
+    {"strategy_name": "USDJPYH1Lcity_5.15.110", "darwinex_symbol": "USDJPY_darwinex", "timeframe": "H1", "profile": "TREND", "preferred_path_contains": "00_PORTFOLIOS\\20072026"}
+  ]
+}
