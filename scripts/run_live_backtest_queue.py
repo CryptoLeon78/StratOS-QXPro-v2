@@ -58,6 +58,56 @@ def logged_identities(path: Path) -> set[tuple[str, int]]:
     return terminal
 
 
+def sealed_identities(
+    output_root: Path, queue_paths: list[Path]
+) -> set[tuple[str, int]]:
+    """Identidades con una comparación ya sellada, venga de esta cola o de un lanzamiento
+    individual.
+
+    `logged_identities()` sólo conoce lo que ejecutó **este** ejecutor. Las cuatro
+    comparaciones del 2026-09-01 se lanzaron con `run_operational_sqx_mt5_backtest.py` y no
+    figuran en su log, así que la cola empezó a repetirlas: la fuente de verdad de "esto ya
+    se comparó" no es el log de un ejecutor concreto, sino los manifiestos sellados.
+
+    El cruce se hace por `sqx_sha256`, que es la identidad del artefacto. Por ruta no
+    serviría: el renombrado MN movió las carpetas de estrategia y una comparación válida
+    quedaría sin reconocer. Un manifiesto ilegible se salta en vez de abortar el barrido —
+    si no, un fichero corrupto haría que se repitieran todas las demás comparaciones.
+    """
+    if not output_root.is_dir():
+        return set()
+
+    identity_by_hash: dict[str, tuple[str, int]] = {}
+    for path in queue_paths:
+        for item in json.loads(path.read_text(encoding="utf-8"))["entries"]:
+            magic_number = item.get("magic_number")
+            sqx_sha256 = item.get("sqx_sha256")
+            if magic_number is None or not sqx_sha256:
+                continue
+            identity_by_hash[str(sqx_sha256)] = (
+                str(item["account_login"]),
+                int(magic_number),
+            )
+
+    sealed: set[tuple[str, int]] = set()
+    for manifest_path in sorted(output_root.rglob("run-manifest.json")):
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        # Un `mode=preflight` no es una comparación: la corrida abortada del 2026-09-02 dejó
+        # dos, y contarlos como hechos habría saltado dos expedientes sin evidencia.
+        if manifest.get("mode") != "launch":
+            continue
+        if (manifest.get("result") or {}).get("returncode") != 0:
+            continue
+        digest = (manifest.get("source") or {}).get("sqx_sha256")
+        identity = identity_by_hash.get(str(digest)) if digest else None
+        if identity is not None:
+            sealed.add(identity)
+    return sealed
+
+
 def preflight_ready_identities(path: Path | None) -> set[tuple[str, int]] | None:
     if path is None:
         return None
@@ -136,7 +186,9 @@ def main() -> None:
     candidates = iter_candidates(
         args.queue,
         allowed,
-        logged_identities(args.log),
+        # Lo ya hecho es la unión de lo que ejecutó esta cola y lo que existe sellado en
+        # disco: un lanzamiento individual también cuenta como comparación realizada.
+        logged_identities(args.log) | sealed_identities(args.output_root, args.queue),
         preflight_ready_identities(args.preflight_log),
     )
     args.log.parent.mkdir(parents=True, exist_ok=True)
