@@ -118,14 +118,32 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   **Comprobado de punta a punta con `USDJPYH1Lcity_2.22.171`**: sin `--identity-registry` el
   registro falla con el error original; con él traduce `200730 -> 13` y sella `asset_id=248`.
 
-- **[A26] 95 candidatas de otros activos bloqueadas por el export a MQL5** — el barrido de
-  las carpetas `Forward` (2026-09-02, `scripts/scan_forward_candidates.py`) encontró **333
-  elegibles** en cinco grupos, pero el inventario operacional exige `.sqx` **y** fuente MQL5
-  y esas carpetas sólo contienen `.sqx`. Por eso el inventario actual es todo AUDCAD: es lo
-  único exportado a `EAs_SQX_guardados/Analisis/`. Las mejores del universo **no son AUDCAD**
-  (DAX40 M30 PF 2,17 · XAUUSD H4 PF 2,19 · NASDAQ H1 PF 2,69). El export lo hace SQX desde su
-  UI y su API remota no lo expone, así que es una acción del operador: la lista priorizada de
-  22 está en `docs/CANDIDATAS_FORWARD_2026-09-02.md`.
+- ~~**[A26] 95 candidatas de otros activos bloqueadas por el export a MQL5**~~ **CERRADO
+  2026-09-02**: el operador exportó y dejó los pares en `Analisis/`. El inventario pasa de
+  237 a **424 candidatas** en cinco grupos (AUDCAD/H4 232, XAUUSD/H1 100, DAX40/M30 56,
+  XAUUSD/H4 22, NASDAQ/H1 1) y de 227 a **375 `STATIC_VALIDATED`**. Ninguna venía de un
+  proyecto `capa1`: se verificó cruzando cada fichero con su databank de origen.
+- ~~**[A29] SQX exporta en lote con el mismo `MagicNumber`**~~ **RESUELTO 2026-09-02**: 28
+  EAs de `DAX40_m30` salieron con `11111`, el valor por defecto, y el inventario los retenía
+  con `DUPLICATE_MAGIC_NUMBER`. `scripts/assign_unique_magics.py` reasigna sólo los
+  duplicados, de forma determinista e idempotente, sin reutilizar un magic presente en el
+  conjunto. 40 reasignados; 388 magics únicos en 388 EAs. **Correrlo después de cada export
+  en lote**, o el inventario retendrá el lote entero.
+- ~~**[A28] La cola de validación se la llevaba el grupo más numeroso**~~ **RESUELTO
+  2026-09-02**: con 205 candidatas superando criterios, las 24 plazas eran **todas**
+  `AUDCAD/H4`. El orden por mérito global favorece al grupo grande, no al mejor portfolio.
+  Ahora se reparte por turnos entre grupos, conservando el mérito dentro de cada uno; un
+  grupo único sigue llenando la cola entera.
+- **[A30] Los proyectos DAX40 M30 y NASDAQ no han corrido RETEST OOS ni Monte Carlo** — sus
+  databanks `RETEST OOS` y `MC` existen pero están **vacíos** (0 `.sqx`), así que
+  `extract_operational_validation_evidence.py` no tiene de dónde sacar la evidencia y el
+  prefiltro las retiene con `MONTE_CARLO_P95_NOT_VERIFIED` y `COSTS_NOT_SESSION_AWARE`: 38 de
+  DAX40 y la única de NASDAQ. **Acción del operador**: correr esas tareas en SQX para esos
+  proyectos. Sin evidencia de robustez, retener es lo correcto — no es un fallo del prefiltro.
+- **[A31] 22 XAUUSD H4 y 13 sin símbolo siguen sin inventariarse** — las 22 de `XAU_H4/` no
+  tienen `.mq5`: los 14 que había en esa carpeta eran de DAX40, verificado por databank de
+  origen y movidos a `DAX40_m30/`. Otras 13 quedan como `None/H1` y `None/H4` porque el
+  inventario no pudo extraer su símbolo, y 8 fallan el parseo SQX144. Falta exportar las 22.
 - ~~**[A27] `pipeline_min_freq_week=2` no encaja con el estilo minado**~~ **RESUELTO
   2026-09-02 por decisión del operador**: baja a **0,8** op/semana. Dentro del rango que fijó
   (0,8–1,0) es el único que preserva diversidad —a 0,8 pasan 43 candidatas de tres grupos
