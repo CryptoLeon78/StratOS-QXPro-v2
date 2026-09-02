@@ -163,3 +163,39 @@ class TestApplyPipelineGatePersistence:
 
         await pubsub.aclose()
         await redis.aclose()
+
+
+class TestFrequencyThresholdForTheMinedUniverse:
+    """`min_freq_week` bajado de 2,0 a 0,8 por decisión del operador (backlog A27).
+
+    El barrido de las 433 candidatas Forward del 2026-09-02 midió que **ninguna** llega a 2
+    operaciones por semana: las medianas por activo van de 0,53 a 0,95 y la mejor de todo el
+    universo alcanza 1,95. Con el umbral anterior, cualquier candidata que llegase a F4 se
+    quedaría ahí para siempre por un criterio que este estilo de minado no cumple.
+
+    A 0,8 pasan 43 candidatas de 3 grupos distintos; a 1,0 sólo 5 de 2 grupos, que apenas
+    deja universo ni diversidad. La validez estadística la sostienen los otros dos criterios
+    de muestra —`min_trades=30` y `min_days=60`—, que a 0,8/semana implican unos 9 meses de
+    historia para acumular las 30 operaciones.
+    """
+
+    def test_the_default_matches_the_mined_universe(self) -> None:
+        assert PipelineGateConfig().min_freq_week == 0.8
+
+    def test_a_weekly_strategy_now_clears_the_whole_gate(self) -> None:
+        """0,95 op/semana es la mediana del mejor grupo del universo: antes se atascaba."""
+        resultado = evaluate_pipeline_gate(_metrics(trades_per_week=0.95), PipelineGateConfig())
+
+        assert resultado.gates_passed == resultado.gates_total
+
+    def test_a_strategy_below_the_new_floor_still_loses_a_criterion(self) -> None:
+        """Bajar el umbral no es quitarlo: 0,5 operaciones por semana sigue sin pasarlo."""
+        resultado = evaluate_pipeline_gate(_metrics(trades_per_week=0.5), PipelineGateConfig())
+
+        assert resultado.gates_passed == resultado.gates_total - 1
+
+    def test_the_sample_criteria_are_untouched(self) -> None:
+        """La validez estadística la sostienen la muestra y la ventana, no la frecuencia."""
+        config = PipelineGateConfig()
+
+        assert (config.min_trades, config.min_days) == (30, 60)

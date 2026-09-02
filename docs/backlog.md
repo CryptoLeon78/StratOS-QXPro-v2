@@ -126,33 +126,13 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   (DAX40 M30 PF 2,17 · XAUUSD H4 PF 2,19 · NASDAQ H1 PF 2,69). El export lo hace SQX desde su
   UI y su API remota no lo expone, así que es una acción del operador: la lista priorizada de
   22 está en `docs/CANDIDATAS_FORWARD_2026-09-02.md`.
-- **[A27] `pipeline_min_freq_week=2` no encaja con el estilo minado** — con el gate F4
-  completo **ninguna de las 433 candidatas Forward pasa**, y el único criterio que las tumba
-  es la frecuencia semanal: la mediana va de 0,53 a 0,95 operaciones por semana según el
-  activo y la mejor de todo el universo llega a 1,95. El prefiltro operacional ya lo trata
-  como advertencia y no como veto (G13-05), así que hoy no bloquea nada — pero el gate F4 sí
-  lo aplica, y una candidata que llegue a F4 se quedaría ahí para siempre. Decidir con el
-  operador: bajar el umbral a algo coherente con estrategias de ~1 operación semanal, o
-  declararlo explícitamente como no aplicable a este universo.
-- **[A20] La Incubadora tiene cuenta pero no mecanismo de adjunto** — `account_id=3`
-  (`INCUBADORA`, `5055093171`, `MetaQuotes-Demo`, `BROKER_DEMO`) ya está registrada y el gate
-  de admisión con los dos criterios de descorrelación está construido y probado. Faltan las
-  dos piezas que el lanzador declara al terminar: **adjuntar el EA a un gráfico del terminal
-  demo** y **consumir la cola FIFO** hasta el tope de 8. Sin ellas no hay candidato posible,
-  aunque hoy tampoco lo habría: ninguna estrategia de Análisis es `BACKTEST_VALIDATED`.
-- **[A21] El gate de admisión no está cableado a ningún flujo** — `evaluate_admission()` es una
-  función pura con 13 tests, pero nadie la llama todavía. Se conecta cuando exista el adjunto
-  demo (A20), leyendo `incubator_admission` de `config/operational_prefilter.json` y las series
-  de PnL de los ocupantes. La serie del candidato saldrá del backtest SQX: la evidencia debe
-  declarar que la correlación es backtest-contra-real.
-- ~~**[A22] Backtests F7 pendientes**~~ **CERRADO 2026-09-02**: los 6 expedientes
-  `PREFLIGHT_OK` de la campaña alineada están comparados y sellados. `USDJPYH1Lcity_3.16.113`
-  se corrió dos veces (07:34 y 07:46 UTC), `asset_id=247`; `USDJPYH1Lcity_2.22.171` se corrió
-  con el terminal ya libre, `asset_id=248`. Ambas **DISCREPANTE**, y el contrato direccional
-  no las cambia. La cola queda a **0 candidatos pendientes**. Veredictos de la campaña:
-  `243` VALIDADA, `244` VALIDADA (tras el contrato direccional), `245`/`246`/`247`/`248`
-  DISCREPANTE o TOLERABLE — ninguna es `BACKTEST_VALIDATED`, así que **no hay candidato para
-  la Incubadora**. Quedan 7 `WITHHELD_TICKS` por alias/cobertura Darwinex.
+- ~~**[A27] `pipeline_min_freq_week=2` no encaja con el estilo minado**~~ **RESUELTO
+  2026-09-02 por decisión del operador**: baja a **0,8** op/semana. Dentro del rango que fijó
+  (0,8–1,0) es el único que preserva diversidad —a 0,8 pasan 43 candidatas de tres grupos
+  (`DAX40/M30` 31, `XAUUSD/H4` 7, `XAUUSD/H1` 5); a 1,0 sólo 5 de dos grupos—. **El gate F4
+  pasa de 0 a 43 candidatas.** La validez estadística no se relaja: la sostienen `min_trades=30`
+  y `min_days=60`, que a 0,8/semana implican ~9 meses de historia. Aplicado en
+  `PipelineGateConfig.min_freq_week` y en `thresholds.seed.json`. ASSUMPTIONS G13-33.
 
 - **[A23] Los MCP de MT5 no conectan en esta sesión** — `mt5_bepb`, `mt5_jjti` y `mt5-darwinex`
   devuelven `ConnectionRefused`. Bloquea P2.3 (telemetría viva read-only en continuo), que

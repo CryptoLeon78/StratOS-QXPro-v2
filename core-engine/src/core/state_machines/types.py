@@ -100,7 +100,13 @@ class PipelineGateConfig:
     exp: float = 0.15
     sharpe: float = 1.0
     maxdd: float = 20.0
-    min_freq_week: float = 2.0
+    # 0,8 op/semana por decision del operador (2026-09-02, backlog A27). El barrido de las
+    # 433 candidatas Forward midio que NINGUNA llega a 2/semana: las medianas por activo van
+    # de 0,53 a 0,95 y la mejor de todo el universo alcanza 1,95, asi que el umbral anterior
+    # dejaba atascada en F4 a cualquier candidata de este estilo de minado. La validez
+    # estadistica la sostienen min_trades=30 y min_days=60, que a 0,8/semana implican unos
+    # 9 meses de historia para acumular la muestra.
+    min_freq_week: float = 0.8
     kill_pf: float = 1.1  # "PF <1,1" -> KILL, PARTE 6.3
     marginal_band: float = 0.10  # "1 criterio marginal <10% del umbral" -> HOLD, PARTE 6.3
     wfe_min: float = 0.5

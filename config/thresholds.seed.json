@@ -1,40 +1,38 @@
 {
   "$comment": "Seed de SystemConfig (key TEXT PK, value JSONB) — PARTE 10.3 del PROMPT_MAESTRO. Fuente unica de umbrales contractuales; ningun umbral se hardcodea en logica (P11). Claves que empiezan por '$' o '_' son metadatos del seed, no filas de SystemConfig.",
   "_assumptions": "Valores marcados abajo con '_assumption' en su comentario no estan fijados numericamente en el prompt maestro; ver ASSUMPTIONS.md (IDs G0-05 a G0-08) para su justificacion y pendiente de confirmacion del operador.",
-
   "semaphore_pf_warn": 0.75,
-  "semaphore_pf_orange": 0.60,
-  "semaphore_pf_recover": 0.90,
-  "semaphore_exp_warn": 0.60,
-  "semaphore_exp_recover": 0.80,
+  "semaphore_pf_orange": 0.6,
+  "semaphore_pf_recover": 0.9,
+  "semaphore_exp_warn": 0.6,
+  "semaphore_exp_recover": 0.8,
   "semaphore_recovery_days": 10,
   "semaphore_orange_days": 15,
   "orange_virtual_trades": 30,
   "baseline_grace_days": 5,
   "semaphore_sizing_amarillo_pct": 50,
   "semaphore_sizing_verde_pct": 100,
-  "semaphore_dd_contract_orange_ratio": 0.80,
-
+  "semaphore_dd_contract_orange_ratio": 0.8,
   "ph_delta": 0.005,
   "ph_lambda": 50,
   "ph_delta__assumption": "G0-05: no fijado en PARTE 10.3; default de literatura para deteccion de cambio de media en retornos por trade.",
   "ph_lambda__assumption": "G0-05: idem ph_delta.",
-
   "kill_l1": 8,
   "kill_l2": 12,
   "kill_l3": 15,
   "kill_l4": 20,
   "kill_hysteresis_pp": 2,
-
   "sizing_total_cap": 89,
   "bot_capital_pct_min": 3,
   "bot_capital_pct_max": 5,
   "risk_per_trade_min": 0.3,
   "risk_per_trade_max": 0.6,
-
-  "block_target": { "CONVEXO": 40, "CONCAVO": 40, "HIBRIDO": 20 },
+  "block_target": {
+    "CONVEXO": 40,
+    "CONCAVO": 40,
+    "HIBRIDO": 20
+  },
   "block_target__assumption": "G0-08: PARTE 10.3 escribe 'CONCAVE'; se usa CONCAVO por consistencia con el enum de PARTE 5.1 (CONVEXO/CONCAVO/HIBRIDO).",
-
   "profile_target": {
     "TREND": 30,
     "MEAN_REVERSION": 25,
@@ -45,7 +43,6 @@
     "AI_ML": 10
   },
   "profile_target__comment": "Grid+Scalping suman el 10% de la captura (PARTE 10.3, PARTE 7.5): se reparten a partes iguales 5/5.",
-
   "profile_block_map": {
     "TREND": "CONVEXO",
     "MOMENTUM": "CONVEXO",
@@ -55,58 +52,106 @@
     "SMART_MONEY": "HIBRIDO",
     "AI_ML": "HIBRIDO"
   },
-
   "block_tolerance_pp": 10,
   "corr_window_days": 1240,
   "corr_redundant_factor": 3,
-
   "mc_sims": 300,
   "mc_seed": 42,
-
   "pipeline_min_trades": 30,
   "pipeline_min_days": 60,
   "pipeline_pf": 1.5,
   "pipeline_exp": 0.15,
   "pipeline_sharpe": 1.0,
   "pipeline_maxdd": 20,
-  "pipeline_min_freq_week": 2,
+  "pipeline_min_freq_week": 0.8,
   "wfe_min": 0.5,
-  "staging_steps": [10, 25, 50, 100],
-
+  "staging_steps": [
+    10,
+    25,
+    50,
+    100
+  ],
   "challenger_sharpe_ratio": 1.22,
   "challenger_p_max": 0.05,
   "challenger_overstay_months": 6,
-
   "tail_cvar99_daily_gate": 3,
   "tail_cvar99_monthly_gate": 15,
-
   "watchdog_tolerance": 0.25,
   "watchdog_runaway_factor": 3,
-
   "audit_tolerance": 0.0001,
-
   "withdrawal_safety_margin": 1.0,
   "withdrawal_max_dd_gate_pct": 8,
   "withdrawal_gate__assumption": "G5: PARTE 8/14 no fija ni el margen de seguridad de sustainable_withdrawal() ni el gate de DD que anula el retiro sugerido. safety_margin=1.0 (sin recorte adicional, formula literal 'nomina = equity x retorno medio mensual'); max_dd_gate_pct=8 reutiliza el mismo valor que kill_l1 (primer nivel de alerta del kill-switch) como referencia de 'ya en zona de vigilancia', editable por separado.",
-
   "impulse_eval_days": 7,
   "heartbeat_interval_s": 60,
   "uptime_target_7d": 99.5,
-
   "header_heartbeat_stale_after_s": 120,
   "header_heartbeat_stale__assumption": "G5-cierre: routers/header.py tenia _HEARTBEAT_STALE_AFTER_S=120 como constante de modulo sin clave sembrada (encontrado en el scan_hardcoding de cierre de fase) -- el badge DATOS STALE del criterio 13 de PARTE 16 necesita un umbral, y 2x heartbeat_interval_s (60s) es el margen minimo razonable antes de considerar un heartbeat perdido, no solo tarde.",
   "news_shield_default_hours": 48,
   "news_shield_default_hours__assumption": "G5-cierre: routers/news.py tenia Query(default=48) en /news/shield y /news/shield/windows sin clave sembrada (mismo hallazgo del scan_hardcoding de cierre). 48h cubre el fin de semana + el dia habil siguiente, ventana razonable para planificar el blackout sin recargar la vista por defecto.",
   "news_shield_trades_default_days": 30,
   "news_shield_trades_default_days__assumption": "G10 (docs/backlog.md): GET /news/shield/trades (retrospectivo) necesita un rango por defecto -- 30 dias es el literal citado en el propio backlog ('Trades en ventana de noticias (30 dias)'), mismo patron que news_shield_default_hours.",
-
   "ums_phases": [
-    { "phase": 1, "name": "Validacion Personal", "equity_min": 0, "equity_max": 5000, "risk_per_trade_pct_min": null, "risk_per_trade_pct_max": null, "risk_note": "micro-lotes", "kelly_fraction": 0.5 },
-    { "phase": 2, "name": "Track Record", "equity_min": 5000, "equity_max": 25000, "risk_per_trade_pct_min": 1.0, "risk_per_trade_pct_max": 1.5, "risk_note": null, "kelly_fraction": 0.5 },
-    { "phase": 3, "name": "Portfolio Maduro", "equity_min": 25000, "equity_max": 100000, "risk_per_trade_pct_min": 0.5, "risk_per_trade_pct_max": 1.0, "risk_note": null, "kelly_fraction": 0.33 },
-    { "phase": 4, "name": "Semi-Profesional", "equity_min": 100000, "equity_max": 500000, "risk_per_trade_pct_min": 0.3, "risk_per_trade_pct_max": 0.7, "risk_note": null, "kelly_fraction": 0.25 },
-    { "phase": 5, "name": "Semi-Institucional", "equity_min": 500000, "equity_max": 1000000, "risk_per_trade_pct_min": null, "risk_per_trade_pct_max": null, "risk_note": null, "kelly_fraction": 0.2 },
-    { "phase": 6, "name": "Institucional", "equity_min": 1000000, "equity_max": null, "risk_per_trade_pct_min": null, "risk_per_trade_pct_max": null, "risk_note": null, "kelly_fraction": 0.2 }
+    {
+      "phase": 1,
+      "name": "Validacion Personal",
+      "equity_min": 0,
+      "equity_max": 5000,
+      "risk_per_trade_pct_min": null,
+      "risk_per_trade_pct_max": null,
+      "risk_note": "micro-lotes",
+      "kelly_fraction": 0.5
+    },
+    {
+      "phase": 2,
+      "name": "Track Record",
+      "equity_min": 5000,
+      "equity_max": 25000,
+      "risk_per_trade_pct_min": 1.0,
+      "risk_per_trade_pct_max": 1.5,
+      "risk_note": null,
+      "kelly_fraction": 0.5
+    },
+    {
+      "phase": 3,
+      "name": "Portfolio Maduro",
+      "equity_min": 25000,
+      "equity_max": 100000,
+      "risk_per_trade_pct_min": 0.5,
+      "risk_per_trade_pct_max": 1.0,
+      "risk_note": null,
+      "kelly_fraction": 0.33
+    },
+    {
+      "phase": 4,
+      "name": "Semi-Profesional",
+      "equity_min": 100000,
+      "equity_max": 500000,
+      "risk_per_trade_pct_min": 0.3,
+      "risk_per_trade_pct_max": 0.7,
+      "risk_note": null,
+      "kelly_fraction": 0.25
+    },
+    {
+      "phase": 5,
+      "name": "Semi-Institucional",
+      "equity_min": 500000,
+      "equity_max": 1000000,
+      "risk_per_trade_pct_min": null,
+      "risk_per_trade_pct_max": null,
+      "risk_note": null,
+      "kelly_fraction": 0.2
+    },
+    {
+      "phase": 6,
+      "name": "Institucional",
+      "equity_min": 1000000,
+      "equity_max": null,
+      "risk_per_trade_pct_min": null,
+      "risk_per_trade_pct_max": null,
+      "risk_note": null,
+      "kelly_fraction": 0.2
+    }
   ],
   "ums_min_months": 3,
   "ums_min_months__assumption": "G0-06: no fijado en PARTE 10.3/7.9; default trimestral, coherente con la cadencia de revision de robustez.",
@@ -114,11 +159,9 @@
   "ums_min_sharpe__assumption": "G0-07: no fijado en PARTE 10.3/7.9; se reutiliza el mismo umbral que el gate 3 del pipeline (Sharpe > 1).",
   "ums_max_dd_gate_pct": 8,
   "ums_max_dd_gate_pct__assumption": "G5-Q4: PARTE 7.9 pide 'DD dentro de gate' para avanzar de fase UMS sin fijar el numero. Valor provisional, a confirmar por el operador antes de gobernar un ascenso de fase UMS real (mismo patron que ums_min_months/ums_min_sharpe).",
-
   "telegram_soft_digest_enabled": true,
   "telegram_soft_digest_hour_utc": 20,
   "telegram_soft_digest__assumption": "G5-Q3: PARTE 9.4 cita 'telegram_soft_digest' sin definir su forma. hour_utc=20 coincide con el cierre de jornada operador (Europe/Madrid tarde-noche).",
-
   "checklist_catalog": {
     "SUNDAY": [
       "Revisar errores de EA",
@@ -145,7 +188,6 @@
     ]
   },
   "checklist_catalog__comment": "Literal del 'calendario de decisiones' del video (doc_app/transcripcion_video_SIN__minutaje...md, fuente #2 de PARTE 0.1), citado tambien en PARTE 14 como checklist imprimible de docs/runbook.md. Prohibido mirar la rentabilidad en la revision dominical es una regla de conducta, no un item firmable.",
-
   "instruction_templates": {
     "semaphore_verde": "Mantener. No tocar nada.",
     "semaphore_amarillo": "Reducir sizing al 50% (bajar fraction Kelly). Aumentar frecuencia de revisión.",
@@ -161,9 +203,7 @@
     "tail_risk_breach": "Incumplimiento de contrato de cola — revisar exposición y reducir sizing."
   },
   "tail_risk_breach__assumption": "G5: PARTE 7.7 solo da el texto literal del caso OK; el texto de incumplimiento es diseño propio, mismo tono que las instrucciones de kill-switch/semáforo.",
-
   "ui_strings_catalog": "frontend/src/styles/ui_strings.es.json",
-
   "screenshot_similarity_max_diff_ratio": 0.02,
   "screenshot_similarity__assumption": "G6: PARTE 11.1 dice 'umbral de similitud estructural en config' sin dar el valor. 0.02 (2% de pixeles distintos permitidos) propuesto en el spec minimo de Playwright de Resumen (frontend/tests/e2e/resumen.spec.ts) -- a confirmar por el operador antes de que G7/G8 lo reutilicen para las 10 pestanas restantes."
 }

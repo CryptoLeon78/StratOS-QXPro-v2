@@ -36,7 +36,10 @@ class TestPipelineGateThresholds:
             "exp": 0.15,
             "sharpe": 1.0,
             "maxdd": 20.0,
-            "min_freq_week": 2.0,
+            # 0,8 desde 2026-09-02 (backlog A27): ninguna de las 433 candidatas Forward
+            # llegaba a 2 op/semana, asi que el umbral anterior atascaba en F4 a todo el
+            # universo minado. La validez estadistica la sostienen min_trades y min_days.
+            "min_freq_week": 0.8,
             "kill_pf": 1.1,
             "marginal_band": 0.10,
         }
