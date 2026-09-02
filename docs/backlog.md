@@ -101,6 +101,15 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
 
 ## Pendiente tras el cierre de A15-A19 — 2026-09-02
 
+- **[A24] El ejecutor de cola F7 no conoce las corridas lanzadas a mano** — las 4 comparaciones
+  del 2026-09-01 (`asset_id` 243-246) se lanzaron con `run_operational_sqx_mt5_backtest.py`,
+  no por la cola, así que no figuran en su log (`queue.jsonl`, que sólo tiene 6 `COMPLETED` de
+  la campaña anterior al renombrado MN). Consecuencia real: al ejecutar la cola el 2026-09-02
+  empezó a **repetir** esas cuatro en vez de ir a las dos pendientes; se paró antes de que
+  terminara ninguna y sólo dejó dos manifiestos `mode=preflight` sin resultado, que el
+  reclasificador ignora. Hasta que el log refleje lo lanzado a mano, usar el lanzador
+  individual para los expedientes que falten, o reconstruir el log desde los manifiestos
+  sellados.
 - **[A20] La Incubadora tiene cuenta pero no mecanismo de adjunto** — `account_id=3`
   (`INCUBADORA`, `5055093171`, `MetaQuotes-Demo`, `BROKER_DEMO`) ya está registrada y el gate
   de admisión con los dos criterios de descorrelación está construido y probado. Faltan las
@@ -145,7 +154,12 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
 - ~~G12 Cuentas/EA: modo operativo, permiso por gráfico, sizing y panel de deriva.~~ **RESUELTO Y REPETIDO EN G12-02**: 11/11 `PAPER`/OFF/50 %, alerta de deriva de tres campos y cobertura de contrato documentadas.
 - G12 procedencia de pestañas: Pipeline, Bots, Portfolio, Salud, Riesgo, Auditoría y Dominical mezclan fixture `full`, derivadas y telemetría demo sin una etiqueta/contrato de procedencia visible. Ver `docs/g12_tabs_provenance_validation.md`.
 - G12 Pipeline: `USDJPYH1Lcity_5.15.110` tiene candidato F4 y bot F3. Requiere una transición append-only auditada; queda prohibida una edición directa.
-- G12 Portfolio: el benchmark devuelve `FileNotFoundError` dentro del contenedor en vez de un estado de ausencia controlada.
+- ~~G12 Portfolio: el benchmark devuelve `FileNotFoundError` dentro del contenedor en vez de
+  un estado de ausencia controlada.~~ **RESUELTO 2026-09-02**, encontrado por el recorrido
+  autenticado: el CSV no viajaba en la imagen (`_DEFAULT_CSV_PATH` usa `parents[4]`, que en
+  el contenedor resuelve a `/scripts/data/...`) y el loader reventaba en vez de declarar
+  ausencia. Ahora el Dockerfile lo copia, el compose declara `BENCHMARK_CSV_PATH` y el
+  endpoint responde `null`. Verificado en vivo: 200.
 - `e2e-acceptance-full`, criterio 9 Lyra×Phoenix: fixture `full` no determinista respecto al umbral de redundancia.
 - Precios sintéticos no realistas para GDAXI/NDX/SPX500/US30: degradan la interpretabilidad de `r_multiple`.
 - Auditoría de agregados `.scalar_one()` sobre hypertables: cada uso debe clasificarse y los agregados que pueden no devolver fila física deben tener regresión contra TimescaleDB real.
