@@ -139,6 +139,26 @@ class ProvenanceRow(BaseModel):
     bots: int
 
 
+class TradeAttributionCoverage(BaseModel):
+    """Que parte de las cifras agregadas pertenece a un bot vivo.
+
+    Las metricas POR BOT ya cubren solo EAs vivos: un EA retirado no tiene fila en `bot`, asi
+    que no aparece en ningun sitio. El hueco esta en los agregados de Portfolio, Riesgo y
+    Auditoria, que suman todos los trades de la cuenta -- incluidos los de EAs retirados hace
+    meses y los del historico HTML, que no publica magic.
+
+    Decision del operador (2026-09-02): los EAs retirados no se inventarian ni se presentan.
+    Pero una cifra agregada tiene que poder decir cuanta de ella no es de ningun bot vivo, en
+    vez de presentarse como si todo el total fuera del portfolio actual.
+    """
+
+    total: int
+    attributed_to_live_bot: int
+    retired_ea: int
+    without_ea: int
+    coverage_pct: float | None
+
+
 class DataProvenanceResponse(BaseModel):
     """De qué universos se compone lo que muestran las vistas agregadas.
 
@@ -154,6 +174,7 @@ class DataProvenanceResponse(BaseModel):
 
     accounts: list[ProvenanceRow]
     is_mixed: bool
+    trade_attribution: TradeAttributionCoverage
 
 
 @router.get("/data-provenance", response_model=DataProvenanceResponse)
@@ -177,8 +198,31 @@ async def data_provenance(
         ProvenanceRow(data_origin=origin, accounts=n_accounts, bots=n_bots)
         for origin, n_accounts, n_bots in rows
     ]
+    total, atribuidos, sin_ea = (
+        await session.execute(
+            select(
+                func.count(Trade.ticket_mt5),
+                func.count(Trade.bot_id),
+                func.count(Trade.ticket_mt5).filter(Trade.magic_number == 0),
+            )
+        )
+    ).one()
+    # `magic=0` es ausencia declarada de EA (operacion manual o del broker, o un historico
+    # que no publica magic); el resto de huerfanos son EAs retirados que ya no tienen bot.
+    retirados = total - atribuidos - sin_ea
+    atribucion = TradeAttributionCoverage(
+        total=total,
+        attributed_to_live_bot=atribuidos,
+        retired_ea=retirados,
+        without_ea=sin_ea,
+        # Sin trades no hay cobertura del 0 %: no hay nada que cubrir. Se declara ausencia.
+        coverage_pct=round(100 * atribuidos / total, 2) if total else None,
+    )
+
     # Una base vacía es ausencia, no mezcla: no se infiere procedencia de lo que no hay.
-    return DataProvenanceResponse(accounts=composicion, is_mixed=len(composicion) > 1)
+    return DataProvenanceResponse(
+        accounts=composicion, is_mixed=len(composicion) > 1, trade_attribution=atribucion
+    )
 
 
 @router.get("/header/summary", response_model=HeaderSummaryResponse)

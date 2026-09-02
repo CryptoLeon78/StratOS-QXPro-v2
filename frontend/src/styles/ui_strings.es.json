@@ -427,6 +427,10 @@
     "mixedDetail": "Estas cifras agregan {origins}. Un total mezcla universos distintos.",
     "single": "Todos los datos provienen de {origin}.",
     "absent": "Sin cuentas registradas: no hay datos que atribuir.",
-    "counts": "{accounts} cuenta(s) · {bots} bot(s)"
+    "counts": "{accounts} cuenta(s) · {bots} bot(s)",
+    "attributionLabel": "Atribución",
+    "attribution": "{coverage} % de los {total} trades pertenece a un bot vivo. {retired} son de EAs retirados y {without} no declaran EA.",
+    "attributionFull": "Los {total} trades pertenecen a bots vivos.",
+    "attributionAbsent": "Sin trades registrados."
   }
 }

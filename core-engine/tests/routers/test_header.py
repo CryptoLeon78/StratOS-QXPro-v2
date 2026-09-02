@@ -6,7 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
 from core.db.enums import AccountDataOrigin
 from core.main import app
-from tests.factories import AccountFactory, BotFactory, EquitySnapshotFactory
+from tests.factories import (
+    AccountFactory,
+    BotFactory,
+    EquitySnapshotFactory,
+    IngestBatchFactory,
+    TradeFactory,
+)
 
 
 async def test_header_summary_requires_auth() -> None:
@@ -121,3 +127,70 @@ class TestDataProvenance:
         body = response.json()
         assert body["accounts"] == []
         assert body["is_mixed"] is False
+
+
+class TestTradeAttributionCoverage:
+    """Que parte de las cifras agregadas pertenece a un bot vivo (backlog A17).
+
+    Las metricas POR BOT ya cubren solo EAs vivos: un EA retirado no tiene fila en `bot`, asi
+    que no aparece. El hueco esta en los agregados de Portfolio, Riesgo y Auditoria, que suman
+    todos los trades de la cuenta -- incluidos los de EAs que se retiraron hace meses y los
+    del historico HTML sin magic. Decision del operador: no se inventarian los retirados, pero
+    la cifra tiene que decir cuanta de ella no es de ningun bot vivo.
+    """
+
+    async def test_reports_how_much_of_the_aggregate_belongs_to_a_live_bot(
+        self, api_client: AsyncClient, db_connection: AsyncConnection
+    ) -> None:
+        session = AsyncSession(
+            bind=db_connection, join_transaction_mode="create_savepoint", expire_on_commit=False
+        )
+        account = AccountFactory(data_origin=AccountDataOrigin.BROKER_REAL)
+        session.add(account)
+        await session.flush()
+        bot = BotFactory(account_id=account.id)
+        session.add(bot)
+        await session.flush()
+        batch = IngestBatchFactory(account_id=account.id)
+        session.add(batch)
+        await session.flush()
+        # Uno atribuido, uno de un EA retirado (magic desconocido) y uno sin EA (magic 0).
+        session.add(
+            TradeFactory(
+                account_id=account.id,
+                bot_id=bot.id,
+                magic_number=bot.magic_number,
+                ingest_batch_id=batch.id,
+            )
+        )
+        session.add(
+            TradeFactory(
+                account_id=account.id,
+                bot_id=None,
+                magic_number=999999,
+                ingest_batch_id=batch.id,
+            )
+        )
+        session.add(
+            TradeFactory(
+                account_id=account.id, bot_id=None, magic_number=0, ingest_batch_id=batch.id
+            )
+        )
+        await session.commit()
+
+        body = (await api_client.get("/api/v1/data-provenance")).json()
+
+        cobertura = body["trade_attribution"]
+        assert cobertura["total"] == 3
+        assert cobertura["attributed_to_live_bot"] == 1
+        assert cobertura["retired_ea"] == 1
+        assert cobertura["without_ea"] == 1
+        assert cobertura["coverage_pct"] == 33.33
+
+    async def test_no_trades_is_absence_not_zero_coverage(
+        self, api_client: AsyncClient, db_connection: AsyncConnection
+    ) -> None:
+        body = (await api_client.get("/api/v1/data-provenance")).json()
+
+        assert body["trade_attribution"]["total"] == 0
+        assert body["trade_attribution"]["coverage_pct"] is None
