@@ -109,14 +109,14 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   distinto de 0 ni un hash que la cola no declare. Un manifiesto ilegible se salta en vez de
   abortar el barrido. Efecto medido: la cola pasa de 6 candidatos a **1**
   (`USDJPYH1Lcity_2.22.171`), reconociendo 9 identidades ya selladas.
-- **[A25] La cola y los manifiestos F7 usan magics legacy; la base usa los vigentes** —
-  descubierto al registrar las corridas del 2026-09-02: `record_operational_backtest.py`
-  falló con «F7 externo no encontrado por cuenta y magic exactos» porque la cola declara
-  `magic=200732` (legacy) mientras el bot ya tiene el vigente (`3`) tras
-  `sync_bot_magics_to_migration.py`. Se registró pasando el magic vigente, pero **cualquier
-  herramienta que cruce por el magic de la cola tiene el mismo problema**: o traduce con
-  `build_legacy_magic_map()`, o la cola se regenera con los magics vigentes. Afecta al menos
-  a `record_operational_backtest.py` y a `f7_identities()`.
+- ~~**[A25] La cola y los manifiestos F7 usan magics legacy; la base usa los vigentes**~~
+  **RESUELTO 2026-09-02**: `resolve_external_magic()` traduce con los `legacy_magic_numbers`
+  del registro aprobado antes de buscar el bot F7; sin registro o con un magic desconocido se
+  usa tal cual, para no inventar correspondencias. La evidencia guarda las dos caras
+  (`magic_number` vigente, `declared_magic_number` el de la cola y
+  `resolved_via_legacy_magic`), de modo que la asociación no parezca una coincidencia exacta.
+  **Comprobado de punta a punta con `USDJPYH1Lcity_2.22.171`**: sin `--identity-registry` el
+  registro falla con el error original; con él traduce `200730 -> 13` y sella `asset_id=248`.
 
 - **[A20] La Incubadora tiene cuenta pero no mecanismo de adjunto** — `account_id=3`
   (`INCUBADORA`, `5055093171`, `MetaQuotes-Demo`, `BROKER_DEMO`) ya está registrada y el gate
@@ -129,14 +129,14 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   demo (A20), leyendo `incubator_admission` de `config/operational_prefilter.json` y las series
   de PnL de los ocupantes. La serie del candidato saldrá del backtest SQX: la evidencia debe
   declarar que la correlación es backtest-contra-real.
-- **[A22] Queda 1 backtest F7 pendiente: `USDJPYH1Lcity_2.22.171`** — la cola regenerada el
-  2026-09-02 no cambió respecto a la del 28-08 (mismos 13 `READY`, mismos hashes). De los dos
-  que faltaban, `USDJPYH1Lcity_3.16.113` se comparó dos veces el 2026-09-02 (07:34 y 07:46
-  UTC), ambas con veredicto **DISCREPANTE**, y quedaron registradas como `asset_id=247`,
-  `WITHHELD`; el contrato direccional no las cambia. Un intento de lanzar el restante falló
-  cerrado —«MT5 no aceptó el cierre limpio»— porque el terminal Darwinex estaba en uso con
-  JJTI conectada; el mecanismo usa `CloseMainWindow()` y nunca `Stop-Process`, así que no se
-  forzó nada. Con el terminal libre, el lanzador individual corre sin más.
+- ~~**[A22] Backtests F7 pendientes**~~ **CERRADO 2026-09-02**: los 6 expedientes
+  `PREFLIGHT_OK` de la campaña alineada están comparados y sellados. `USDJPYH1Lcity_3.16.113`
+  se corrió dos veces (07:34 y 07:46 UTC), `asset_id=247`; `USDJPYH1Lcity_2.22.171` se corrió
+  con el terminal ya libre, `asset_id=248`. Ambas **DISCREPANTE**, y el contrato direccional
+  no las cambia. La cola queda a **0 candidatos pendientes**. Veredictos de la campaña:
+  `243` VALIDADA, `244` VALIDADA (tras el contrato direccional), `245`/`246`/`247`/`248`
+  DISCREPANTE o TOLERABLE — ninguna es `BACKTEST_VALIDATED`, así que **no hay candidato para
+  la Incubadora**. Quedan 7 `WITHHELD_TICKS` por alias/cobertura Darwinex.
 
 - **[A23] Los MCP de MT5 no conectan en esta sesión** — `mt5_bepb`, `mt5_jjti` y `mt5-darwinex`
   devuelven `ConnectionRefused`. Bloquea P2.3 (telemetría viva read-only en continuo), que
