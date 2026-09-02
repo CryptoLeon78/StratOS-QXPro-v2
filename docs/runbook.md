@@ -133,12 +133,21 @@ Ver `config/small_scale.yaml` — documento de referencia estático (decisión G
 
 ## Admisión operacional sin depender del agente
 
-`StratOS_Operacional.bat`, en la raíz de la instalación de SQX, es el punto de entrada del
-operador. Dos modos:
+Dos accesos directos en el escritorio, de doble clic. Ninguno pide teclear comandos.
 
-- **Refrescar** — inventario de Análisis, resolución de fuentes SQX, extracción de evidencia
-  (Monte Carlo, costes, WFM) y prefiltro. **No abre MT5.**
-- **Sesión completa** — además propone backtests y pide `SI` antes de cada uno.
+- **StratOS - Refrescar admisión** (`StratOS_Operacional.bat`) — encadena inventario de
+  Análisis, resolución de fuentes SQX, extracción de evidencia (Monte Carlo, costes, WFM) y
+  prefiltro. **No pregunta nada y no abre MT5.** El detalle va a
+  `runtime/operational/ultimo_refresco.log`; en pantalla queda sólo el resumen de
+  `scripts/operational_status.py`: cuántas candidatas hay, en qué punto están y qué las
+  bloquea.
+- **StratOS - Backtests SQX vs MT5** (`StratOS_Backtests.bat`) — refresca primero, para no
+  correr sobre una cola vieja; si MT5 está abierto solicita su **cierre limpio**
+  (`CloseMainWindow`, nunca `Stop-Process`) y, si no lo acepta, avisa y para: forzar un
+  terminal con cuentas reales conectadas no es una opción.
+
+Lo único que se sigue preguntando es la **confirmación por corrida** del propio lanzador.
+Esa no se automatiza: es la última barrera humana antes de abrir el Strategy Tester.
 
 Los cuatro pasos del refresco dependen unos de otros y se pasan manifiestos entre sí; lanzar
 `operational_inventory.py` y `operational_prefilter.py` sueltos se salta la resolución de
