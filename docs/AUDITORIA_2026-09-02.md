@@ -394,6 +394,63 @@ la auditoría y ejecutó los bloques P0-P2 del plan. **Nada de lo que hiciste se
 - **Antes de tocar StratOS, lee `AGENTS.md`** (nuevo, en la raíz del subproyecto):
   `docs/phase_status.md` → `ASSUMPTIONS.md` → `docs/backlog.md` → esta auditoría.
 
+### Segunda tanda — lo que cambió después del primer hand-off
+
+El operador desbloqueó casi todo lo que dependía de él y se cerraron A15-A19 más el primer
+gate de P5.1. Lo que te afecta directamente:
+
+**Contratos que cambiaron y puedes estar usando**
+
+- **`parse_closed_positions()`** (`import_mt5_history_export.py`) devuelve **tres** valores, no
+  dos: el tercero son las traducciones de magic aplicadas. Acepta un `legacy_magic_map`
+  opcional.
+- **`config/operational_prefilter.json` es `v3`**: `max_per_symbol_timeframe` y `max_mt5_queue`
+  planos ya no existen. Ahora hay `validation_queue` e `incubator_admission`, y este último
+  incorpora **`max_abs_correlation`** (0.7). Una política v2 se sigue leyendo con su
+  comportamiento anterior.
+- **`GET /data-provenance`** añade `trade_attribution` (total, atribuidos a bot vivo, de EA
+  retirado, sin EA, cobertura). Si lo consumes, el shape creció.
+- **`register_external_account.py`** acepta `--data-origin` (`BROKER_REAL` por defecto,
+  `BROKER_DEMO` para la Incubadora). `is_demo` se deriva de la procedencia.
+- **`reclassify_external_f7_backtests.py`** ya no reevalúa campañas superseded: filtra por
+  existencia de la fuente. Su informe trae `superseded_runs` y `summary.superseded`.
+- **`ASSUMPTIONS.md` llega a G13-32.** Comprueba el último número antes de añadir el tuyo.
+- **Panel `SQX_vs_MT5` en v1.3.3**, con `build_panel_exe.ps1` para regenerar su `.exe`. El
+  binario de `dist_legacy` (v1.2.2) está marcado obsoleto: lanzarlo reproduce el `TypeError`
+  float/dict porque lleva el código anterior al contrato direccional.
+
+**Piezas nuevas que te ahorran trabajo**
+
+- **`core/services/incubator_admission.py`** — gate con los dos criterios de descorrelación
+  (estructural y estadístico), función pura con 13 tests. **Nadie lo llama todavía**: se cablea
+  cuando exista el adjunto demo (`backlog A21`).
+- **`scripts/sync_bot_magics_to_migration.py`** — alinea el magic de los bots con la identidad
+  vigente y, con `--reattribute-orphans`, completa el `bot_id` de los trades que quedaron
+  huérfanos por el desfase. **Si vuelves a migrar la identidad de un EA, hay que correrlo
+  después**: el registro de identidad y la tabla `bot` no se sincronizan solos.
+- **`scripts/report_history_attribution.py`** — mide la cobertura de atribución antes de
+  importar nada.
+
+**Tres hallazgos de esta tanda**
+
+1. **Los bots se dieron de alta con los magics de antes de la migración MN.** La atribución
+   estaba rota *hacia adelante*: cada operación nueva de un EA migrado entraba huérfana.
+   Corregido (34 bots, 26 trades), pero es el patrón a vigilar.
+2. **7 de las 11 corridas del informe de reclasificación eran de la campaña anterior** al
+   renombrado. Si tu cola las daba por vigentes, no lo son.
+3. **La cola F7 regenerada con los retests actualizados no cambió**: mismos 13 `READY` y
+   mismos hashes que la del 28-08. Los 2 `PREFLIGHT_OK` pendientes siguen siendo los mismos.
+
+**Estado de la Incubadora**: cuenta `account_id=3` (`5055093171`, `MetaQuotes-Demo`,
+`BROKER_DEMO`) registrada, con metadatos leídos del terminal. Faltan el adjunto demo por
+gráfico y el consumo de la cola FIFO (`backlog A20`). El operador autorizó a ti y a esta
+sesión **cualquier movimiento sobre esa cuenta demo** — no sobre las reales.
+
+**Lo que sigue bloqueado y por qué**: el terminal **Darwinex** está abierto con JJTI/BEPB
+conectadas, así que la cola F7 no se puede lanzar sin que el operador lo cierre (`A22`); y los
+MCP `mt5_bepb`/`mt5_jjti`/`mt5-darwinex` devuelven `ConnectionRefused`, lo que bloquea la
+telemetría viva (`A23`).
+
 ### Añade el MCP `stratos` a `.codex/config.toml`
 
 Hoy sólo registra `sqx_forja`. `stratos` es el que expone `scan_hardcoding`, obligatorio por

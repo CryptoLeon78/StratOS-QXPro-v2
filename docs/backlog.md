@@ -51,7 +51,7 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   No hay nada que registrar: está deliberadamente fuera, como declara G13-21 al dar las rutas
   antiguas por obsoletas. El fail-closed por entrada de
   `record_directional_reclassification.py` hizo exactamente lo correcto al retenerla.
-- **[A19] `reclassify_external_f7_backtests.py` reevalúa manifiestos obsoletos** — barre todos
+- ~~**[A19] `reclassify_external_f7_backtests.py` reevalúa manifiestos obsoletos**~~ **RESUELTO 2026-09-02**: filtra por existencia de la fuente, no por nombre. De 11 corridas, 7 eran de la campaña anterior; quedan las 4 vigentes con 0 retenciones. Antes: — barre todos
   los `run-manifest.json` de disco, incluidos los de campañas superseded por el renombrado MN
   cuya fuente ya no existe. Por eso su informe dice "11 corridas" cuando sólo 10 corresponden
   a la campaña vigente. No es un error de veredicto —cada uno se recalcula sobre su propio
@@ -61,12 +61,12 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   magics legacy, el sellado de la traducción en el artefacto y el informe de cobertura están
   probados (17 tests), pero `import_mt5_history_export.py --identity-registry` no se ha
   corrido todavía contra el stack operacional. Cobertura esperada: 10,3 % BEPB y 8,2 % JJTI.
-- **[A17] El 87-90 % del histórico es de EAs ya retirados** — medido con
+- ~~**[A17] El 87-90 % del histórico es de EAs ya retirados**~~ **RESUELTO 2026-09-02**: decisión del operador — los retirados no se inventarían ni se presentan. Las métricas por bot ya lo cumplían; los agregados ahora declaran la cobertura vía `trade_attribution` en `/data-provenance` (377 de 8.831). ASSUMPTIONS G13-31. Antes: — medido con
   `report_history_attribution.py`: 4.355 deals BEPB y 3.694 JJTI con un magic que no está en
   el registro de identidad. No es un fallo: es la rotación real del portfolio. Decidir si las
   métricas por bot se presentan sólo sobre los EAs vivos o si merece la pena inventariar los
   retirados; hasta entonces, no prometer métricas por bot sobre el histórico completo.
-- **[A18] El filtro de correlación no participa en la admisión** — el tope por
+- ~~**[A18] El filtro de correlación no participa en la admisión**~~ **RESUELTO 2026-09-02**: `core/services/incubator_admission.py` aplica los **dos** criterios (estructural y estadístico, este en valor absoluto), fail-closed en las dos direcciones, con el umbral en `config/operational_prefilter.json`. ASSUMPTIONS G13-30. Antes: — el tope por
   símbolo/timeframe aproxima la diversidad; la correlación entre curvas de equity la mide.
   Dos `AUDCAD/H4` con correlación 0,2 diversifican y dos con 0,9 no, aunque el tope los trate
   igual. La pieza existe (`services/correlations.py`, `is_redundant_pair`) y hay que cablearla
@@ -98,6 +98,29 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   (`gbrain`, `DISCIPLINA_OPERATIVA.md`), sin git, inactivo desde 2026-08-14, ausente de todos los
   índices. Decidir si se versiona, se archiva o se retira. `PIPELINE_MINADO_A_FINALISTAS.md` sigue
   hablando de "9 apps de entorno" cuando `Apps_entorno_SQX/` tiene 14 directorios.
+
+## Pendiente tras el cierre de A15-A19 — 2026-09-02
+
+- **[A20] La Incubadora tiene cuenta pero no mecanismo de adjunto** — `account_id=3`
+  (`INCUBADORA`, `5055093171`, `MetaQuotes-Demo`, `BROKER_DEMO`) ya está registrada y el gate
+  de admisión con los dos criterios de descorrelación está construido y probado. Faltan las
+  dos piezas que el lanzador declara al terminar: **adjuntar el EA a un gráfico del terminal
+  demo** y **consumir la cola FIFO** hasta el tope de 8. Sin ellas no hay candidato posible,
+  aunque hoy tampoco lo habría: ninguna estrategia de Análisis es `BACKTEST_VALIDATED`.
+- **[A21] El gate de admisión no está cableado a ningún flujo** — `evaluate_admission()` es una
+  función pura con 13 tests, pero nadie la llama todavía. Se conecta cuando exista el adjunto
+  demo (A20), leyendo `incubator_admission` de `config/operational_prefilter.json` y las series
+  de PnL de los ocupantes. La serie del candidato saldrá del backtest SQX: la evidencia debe
+  declarar que la correlación es backtest-contra-real.
+- **[A22] La cola F7 sigue sin poder lanzarse con el terminal Darwinex abierto** — los retests
+  SQX están actualizados y la cola regenerada el 2026-09-02 confirma que **no cambió**: mismos
+  13 `READY_FOR_TICK_BACKTEST` y mismos hashes que la del 28-08. Quedan 2 expedientes
+  `PREFLIGHT_OK` sin correr (`USDJPYH1Lcity_3.16.113`, `USDJPYH1Lcity_2.22.171`). El lanzador
+  exige cierre limpio de esa instancia y no fuerza procesos; como el Darwinex mantiene
+  conectadas JJTI y BEPB, cerrarlo es decisión del operador.
+- **[A23] Los MCP de MT5 no conectan en esta sesión** — `mt5_bepb`, `mt5_jjti` y `mt5-darwinex`
+  devuelven `ConnectionRefused`. Bloquea P2.3 (telemetría viva read-only en continuo), que
+  necesita hablar con esos terminales. No es una capacidad ausente: es una conexión caída.
 
 ## Estado activo G13 — operación separada
 

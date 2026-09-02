@@ -386,94 +386,37 @@ Verificación ejecutada sobre el plan completo, punto por punto:
 
 | Bloque | Estado | Comprobado con |
 |---|---|---|
-| P0.1 commitear | **HECHO** | 18 commits sobre `a55694c`, pusheados |
-| P0.2 CI verde | **HECHO** | ruff/format/mypy limpios; 603 + 155 + 64 + 54 + 21 tests |
-| P0.3 exe | **HECHO** | regenerado 2 veces; 0 scripts por detrás, `--help` responde |
-| P0-bis salvaguarda de símbolo | **HECHO** | panel v1.3.1, 21 tests, verificado contra databank real |
-| P1.1 reclasificación persistida | **HECHO** | 2 eventos `DIRECTIONAL_*` en `operational_asset_event` |
-| P1.2 extracción de símbolo | **HECHO** | `alias_simbolos` con sus 3 alias reales; 73/73 `.sqx` resuelven |
-| P1.3 scan consolidado | **HECHO** | `ASSUMPTIONS.md` G13-28, 5 literales migrados |
-| P2.0/P2.1 export medido | **HECHO** | ventana y migración cerradas por decisión del operador |
-| P2.2 atribución del histórico | **HECHO** | 34 bots sincronizados, 26 trades reatribuidos, 377/8.831 |
-| P4.1 procedencia en 5 vistas | **HECHO** | endpoint verificado en vivo, `is_mixed=false` |
+| P0.1 commitear | **HECHO** | 24 commits sobre `a55694c`, pusheados |
+| P0.2 CI verde | **HECHO** | ruff/format/mypy limpios; 618 + 160 + 64 + 57 + 25 tests |
+| P0.3 exe operacional | **HECHO** | regenerado; 0 scripts por detrás, `--help` responde |
+| P0-bis salvaguarda de símbolo | **HECHO** | panel v1.3.3, verificado contra databank real |
+| P1.1 reclasificación persistida | **HECHO** | 2 eventos `DIRECTIONAL_*` en la base |
+| P1.2 extracción de símbolo | **HECHO** | 73/73 `.sqx` resuelven sin alias parche |
+| P1.3 scan consolidado | **HECHO** | `ASSUMPTIONS.md` G13-28 |
+| P2.0/P2.1 export medido | **HECHO** | ventana y migración cerradas por el operador |
+| P2.2 atribución del histórico | **HECHO** | 34 bots sincronizados, 26 trades reatribuidos |
+| P4.1 procedencia en 5 vistas | **HECHO** | endpoint verificado en vivo |
 | P5.0 tope de validación | **HECHO** | política v3, cola de 2 a 24 |
 | P6 higiene | **HECHO** | MCP `stratos` en Codex, inventario de apps corregido |
+| **A17 métricas sobre EAs vivos** | **HECHO** | `trade_attribution` en vivo: 377 de 8.831 |
+| **A18 filtro de correlación** | **HECHO** | los dos criterios, 13 tests |
+| **A19 reclasificador** | **HECHO** | 7 corridas superseded filtradas, 0 retenciones |
+| **P5.1 cuenta de Incubadora** | **PARCIAL** | `account_id=3` dada de alta; falta el adjunto |
+| **P3 cola F7** | **PARCIAL** | cola regenerada: no cambió; falta cerrar el Darwinex |
+| P4.2 recorrido autenticado | pendiente | el panel queda abierto en `/login` para el operador |
+| P4.4 baselines Playwright | pendiente | el operador lo hará más tarde |
+| P2.3 telemetría viva | **BLOQUEADO** | los MCP de MT5 no conectan (`A23`) |
 
-### CI real — 8 de 10 jobs en verde
+### Lo que hace falta para cerrar los tres parciales
 
-Confirmado en el run del último push, no sólo localmente:
+1. **P3** — el terminal **Darwinex** sigue abierto (PID 36776) y mantiene conectadas JJTI y
+   BEPB. El lanzador exige cierre limpio de esa instancia y no fuerza procesos; cerrarlo
+   detiene temporalmente las cuentas reales, así que es decisión del operador. Con él cerrado,
+   quedan 2 expedientes `PREFLIGHT_OK` por correr.
+2. **P5.1** — la cuenta está registrada y el gate de admisión construido, pero faltan el
+   **adjunto demo por gráfico** y el **consumo de la cola FIFO** (`backlog A20`). Ninguna
+   estrategia de Análisis es todavía `BACKTEST_VALIDATED`, así que no hay candidato que
+   admitir aunque el mecanismo existiera.
+3. **P2.3** — `mt5_bepb`, `mt5_jjti` y `mt5-darwinex` devuelven `ConnectionRefused` en esta
+   sesión (`backlog A23`). No es una capacidad ausente, es una conexión caída.
 
-| Job | Antes | Ahora |
-|---|---|---|
-| `lint-backend` | rojo | **verde** |
-| `test-backend` | rojo | **verde** |
-| `lint-mt5-connector` | rojo | **verde** |
-| `test-mt5-connector`, `test-integration`, `lint-and-build-frontend`, `lint-and-test-api-gateway`, `lint-and-test-mt5-simulator` | verde | verde |
-| `e2e-acceptance-full` | rojo | rojo — criterio 9 Lyra×Phoenix, desde G10-14, decisión de no investigar |
-| `e2e-playwright` | rojo | rojo — baselines de G10, exige recorrido con navegador |
-
-`lint-mt5-connector` lo destapó el CI, no la verificación local: se había corrido `ruff` sobre
-`mt5-connector` pero no su `mypy`, que usa su propio `pyproject.toml`. Comprobados después los
-cuatro módulos con el comando exacto del workflow.
-
-**Lo que queda, y por qué no depende del agente:**
-
-| Bloque | Qué falta | Quién |
-|---|---|---|
-| P2.3 telemetría viva | decidir si el conector read-only pasa a leer JJTI/BEPB en continuo | operador |
-| P3 cola F7 | sigue en pausa desde 2026-08-31 esperando confirmación de los retests SQX | operador |
-| P4.2 recorrido autenticado | `/login` exige credenciales que un agente no debe introducir | operador |
-| P4.4 baselines Playwright | recorrido con seed y navegador; `e2e-playwright` sigue rojo por esto | operador |
-| P5.1 Incubadora | necesita una cuenta `BROKER_DEMO` registrada | operador |
-| A17 métricas por bot | decidir si se presentan sólo sobre EAs vivos (87-90 % del histórico es de retirados) | operador |
-| A18 filtro de correlación | se cablea cuando exista admisión a Incubadora | tras P5.1 |
-| A19 reclasificador | filtrar manifiestos de campañas superseded | agente, menor |
-
-**`e2e-acceptance-full` sigue rojo** por el criterio 9 (Lyra×Phoenix), documentado desde G10-14
-con decisión explícita de no investigar.
-
----
-
-## Secuencia recomendada
-
-| Orden | Bloque | Estado | Quién |
-|---|---|---|---|
-| 1 | P0.1 commit + P0.2 CI verde | **HECHO** — 11 commits, pusheados | agente |
-| 2 | P0-bis salvaguarda de símbolo en lote | **HECHO** — panel v1.3.1 | agente |
-| 3 | P2.1 exportador de histórico | **HECHO** — CSV en `docs/` | Ivan |
-| 4 | P0.3 regenerar el exe | **HECHO** — 0 scripts por detrás | agente |
-| 5 | P1.1 persistir la reclasificación | **HECHO** — 2 eventos, 1 retenida | agente |
-| 6 | P1.2 extracción de símbolo | **HECHO** — 73/73 sin alias parche | agente |
-| 7 | P1.3 scan consolidado | **HECHO** — G13-28 | agente |
-| 8 | P5.0 separar el tope de validación | **HECHO** — cola de 2 a 24 | agente |
-| 9 | P2.2 atribución del histórico | **HECHO** — falta ejecutar la importación | agente |
-| 10 | P3 cola F7 | esperando confirmación de Ivan sobre los retests SQX | agente + Ivan |
-| 11 | P2.3 telemetría viva + P4 UI y retirada del fixture | pendiente | agente |
-| 12 | P5.1 Incubadora | pendiente — necesita cuenta demo | agente + Ivan |
-
-## Lo que sigue
-
-**Inmediato, sin dependencias**: ejecutar la importación del histórico (P2.2 está construido
-y probado, falta correrlo contra el stack) y registrar la corrida
-`20260830T210536Z_91538465c20a` que quedó retenida (`backlog A15`).
-
-**Luego**: P4 (procedencia en las 5 pestañas que faltan y retirada del fixture `full`, que es
-por lo que los números del Resumen no son de fiar) y P2.3 (telemetría viva read-only de
-JJTI/BEPB, que es lo que da sentido a los semáforos sobre cuentas reales).
-
-## Decisiones del operador — 2026-09-02
-
-**Resueltas:**
-
-1. ~~El histórico no llega a 2018.~~ **19 meses bastan**; no se busca otra fuente para el
-   tramo anterior. La documentación que prometía 2018 queda corregida.
-2. ~~Dos EAs rezagados y tres magics fuera del lote.~~ **Terminales revisados, todo correcto:
-   la migración MN se da por cerrada.**
-
-**Siguen esperando:**
-
-3. **El 87-90 % del histórico es de EAs ya retirados.** Decidir si las métricas por bot se
-   presentan sólo sobre los EAs vivos o si merece la pena inventariar los retirados. No
-   bloquea la importación: sólo cómo se presenta lo importado.
-4. **La cola F7 sigue en pausa** desde el 2026-08-31, esperando tu confirmación de que los
-   retests SQX están alineados.
