@@ -10,7 +10,15 @@ LAYOUT = {
     "project_definition_filename": "project.cfx",
     "databanks_directory_name": "databanks",
     "strategy_extension": ".sqx",
+    "mining_task_type": "Build",
 }
+
+
+def _definicion_con_tareas(project: Path, *tipos: str) -> None:
+    """Escribe un `project.cfx` real (zip con `config.xml`) declarando esas tareas."""
+    tareas = "".join(f'<Task type="{tipo}" name="t{i}" active="true" />' for i, tipo in enumerate(tipos))
+    with ZipFile(project / "project.cfx", "w") as archive:
+        archive.writestr("config.xml", f"<Project><Tasks>{tareas}</Tasks></Project>")
 
 
 def _inventory(candidate: Path) -> dict[str, object]:
@@ -126,3 +134,57 @@ def test_resolver_uses_source_lineage_only_after_history_signature(tmp_path: Pat
     assert rows[0]["status"] == "RESOLVED"
     assert rows[0]["project_path"].endswith("Project_AUDCAD_H4_S")
     assert rows[0]["source_selection"] == "HISTORY_SIGNATURE_PLUS_SOURCE_LINEAGE"
+
+
+def test_resolver_descarta_proyecto_sin_tarea_de_minado(tmp_path: Path) -> None:
+    """Un proyecto de ensamblaje de portfolio no puede ser el origen de una minada.
+
+    Importa el `.sqx` ya construido, así que su hash coincide igual que en el
+    proyecto que lo minó. Sin tarea Build no hay minado posible: descartarlo no
+    es una preferencia, es una imposibilidad estructural.
+    """
+    candidate = tmp_path / "AUDCADH4S_Strategy 1.2.3.sqx"
+    candidate.write_bytes(b"candidate")
+    projects = tmp_path / "projects"
+    origen = _project(projects, "Project_A", candidate)
+    consumidor = _project(projects, "PortfolioSeleccion", candidate)
+    _definicion_con_tareas(origen, "Build", "Retest")
+    _definicion_con_tareas(consumidor, "AutomaticPortfolioBuilder", "CustomAnalysis")
+
+    rows = resolve_sources(_inventory(candidate), projects_root=projects, layout=LAYOUT)
+
+    assert rows[0]["status"] == "RESOLVED"
+    assert rows[0]["project_path"].endswith("Project_A")
+    assert rows[0]["source_selection"] == "HISTORY_SIGNATURE_PLUS_BUILD_ORIGIN"
+
+
+def test_resolver_mantiene_la_ambiguedad_si_no_puede_leer_las_definiciones(tmp_path: Path) -> None:
+    """No poder leer un `.cfx` no es prueba de que ese proyecto no haya minado.
+
+    El descarte exige leer las tareas y no encontrar la de minado. Con ambas
+    definiciones ilegibles la ambigüedad queda intacta en vez de resolverse a
+    ciegas por orden de directorio.
+    """
+    candidate = tmp_path / "AUDCADH4S_Strategy 1.2.3.sqx"
+    candidate.write_bytes(b"candidate")
+    projects = tmp_path / "projects"
+    _project(projects, "Project_A", candidate)
+    _project(projects, "PortfolioSeleccion", candidate)
+
+    rows = resolve_sources(_inventory(candidate), projects_root=projects, layout=LAYOUT)
+
+    assert rows[0]["status"] == "WITHHELD"
+    assert rows[0]["reason"] == "AMBIGUOUS_PROJECT_HASH_MATCH"
+
+
+def test_resolver_no_descarta_el_unico_proyecto_aunque_no_declare_minado(tmp_path: Path) -> None:
+    """Sin empate no hay nada que desempatar: el descarte sólo actúa sobre varios."""
+    candidate = tmp_path / "AUDCADH4S_Strategy 1.2.3.sqx"
+    candidate.write_bytes(b"candidate")
+    projects = tmp_path / "projects"
+    unico = _project(projects, "PortfolioSeleccion", candidate)
+    _definicion_con_tareas(unico, "AutomaticPortfolioBuilder")
+
+    rows = resolve_sources(_inventory(candidate), projects_root=projects, layout=LAYOUT)
+
+    assert rows[0]["status"] == "RESOLVED"

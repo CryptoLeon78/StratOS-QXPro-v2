@@ -17,6 +17,7 @@ from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from xml.etree import ElementTree
 
 STRATEGY_IDENTIFIER_PATTERN = re.compile(r"strategy\s+(\d+(?:\.\d+)+)", re.IGNORECASE)
 HISTORY_SIGNATURE_MEMBERS = ("orders.bin", "lastSettings.xml")
@@ -49,6 +50,7 @@ def load_layout(path: Path) -> dict[str, str]:
         "project_definition_filename",
         "databanks_directory_name",
         "strategy_extension",
+        "mining_task_type",
     )
     missing = [key for key in keys if not isinstance(data.get(key), str) or not data[key]]
     if missing:
@@ -67,6 +69,31 @@ def project_identity(project: Path, layout: dict[str, str]) -> str:
     if name.casefold().startswith(prefix.casefold()):
         name = name[len(prefix) :]
     return name.casefold()
+
+
+def declara_minado(project: Path, layout: dict[str, str]) -> bool | None:
+    """¿Declara este proyecto una tarea de minado? ``None`` si no se puede leer.
+
+    Un proyecto de ensamblaje de portfolio importa los `.sqx` ya construidos,
+    así que su hash coincide igual que en el proyecto que los minó. Sin tarea de
+    minado no pudo originarlos: no es una preferencia entre dos candidatos, es
+    una imposibilidad estructural verificable en su propia definición.
+
+    Se distingue "no declara minado" de "no se pudo comprobar": una definición
+    ilegible deja la ambigüedad intacta en vez de resolverla a ciegas.
+    """
+    definition = project / layout["project_definition_filename"]
+    try:
+        with zipfile.ZipFile(definition) as archive:
+            config = archive.read("config.xml")
+    except (OSError, KeyError, zipfile.BadZipFile):
+        return None
+    try:
+        root = ElementTree.fromstring(config)
+    except ElementTree.ParseError:
+        return None
+    tipo = layout["mining_task_type"]
+    return any(task.get("type") == tipo for task in root.iter("Task"))
 
 
 def source_lineage_hints(sqx_path: Path, source_root: str | None) -> list[str]:
@@ -214,6 +241,12 @@ def resolve_sources(
             if len(lineage_projects) == 1:
                 projects = lineage_projects
                 source_selection = "HISTORY_SIGNATURE_PLUS_SOURCE_LINEAGE"
+        if len(projects) > 1:
+            # Sólo se descarta lo que se puede demostrar que no mina; lo ilegible se conserva.
+            con_minado = [p for p in projects if declara_minado(p, layout) is not False]
+            if len(con_minado) == 1:
+                projects = con_minado
+                source_selection = "HISTORY_SIGNATURE_PLUS_BUILD_ORIGIN"
         if len(projects) != 1:
             result.update(
                 {
