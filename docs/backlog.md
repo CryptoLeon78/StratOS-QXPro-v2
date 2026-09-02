@@ -94,10 +94,9 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
 - **[A14] `docs/history_deals_*.csv` viven en `docs/`** — son evidencia operativa, no
   documentación. Moverlos a `runtime/operational/history/` cuando la ingesta deje de leerlos
   de ahí; hoy están ignorados por Git en su ubicación actual.
-- **[A10] `SQX_Edge_Suite_v1` sin versionar ni indexar** — proyecto grande con gobierno propio
-  (`gbrain`, `DISCIPLINA_OPERATIVA.md`), sin git, inactivo desde 2026-08-14, ausente de todos los
-  índices. Decidir si se versiona, se archiva o se retira. `PIPELINE_MINADO_A_FINALISTAS.md` sigue
-  hablando de "9 apps de entorno" cuando `Apps_entorno_SQX/` tiene 14 directorios.
+- ~~**[A10] `SQX_Edge_Suite_v1` sin versionar ni indexar**~~ **RETIRADO DEL BACKLOG G13
+  2026-09-02**: Edge Suite es una aplicación independiente, con método, documentación y plan
+  propios. No existe trabajo de integración ni dependencia de StratOS que mantener en este backlog.
 
 ## Pendiente tras el cierre de A15-A19 — 2026-09-02
 
@@ -127,23 +126,48 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   EAs de `DAX40_m30` salieron con `11111`, el valor por defecto, y el inventario los retenía
   con `DUPLICATE_MAGIC_NUMBER`. `scripts/assign_unique_magics.py` reasigna sólo los
   duplicados, de forma determinista e idempotente, sin reutilizar un magic presente en el
-  conjunto. 40 reasignados; 388 magics únicos en 388 EAs. **Correrlo después de cada export
-  en lote**, o el inventario retendrá el lote entero.
+  conjunto. 40 reasignados; 388 magics únicos en 388 EAs. El export de las 22 de XAUUSD H4
+  volvió a traer `11111` en todas: 22 más reasignadas, **410 únicos en 410 EAs**. **Correrlo
+  después de cada export en lote**, o el inventario retendrá el lote entero.
 - ~~**[A28] La cola de validación se la llevaba el grupo más numeroso**~~ **RESUELTO
   2026-09-02**: con 205 candidatas superando criterios, las 24 plazas eran **todas**
   `AUDCAD/H4`. El orden por mérito global favorece al grupo grande, no al mejor portfolio.
   Ahora se reparte por turnos entre grupos, conservando el mérito dentro de cada uno; un
   grupo único sigue llenando la cola entera.
-- **[A30] Los proyectos DAX40 M30 y NASDAQ no han corrido RETEST OOS ni Monte Carlo** — sus
-  databanks `RETEST OOS` y `MC` existen pero están **vacíos** (0 `.sqx`), así que
-  `extract_operational_validation_evidence.py` no tiene de dónde sacar la evidencia y el
-  prefiltro las retiene con `MONTE_CARLO_P95_NOT_VERIFIED` y `COSTS_NOT_SESSION_AWARE`: 38 de
-  DAX40 y la única de NASDAQ. **Acción del operador**: correr esas tareas en SQX para esos
-  proyectos. Sin evidencia de robustez, retener es lo correcto — no es un fallo del prefiltro.
-- **[A31] 22 XAUUSD H4 y 13 sin símbolo siguen sin inventariarse** — las 22 de `XAU_H4/` no
-  tienen `.mq5`: los 14 que había en esa carpeta eran de DAX40, verificado por databank de
-  origen y movidos a `DAX40_m30/`. Otras 13 quedan como `None/H1` y `None/H4` porque el
-  inventario no pudo extraer su símbolo, y 8 fallan el parseo SQX144. Falta exportar las 22.
+- ~~**[A32] El resolutor retenía 8 candidatas por un empate que no era tal**~~ **RESUELTO
+  2026-09-02**: `PortfolioSeleccion` importa los `.sqx` ya construidos, así que su hash coincide
+  igual que en el proyecto que los minó, y el resolutor retenía con
+  `AMBIGUOUS_PROJECT_HASH_MATCH`. Un proyecto sin tarea `Build` no pudo minar la estrategia: se
+  descarta como origen. Sólo se descarta lo demostrable — una definición ilegible deja la
+  ambigüedad intacta. **397/397 candidatas resueltas, 0 retenidas.**
+- ~~**[A33] El extractor comparaba el nombre del databank byte a byte**~~ **RESUELTO
+  2026-09-02**: SQX no impone el nombre y cada proyecto lo escribe a su manera —NASDAQ tiene
+  `Forward`, DAX40 y XAUUSD H4 tienen `FORWARD`—, así que 57 candidatas de dos activos enteros
+  se retenían con `Forward: artefacto no resuelto` teniendo la evidencia delante. Se compara en
+  casefold el nombre completo, nunca por prefijo: `RETEST OOS Darwinex` sigue siendo otro
+  databank.
+- **[A30] Falta correr RETEST OOS y Walk-Forward Matrix en cinco proyectos** —
+  *reformulado 2026-09-02 tras cerrar A32/A33*: con los dos bugs de emparejamiento fuera, el
+  bloqueo restante es hueco de datos real en SQX, no código. **Un databank `WFM` con `.sqx`
+  dentro no prueba que la matriz se corriera**: el `.sqx` de AUDCAD que sí funciona lleva 30
+  corridas `Results/WF: N runs : X % OOS`; los de XAUUSD H1 y DAX40 SesionTarde sólo llevan
+  `Results/Main`. Estado verificado por proyecto:
+
+  | proyecto | retenidas | falta |
+  | --- | --- | --- |
+  | `XAUUSD_H1_Reemplazo2_KER_LinReg_noTP_EOD` | 99 | WFM (101 `.sqx`, **0 con matriz**) |
+  | `Project_DAX40_M30_..._ORB_L_SesionManana` | 28 | RETEST OOS (0 `.sqx`) |
+  | `Project_XAUUSD_H4_..._DiaEntero ( copia... )` | 22 | RETEST OOS **y** WFM (ambos a 0) |
+  | `Project_DAX40_M30_..._v7_L_SesionTarde` | 14 | WFM (14 `.sqx`, **0 con matriz**) |
+  | `Project_NASDAQ_H1_BS_Volumen_v7_L_Capa2` | 1 | WFM (0 `.sqx`) |
+  | `XAUUSD_H1_Reemplazo1_ATR_LinReg Copia de Trabajo` | 1 | WFM (13 `.sqx`, **0 con matriz**) |
+
+  Retener sin evidencia de robustez es lo correcto; no es un fallo del prefiltro. Hasta que se
+  corran, la cola de validación la llena `AUDCAD/H4`, que es el único grupo con evidencia
+  completa (232 de 397).
+- ~~**[A31] 22 XAUUSD H4 sin `.mq5`**~~ **RESUELTO 2026-09-02**: el operador exportó las 22
+  parejas. Inventario de 375 a **397 STATIC_VALIDATED** (424 candidatas, 27 retenidas). Quedan
+  13 sin símbolo (`None/H1`, `None/H4`) y 8 que fallan el parseo SQX144, sin cambio.
 - ~~**[A27] `pipeline_min_freq_week=2` no encaja con el estilo minado**~~ **RESUELTO
   2026-09-02 por decisión del operador**: baja a **0,8** op/semana. Dentro del rango que fijó
   (0,8–1,0) es el único que preserva diversidad —a 0,8 pasan 43 candidatas de tres grupos
@@ -161,6 +185,7 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
 - **G13 bootstrap local:** falta materializar `.env.operational` con secretos propios y crear el usuario operador de la base nueva; queda prohibido copiar o leer los secretos de G12.
 - **G13 histórico real — cerrado para la exportación disponible:** los HTML MT5 sellados importaron 4.304 posiciones cerradas reconciliadas (JJTI 1.945, BEPB 2.359) y retuvieron 205 ambiguas; el magic no expuesto queda huérfano auditable. El exportador read-only ya produjo/importó CSV sellados: JJTI 2.041 trades completos + 5 retenidos (`cedc0cb8174c…`) y BEPB 2.486 + 15 (`3804c3ea5ff6…`), ambos idempotentes al reimportar. La ventana efectiva observada empieza en 2025, pese a solicitar 2018: no se afirma cobertura anterior inexistente. Magics grandes se preservan como histórico `BIGINT` sin mapearlos al rango compacto de bots.
 - **G13 cola de candidatas:** `StratOS_Operational` ya crea la vista FIFO sellada `runtime/operational/operational-tester-queue.json` y el diario append-only `operational-tester-queue-events.jsonl`; Pipeline sólo puede leer la vista. Cada apertura del Tester requiere confirmación individual en el ejecutable. El siguiente paso funcional es convertir resultados `VALIDADA` de Análisis en `BACKTEST_VALIDATED` y habilitar la cola de Incubadora, no abrir testers desde la UI.
+- **G13 evidencia manual de Análisis — importador operativo:** `scripts/import_manual_sqx_mt5_run.py` y `Importar_corrida_manual_G13.bat` sellan de forma idempotente informe MT5, gráficas asociadas, configuración/CSV opcionales y fuentes verificadas contra inventario. `SQX_vs_MT5` v1.3.4 ya archiva automáticamente el CSV MT5, HTML nativo y sidecars, `.ini` efectivo y comparación TXT/HTML con hashes para que una corrida futura pueda pasar al importador sin relanzar el Tester. Los dos AUDCAD históricos permanecen `REPORT_ONLY`, porque sus CSV ya no existen y no se fabrica evidencia retrospectiva. Próximo dato necesario para ellos: una comparación voluntaria que genere/entregue CSV y TXT con `VEREDICTO`; no se registra `BACKTEST_VALIDATED` desde un HTML nativo.
 - **G13 alpha decay real:** el inventario de gráfico, magic y fuente EA de JJTI/BEPB ya ancla las 40 altas F7 externas. El preflight de 35 pares dejó 8 aptos, 25 `WITHHELD_TICKS` y 2 `WITHHELD_SOURCE`; una sola corrida apta está iniciada en el Tester Darwinex aislado. Tras cada resultado sellado se compararán baseline/backtest, OOS real sellado y ventana forward creciente. El histórico HTML sin magic permanece huérfano, y ningún resultado implica promoción ni altera cuentas reales.
 - **G13 reconstrucción AlgoWizard de retenidos:** `OROLONGLIMITSPPSTRH1D1 4.7.77` (BEPB/JJTI), `SP500LONGD1 REVERSION SL 2.86.54` y `SPA35LONGD1 REVERSION SL 1.31.56` tienen fuente `.mq5` y un plan de reconstrucción semántica sellada; los nuevos `.sqx` llevarán procedencia `RECONSTRUCTED_FROM_MQL5` y exigirán comparación fuente-vs-reconstruido antes del OOS real. `EURUSD_SELL_STOP_H4_LC_3.8.141` sólo conserva `.ex5`: queda bloqueada hasta recuperar un `.mq5` verificable, sin ingeniería inversa ni aproximación. Ver `docs/g13_algowizard_reconstruction_plan.md`.
 - **G13 inventario EA externo:** los dos registros de magic del operador ya están sellados; las 40 asociaciones verificadas se incorporaron idempotentemente a F7 como `EXTERNAL_PRODUCTION` y a `external_ea_inventory` (BEPB 26, JJTI 14), con cuenta, comentario, magic, archivo/ruta `.ex5` y SHA-256. Quedan fuera 13 asociaciones ambiguas entre binarios con misma versión y hash distinto, una sin versión contrastable y dos filas BEPB con colisión `magic=10827`; no se seleccionan por nombre.
@@ -168,7 +193,7 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
 - **G13 post-scan de migración — COMPLETADO EN LECTURA:** la lectura SSH/SFTP tras la persistencia manual observa los 40 pares aprobados cuenta+magic como `MIGRATION_OBSERVED`. JJTI conserva dos pares de ficheros `.chr` que serializan respectivamente el mismo gráfico interno: `chart17`/`chart19` (magic `30`) y `chart18`/`chart20` (magic `19`); EA, magic, comment y símbolo son idénticos y sólo cambia información visual. El escáner los deduplica por ID raíz MT5, mantiene todas las rutas como evidencia y falla cerradamente si un mismo ID declara otra identidad. El NQ de JJTI magic `38` queda sellado como `OPERATOR_RETAINED_OUT_OF_PROPOSAL`, sin reasignar ese magic ni alterar el lote aprobado. El comparador acepta sólo las formas exactas `.`/`_` de `CustomComment` y conserva el alias explícito Darwinex `DAX|DAX40` → `GDAXI`, manteniendo ambos símbolos. Hash EX5 y timeframe se heredan del F7 sellado bajo la confirmación del operador de que sólo variaron archivo/magic/comment; cuenta, gráfico, archivo, magic, comment y símbolo se vuelven a observar. Referencias: `docs/g13_magic_identity_migration_plan.md`, `docs/g13_magic_identity_operator_review.md` e informe local `runtime/operational/magic_identity/post_migration_scan_report.json`.
 - **G13 análisis/backtest:** 227 parejas mantienen la admisión de inventario `STATIC_VALIDATED` y además su fuente WFM queda registrada como `STATIC_VALIDATED_WFM`, con criterios extraídos del `project.cfx` sellado. Esto no es `BACKTEST_VALIDATED`: falta ejecutar `SQX_vs_MT5` secuencialmente desde 2018 hasta la fecha de cada corrida, sellar report/trades/comparación y aplicar el veredicto propio de la herramienta. La razón WFM OOS/IS es `DERIVED_UNMAPPED` hasta validar su equivalencia con F2 o disponer de evidencia forward/MT5.
 - **G13 terminal de backtest:** el operador autorizó el terminal Darwinex seleccionado en `SQX_vs_MT5` para Strategy Tester exclusivamente. El lanzador exige manifiesto F7, preflight `PREFLIGHT_OK`, `--max-runs` positivo, AutoTrading desactivado, identidad exacta de terminal y ticks completos; no usa ni cambia `terminal_despliegue`. El primer arranque fue rechazado antes del Tester porque la instancia configurada no aceptó cierre limpio; hay que liberar o corregir sólo ese terminal, nunca forzar el cierre de JJTI/BEPB.
-- **G13 incubadora:** no hay candidatos de `ANALYSIS` elegibles ni gráficos adjuntados; los F7 externos son observabilidad y no cuentan para incubación. La cola FIFO y el límite de 8 sólo pueden actuar después del gate de backtest/baseline; el contrato demo será 10 % de capital, 0,2 % por trade y DD contractual 5 % durante la gracia explícita.
+- **G13 incubadora:** la cuenta `BROKER_DEMO` ya existe, pero no hay eventos `BACKTEST_VALIDATED`, baseline ni gráficos adjuntados; los F7 externos son observabilidad y no cuentan para incubación. La cola FIFO y el límite de 8 sólo pueden actuar después del gate de backtest/baseline y del manifest explícito de inputs por EA; el contrato demo será 10 % de capital, 0,2 % por trade y DD contractual 5 % durante la gracia explícita. Ver `docs/g13_closure_gate_matrix.md`.
 - **G13 UI:** Bots, Pipeline y Cuentas/EA exponen procedencia y filtros de API. Faltan selectores/etiquetas consistentes para Portfolio, Salud, Riesgo, Auditoría y Dominical, más el recorrido autenticado/WebSocket que diferencie `BROKER_REAL`, `BROKER_DEMO`, `FIXTURE`, `DERIVED` y `ABSENT`.
 - **G13 ejecución segura del histórico:** el terminal remoto JJTI tiene EAs reales en funcionamiento. No se debe usar `terminal64.exe /config` para lanzar un script de exportación sobre esa instancia hasta contar con un procedimiento que no abra/cierre ni cambie el perfil de la terminal activa; el CSV legado no se importa porque no cumple el contrato de deduplicación sellada.
 

@@ -420,3 +420,27 @@ Verificación ejecutada sobre el plan completo, punto por punto:
 3. **P2.3** — `mt5_bepb`, `mt5_jjti` y `mt5-darwinex` devuelven `ConnectionRefused` en esta
    sesión (`backlog A23`). No es una capacidad ausente, es una conexión caída.
 
+
+## Addendum 2026-09-02 (tarde) — por qué la cola seguía siendo toda AUDCAD
+
+Tras exportar el operador las 22 parejas de XAUUSD H4 y correr RETEST OOS + Monte Carlo en
+DAX40 M30 y NASDAQ, el inventario subió de 375 a **397 STATIC_VALIDATED**, pero la cola de
+validación seguía siendo 24 de `AUDCAD/H4`. La causa no era el reparto por turnos ni los
+umbrales: **dos bugs de emparejamiento míos ocultaban evidencia que ya estaba en disco.**
+
+| bug | efecto | cierre |
+| --- | --- | --- |
+| El resolutor trataba `PortfolioSeleccion` como origen posible | 8 retenidas `AMBIGUOUS_PROJECT_HASH_MATCH` | `A32` — desempate por tarea `Build` |
+| El extractor comparaba el databank byte a byte (`Forward` ≠ `FORWARD`) | 57 retenidas con la evidencia delante | `A33` — comparación en casefold |
+
+Con los dos cerrados: **fuentes 397/397 resueltas (0 retenidas)** y el motivo de retención se
+desplaza al gate siguiente, que ya es un hueco de datos real y no un fallo de código.
+
+**Lo que queda es trabajo en SQX, no en StratOS.** Ver la tabla por proyecto en `backlog A30`.
+El hallazgo que importa: un databank `WFM` con `.sqx` dentro **no** prueba que la matriz se
+corriera. El `.sqx` de AUDCAD que sí valida lleva 30 corridas `Results/WF: N runs : X % OOS`;
+los de XAUUSD H1 (0 de 113) y DAX40 SesionTarde (0 de 14) sólo llevan `Results/Main`. Están
+depositados en un databank llamado WFM sin haber pasado por la tarea.
+
+Mientras tanto `AUDCAD/H4` es el único grupo con evidencia completa (232 de 397), así que
+llena la cola por mérito propio, no por un sesgo del reparto.
