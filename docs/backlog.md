@@ -134,6 +134,18 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   `AUDCAD/H4`. El orden por mérito global favorece al grupo grande, no al mejor portfolio.
   Ahora se reparte por turnos entre grupos, conservando el mérito dentro de cada uno; un
   grupo único sigue llenando la cola entera.
+- **[A34] El operador del stack operacional no puede iniciar sesión** — su fila en `user`
+  guarda **13 caracteres en claro** donde va un hash Argon2 (verificado en la base:
+  `hashed_password` no empieza por `$argon2`). `verify_password` llama a `Argon2.verify`, que
+  lanza `InvalidHashError` con un texto plano y devuelve `False`: **ningún login puede
+  funcionar**, y falla sin decir por qué. Es la causa real de que P4.2 (recorrido autenticado)
+  siguiera pendiente. `bootstrap_operational_operator.py` ya rechaza el alta si el valor no es
+  un hash Argon2 y da el comando para generarlo, pero **la fila existente hay que repararla**:
+  eso exige tocar `.env.operational` y la base, y lo hace el operador. La credencial **nunca
+  llegó al historial de git** (auditado: `.env.operational` jamás rastreado, el `.example`
+  siempre con placeholders); sí se escribió por error en `.env.operational.example`, revertido
+  antes de comitear.
+
 - ~~**[A32] El resolutor retenía 8 candidatas por un empate que no era tal**~~ **RESUELTO
   2026-09-02**: `PortfolioSeleccion` importa los `.sqx` ya construidos, así que su hash coincide
   igual que en el proyecto que los minó, y el resolutor retenía con
