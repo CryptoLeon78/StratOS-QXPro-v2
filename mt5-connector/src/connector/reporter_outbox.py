@@ -23,7 +23,9 @@ def canonicalize_reporter_event(batch_type: str, event: dict[str, object]) -> di
     antes de verificar el sello; sin esta conversión, un payload válido da 422
     por sello distinto. No se modifica el JSONL de origen.
     """
-    normalized = json.loads(json.dumps(event))
+    # json.loads devuelve Any: la copia profunda se anota explicitamente para no
+    # propagar ese Any al retorno declarado (mypy --strict, no-any-return).
+    normalized: dict[str, object] = json.loads(json.dumps(event))
     if batch_type == "ea_state":
         eas = normalized.get("eas")
         if not isinstance(eas, list):
