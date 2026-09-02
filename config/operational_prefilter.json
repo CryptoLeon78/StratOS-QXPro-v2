@@ -18,8 +18,9 @@
     "max_per_symbol_timeframe": null
   },
   "incubator_admission": {
-    "$comment": "Cuántas pueden CONVIVIR en Incubadora. Aquí el tope por símbolo/timeframe sí protege: ocho bots del mismo par y marco temporal no son ocho apuestas, son una con ocho nombres, y el kill-switch las vería caer juntas. DECLARADO, NO APLICADO: la Incubadora está bloqueada y ningún código admite todavía. El prefiltro sólo marca qué candidatas lo excederían, sin retenerlas.",
+    "$comment": "Cuántas pueden CONVIVIR en Incubadora, con los dos criterios de descorrelación. ESTRUCTURAL (max_per_symbol_timeframe): ocho bots del mismo par y marco temporal no son ocho apuestas, son una con ocho nombres, y el kill-switch las vería caer juntas. ESTADÍSTICO (max_abs_correlation): dos AUDCAD/H4 con correlación 0,2 diversifican y dos con 0,9 no, aunque el tope estructural los deje pasar; y dos instrumentos distintos con 0,95 tampoco, aunque ningún tope por símbolo los toque. El tope estructural aproxima la diversidad, la correlación la mide: se aplican los dos. Se compara en valor absoluto porque una correlación -0,95 es la misma apuesta al revés. Gate en core/services/incubator_admission.py; DECLARADO Y NO APLICADO mientras la Incubadora siga bloqueada -- el prefiltro sólo marca qué candidatas excederían el tope estructural.",
     "max_per_symbol_timeframe": 2,
-    "max_concurrent": 8
+    "max_concurrent": 8,
+    "max_abs_correlation": 0.7
   }
 }
