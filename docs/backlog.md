@@ -118,6 +118,22 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   **Comprobado de punta a punta con `USDJPYH1Lcity_2.22.171`**: sin `--identity-registry` el
   registro falla con el error original; con él traduce `200730 -> 13` y sella `asset_id=248`.
 
+- **[A26] 95 candidatas de otros activos bloqueadas por el export a MQL5** — el barrido de
+  las carpetas `Forward` (2026-09-02, `scripts/scan_forward_candidates.py`) encontró **333
+  elegibles** en cinco grupos, pero el inventario operacional exige `.sqx` **y** fuente MQL5
+  y esas carpetas sólo contienen `.sqx`. Por eso el inventario actual es todo AUDCAD: es lo
+  único exportado a `EAs_SQX_guardados/Analisis/`. Las mejores del universo **no son AUDCAD**
+  (DAX40 M30 PF 2,17 · XAUUSD H4 PF 2,19 · NASDAQ H1 PF 2,69). El export lo hace SQX desde su
+  UI y su API remota no lo expone, así que es una acción del operador: la lista priorizada de
+  22 está en `docs/CANDIDATAS_FORWARD_2026-09-02.md`.
+- **[A27] `pipeline_min_freq_week=2` no encaja con el estilo minado** — con el gate F4
+  completo **ninguna de las 433 candidatas Forward pasa**, y el único criterio que las tumba
+  es la frecuencia semanal: la mediana va de 0,53 a 0,95 operaciones por semana según el
+  activo y la mejor de todo el universo llega a 1,95. El prefiltro operacional ya lo trata
+  como advertencia y no como veto (G13-05), así que hoy no bloquea nada — pero el gate F4 sí
+  lo aplica, y una candidata que llegue a F4 se quedaría ahí para siempre. Decidir con el
+  operador: bajar el umbral a algo coherente con estrategias de ~1 operación semanal, o
+  declararlo explícitamente como no aplicable a este universo.
 - **[A20] La Incubadora tiene cuenta pero no mecanismo de adjunto** — `account_id=3`
   (`INCUBADORA`, `5055093171`, `MetaQuotes-Demo`, `BROKER_DEMO`) ya está registrada y el gate
   de admisión con los dos criterios de descorrelación está construido y probado. Faltan las
