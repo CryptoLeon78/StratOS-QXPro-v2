@@ -121,12 +121,16 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   demo (A20), leyendo `incubator_admission` de `config/operational_prefilter.json` y las series
   de PnL de los ocupantes. La serie del candidato saldrá del backtest SQX: la evidencia debe
   declarar que la correlación es backtest-contra-real.
-- **[A22] La cola F7 sigue sin poder lanzarse con el terminal Darwinex abierto** — los retests
-  SQX están actualizados y la cola regenerada el 2026-09-02 confirma que **no cambió**: mismos
-  13 `READY_FOR_TICK_BACKTEST` y mismos hashes que la del 28-08. Quedan 2 expedientes
-  `PREFLIGHT_OK` sin correr (`USDJPYH1Lcity_3.16.113`, `USDJPYH1Lcity_2.22.171`). El lanzador
-  exige cierre limpio de esa instancia y no fuerza procesos; como el Darwinex mantiene
-  conectadas JJTI y BEPB, cerrarlo es decisión del operador.
+- **[A22] Los 2 backtests F7 pendientes esperan a que el Darwinex acepte el cierre** — los
+  retests SQX están actualizados y la cola regenerada el 2026-09-02 confirma que **no cambió**:
+  mismos 13 `READY_FOR_TICK_BACKTEST` y mismos hashes que la del 28-08. Quedan
+  `USDJPYH1Lcity_3.16.113` y `USDJPYH1Lcity_2.22.171`. Con autorización del operador se lanzó
+  el primero con `--manage-backtest-terminal`, y **falló cerrado**: «MT5 no aceptó el cierre
+  limpio de la instancia de backtest». El mecanismo usa `CloseMainWindow()` y espera 30 s; no
+  usa `Stop-Process` por diseño, para no matar una sesión con una cuenta real conectada —el
+  terminal tenía JJTI (`4000059903`) en modo sólo lectura—. No se forzó nada y no quedó
+  ningún artefacto a medias. **Hace falta que el operador cierre esa instancia a mano**
+  (probablemente hay un diálogo esperando); después, el lanzador individual corre sin más.
 - **[A23] Los MCP de MT5 no conectan en esta sesión** — `mt5_bepb`, `mt5_jjti` y `mt5-darwinex`
   devuelven `ConnectionRefused`. Bloquea P2.3 (telemetría viva read-only en continuo), que
   necesita hablar con esos terminales. No es una capacidad ausente: es una conexión caída.
