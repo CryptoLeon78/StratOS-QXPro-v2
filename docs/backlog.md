@@ -101,15 +101,23 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
 
 ## Pendiente tras el cierre de A15-A19 — 2026-09-02
 
-- **[A24] El ejecutor de cola F7 no conoce las corridas lanzadas a mano** — las 4 comparaciones
-  del 2026-09-01 (`asset_id` 243-246) se lanzaron con `run_operational_sqx_mt5_backtest.py`,
-  no por la cola, así que no figuran en su log (`queue.jsonl`, que sólo tiene 6 `COMPLETED` de
-  la campaña anterior al renombrado MN). Consecuencia real: al ejecutar la cola el 2026-09-02
-  empezó a **repetir** esas cuatro en vez de ir a las dos pendientes; se paró antes de que
-  terminara ninguna y sólo dejó dos manifiestos `mode=preflight` sin resultado, que el
-  reclasificador ignora. Hasta que el log refleje lo lanzado a mano, usar el lanzador
-  individual para los expedientes que falten, o reconstruir el log desde los manifiestos
-  sellados.
+- ~~**[A24] El ejecutor de cola F7 no conoce las corridas lanzadas a mano**~~ **RESUELTO
+  2026-09-02**: `sealed_identities()` deriva lo ya comparado de los **manifiestos sellados**
+  de `backtests_live/`, no sólo del log de la cola, cruzando por `sqx_sha256` —la identidad
+  del artefacto— porque el renombrado MN movió las carpetas y un cruce por ruta perdería
+  comparaciones válidas. No cuentan como comparación: un `mode=preflight`, un `returncode`
+  distinto de 0 ni un hash que la cola no declare. Un manifiesto ilegible se salta en vez de
+  abortar el barrido. Efecto medido: la cola pasa de 6 candidatos a **1**
+  (`USDJPYH1Lcity_2.22.171`), reconociendo 9 identidades ya selladas.
+- **[A25] La cola y los manifiestos F7 usan magics legacy; la base usa los vigentes** —
+  descubierto al registrar las corridas del 2026-09-02: `record_operational_backtest.py`
+  falló con «F7 externo no encontrado por cuenta y magic exactos» porque la cola declara
+  `magic=200732` (legacy) mientras el bot ya tiene el vigente (`3`) tras
+  `sync_bot_magics_to_migration.py`. Se registró pasando el magic vigente, pero **cualquier
+  herramienta que cruce por el magic de la cola tiene el mismo problema**: o traduce con
+  `build_legacy_magic_map()`, o la cola se regenera con los magics vigentes. Afecta al menos
+  a `record_operational_backtest.py` y a `f7_identities()`.
+
 - **[A20] La Incubadora tiene cuenta pero no mecanismo de adjunto** — `account_id=3`
   (`INCUBADORA`, `5055093171`, `MetaQuotes-Demo`, `BROKER_DEMO`) ya está registrada y el gate
   de admisión con los dos criterios de descorrelación está construido y probado. Faltan las
@@ -121,16 +129,15 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   demo (A20), leyendo `incubator_admission` de `config/operational_prefilter.json` y las series
   de PnL de los ocupantes. La serie del candidato saldrá del backtest SQX: la evidencia debe
   declarar que la correlación es backtest-contra-real.
-- **[A22] Los 2 backtests F7 pendientes esperan a que el Darwinex acepte el cierre** — los
-  retests SQX están actualizados y la cola regenerada el 2026-09-02 confirma que **no cambió**:
-  mismos 13 `READY_FOR_TICK_BACKTEST` y mismos hashes que la del 28-08. Quedan
-  `USDJPYH1Lcity_3.16.113` y `USDJPYH1Lcity_2.22.171`. Con autorización del operador se lanzó
-  el primero con `--manage-backtest-terminal`, y **falló cerrado**: «MT5 no aceptó el cierre
-  limpio de la instancia de backtest». El mecanismo usa `CloseMainWindow()` y espera 30 s; no
-  usa `Stop-Process` por diseño, para no matar una sesión con una cuenta real conectada —el
-  terminal tenía JJTI (`4000059903`) en modo sólo lectura—. No se forzó nada y no quedó
-  ningún artefacto a medias. **Hace falta que el operador cierre esa instancia a mano**
-  (probablemente hay un diálogo esperando); después, el lanzador individual corre sin más.
+- **[A22] Queda 1 backtest F7 pendiente: `USDJPYH1Lcity_2.22.171`** — la cola regenerada el
+  2026-09-02 no cambió respecto a la del 28-08 (mismos 13 `READY`, mismos hashes). De los dos
+  que faltaban, `USDJPYH1Lcity_3.16.113` se comparó dos veces el 2026-09-02 (07:34 y 07:46
+  UTC), ambas con veredicto **DISCREPANTE**, y quedaron registradas como `asset_id=247`,
+  `WITHHELD`; el contrato direccional no las cambia. Un intento de lanzar el restante falló
+  cerrado —«MT5 no aceptó el cierre limpio»— porque el terminal Darwinex estaba en uso con
+  JJTI conectada; el mecanismo usa `CloseMainWindow()` y nunca `Stop-Process`, así que no se
+  forzó nada. Con el terminal libre, el lanzador individual corre sin más.
+
 - **[A23] Los MCP de MT5 no conectan en esta sesión** — `mt5_bepb`, `mt5_jjti` y `mt5-darwinex`
   devuelven `ConnectionRefused`. Bloquea P2.3 (telemetría viva read-only en continuo), que
   necesita hablar con esos terminales. No es una capacidad ausente: es una conexión caída.
