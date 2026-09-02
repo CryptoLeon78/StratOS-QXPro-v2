@@ -130,3 +130,27 @@ Ver `config/small_scale.yaml` — documento de referencia estático (decisión G
 - [ ] **Primer domingo del mes**: bots vs backtest (rebalanceo de bloques si |Δ|>10 pp); correlaciones; **ejecutar el retiro mensual** — una línea más del checklist, nunca un impulso; retiro mensual SIN EXCEPCIÓN aunque el mes sea negativo (es nómina: retorno medio 2,69% vs max DD 4,76%).
 - [ ] **Trimestral**: robustez, alpha decay, informe de coste de impulsos.
 - [ ] **Enero**: reestructuración anual (resolver pares redundantes, contratos Monte Carlo, overstay de challengers).
+
+## Admisión operacional sin depender del agente
+
+`StratOS_Operacional.bat`, en la raíz de la instalación de SQX, es el punto de entrada del
+operador. Dos modos:
+
+- **Refrescar** — inventario de Análisis, resolución de fuentes SQX, extracción de evidencia
+  (Monte Carlo, costes, WFM) y prefiltro. **No abre MT5.**
+- **Sesión completa** — además propone backtests y pide `SI` antes de cada uno.
+
+Los cuatro pasos del refresco dependen unos de otros y se pasan manifiestos entre sí; lanzar
+`operational_inventory.py` y `operational_prefilter.py` sueltos se salta la resolución de
+fuentes y la extracción de evidencia, y el prefiltro acaba leyendo evidencia vieja.
+
+**Requisito para que aparezcan candidatas nuevas**: sus `.sqx` **y** `.mq5` juntos en
+`EAs_SQX_guardados\Analisis\<proyecto>\Forward_finalistas\`. El `.mq5` se genera exportando
+desde SQX (*Export → MQL5 Expert Advisor*); una carpeta con sólo `.sqx` no se inventaría —
+ver `docs/CANDIDATAS_FORWARD_2026-09-02.md`.
+
+**Por qué esto no es un botón del panel web**: `core-engine` corre en un contenedor y no ve
+las rutas locales de SQX ni el terminal MT5. Un botón en la UI exigiría que un servicio web
+lanzara procesos del host, que es justo la superficie que el diseño evita: el lanzador es el
+punto de entrada humano por decisión explícita (ASSUMPTIONS G13-10), con confirmación por
+corrida y sin ninguna ruta de envío de órdenes.
