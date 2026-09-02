@@ -75,6 +75,19 @@ def validate_artifact(raw: dict[str, Any]) -> dict[str, str]:
     return {"path": str(path.resolve()), "sha256": actual}
 
 
+def in_bucket(artifact: Any, bucket: str) -> bool:
+    """¿Este artefacto vive en ese databank?
+
+    SQX no impone el nombre del databank: el mismo bucket aparece como
+    ``Forward`` en un proyecto y ``FORWARD`` en otro. Se compara el nombre
+    completo sin distinguir mayúsculas -- nunca por prefijo, que confundiría
+    ``RETEST OOS Darwinex`` con ``RETEST OOS``.
+    """
+    if not isinstance(artifact, dict):
+        return False
+    return str(artifact.get("databank_bucket", "")).casefold() == bucket.casefold()
+
+
 def preferred_artifact(item: dict[str, Any], bucket: str) -> dict[str, Any]:
     # Forward es la fuente que el resolutor demostró contra la exportación de
     # Análisis. Si el databank conserva variantes adicionales, esa coincidencia
@@ -83,7 +96,7 @@ def preferred_artifact(item: dict[str, Any], bucket: str) -> dict[str, Any]:
         source_matches = [
             artifact
             for artifact in item.get("source_matches", [])
-            if isinstance(artifact, dict) and artifact.get("databank_bucket") == bucket
+            if in_bucket(artifact, bucket)
         ]
         if len(source_matches) == 1:
             return source_matches[0]
@@ -92,7 +105,7 @@ def preferred_artifact(item: dict[str, Any], bucket: str) -> dict[str, Any]:
     candidates = [
         artifact
         for artifact in item.get("validation_artifacts", [])
-        if isinstance(artifact, dict) and artifact.get("databank_bucket") == bucket
+        if in_bucket(artifact, bucket)
     ]
     if not candidates:
         raise ValueError(f"{bucket}: artefacto no resuelto")

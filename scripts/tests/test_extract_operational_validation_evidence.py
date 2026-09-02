@@ -77,3 +77,43 @@ def test_wfm_project_criteria_reads_the_active_retest_task(tmp_path: Path) -> No
     assert result["criteria"]["task"]["xml"] == "Retest-Task6.xml"
     assert result["criteria"]["walk_forward"]["period"] == "10"
     assert result["criteria"]["acceptance"]["thresholdPct"] == "80"
+
+
+def test_preferred_artifact_ignora_las_mayusculas_del_databank() -> None:
+    """SQX no impone el nombre del databank y cada proyecto lo escribe a su manera.
+
+    En el workspace conviven `Forward` (NASDAQ) y `FORWARD` (DAX40, XAUUSD H4):
+    son el mismo bucket, y compararlos byte a byte retenía la evidencia de dos
+    activos enteros por una diferencia de mayúsculas.
+    """
+    item = {
+        "strategy_identifier": "1.2.3",
+        "strategy_name": "Strategy 1.2.3",
+        "source_matches": [],
+        "validation_artifacts": [
+            {"path": "forward.sqx", "sha256": "a", "databank_bucket": "FORWARD"},
+            {"path": "oos.sqx", "sha256": "b", "databank_bucket": "retest oos"},
+        ],
+    }
+
+    assert preferred_artifact(item, "Forward")["path"] == "forward.sqx"
+    assert preferred_artifact(item, "RETEST OOS")["path"] == "oos.sqx"
+
+
+def test_preferred_artifact_no_confunde_databanks_de_nombre_parecido() -> None:
+    """`RETEST OOS Darwinex` es otro databank, no una variante de `RETEST OOS`."""
+    item = {
+        "strategy_identifier": "1.2.3",
+        "strategy_name": "Strategy 1.2.3",
+        "source_matches": [],
+        "validation_artifacts": [
+            {"path": "otro.sqx", "sha256": "a", "databank_bucket": "RETEST OOS Darwinex"},
+        ],
+    }
+
+    try:
+        preferred_artifact(item, "RETEST OOS")
+    except ValueError as error:
+        assert "no resuelto" in str(error)
+    else:  # pragma: no cover - la aserción vive en el except
+        raise AssertionError("un databank distinto no debe resolverse como RETEST OOS")
