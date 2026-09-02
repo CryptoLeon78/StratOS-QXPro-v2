@@ -17,6 +17,11 @@ from core.config import get_settings
 from core.db.base import async_session_factory
 from core.db.models.governance import User
 
+# El valor se guarda tal cual en `hashed_password`, y el login lo verifica con
+# Argon2. Un texto plano crea un operador que no puede entrar nunca: Argon2
+# lanza InvalidHashError y `verify_password` devuelve False sin decir por qué.
+ARGON2_PREFIX = "$argon2"
+
 
 async def bootstrap() -> str:
     settings = get_settings()
@@ -26,6 +31,12 @@ async def bootstrap() -> str:
     password_hash = settings.operator_password_hash.strip()
     if not email or "@" not in email or not password_hash:
         raise SystemExit("faltan OPERATOR_EMAIL u OPERATOR_PASSWORD_HASH locales válidos")
+    if not password_hash.startswith(ARGON2_PREFIX):
+        raise SystemExit(
+            "OPERATOR_PASSWORD_HASH no es un hash Argon2. Genéralo con:\n"
+            '  python -c "from argon2 import PasswordHasher; '
+            'print(PasswordHasher().hash(input()))"'
+        )
     async with async_session_factory() as session:
         existing = await session.scalar(select(User).where(User.email == email))
         if existing is not None:
