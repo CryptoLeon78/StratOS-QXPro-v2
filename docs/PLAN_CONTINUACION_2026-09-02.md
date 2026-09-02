@@ -399,6 +399,23 @@ Verificación ejecutada sobre el plan completo, punto por punto:
 | P5.0 tope de validación | **HECHO** | política v3, cola de 2 a 24 |
 | P6 higiene | **HECHO** | MCP `stratos` en Codex, inventario de apps corregido |
 
+### CI real — 8 de 10 jobs en verde
+
+Confirmado en el run del último push, no sólo localmente:
+
+| Job | Antes | Ahora |
+|---|---|---|
+| `lint-backend` | rojo | **verde** |
+| `test-backend` | rojo | **verde** |
+| `lint-mt5-connector` | rojo | **verde** |
+| `test-mt5-connector`, `test-integration`, `lint-and-build-frontend`, `lint-and-test-api-gateway`, `lint-and-test-mt5-simulator` | verde | verde |
+| `e2e-acceptance-full` | rojo | rojo — criterio 9 Lyra×Phoenix, desde G10-14, decisión de no investigar |
+| `e2e-playwright` | rojo | rojo — baselines de G10, exige recorrido con navegador |
+
+`lint-mt5-connector` lo destapó el CI, no la verificación local: se había corrido `ruff` sobre
+`mt5-connector` pero no su `mypy`, que usa su propio `pyproject.toml`. Comprobados después los
+cuatro módulos con el comando exacto del workflow.
+
 **Lo que queda, y por qué no depende del agente:**
 
 | Bloque | Qué falta | Quién |
