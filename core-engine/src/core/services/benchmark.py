@@ -12,6 +12,7 @@ CSV solo tiene datos de mercado reales para 2021, el resto es sintetico
 comparar contra el seed real de este sistema puede dar una correlacion
 espuria, no es un bug del calculo."""
 
+import logging
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -23,6 +24,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.db.models.accounts import Account
 from core.db.models.market import EquitySnapshot
 from core.formulas.portfolio import MIN_OLS_POINTS, ols_alpha_beta
+
+logger = logging.getLogger(__name__)
 
 _MONTHS_PER_YEAR = 12
 _DEFAULT_CSV_PATH = Path(__file__).resolve().parents[4] / "scripts" / "data" / "sp500_monthly.csv"
@@ -55,6 +58,19 @@ def load_sp500_monthly(csv_path: Path | None = None) -> pd.Series:
     la ruta resuelta contra la raiz del repo (`Settings.benchmark_csv_path`
     la sobrescribe si esta definida, ver `routers/portfolio.py`)."""
     path = csv_path if csv_path is not None else _DEFAULT_CSV_PATH
+    if not path.is_file():
+        # Un fichero de referencia que no esta es una AUSENCIA, no un fallo del servidor:
+        # `compare_to_benchmark` devuelve None con una serie vacia y el endpoint lo sirve
+        # como `null`, que es lo que la pestana Portfolio sabe pintar. Antes reventaba con
+        # FileNotFoundError -> 500, y el recorrido autenticado del 2026-09-02 lo encontro en
+        # el stack operacional porque `_DEFAULT_CSV_PATH` se calcula con `parents[4]`, que
+        # dentro del contenedor resuelve a `/scripts/data/...` en vez de a la raiz del repo.
+        # Se registra con la ruta buscada: una ausencia declarada no es una ausencia callada.
+        logger.warning(
+            "benchmark_csv_missing",
+            extra={"path": str(path), "consequence": "portfolio_benchmark_unavailable"},
+        )
+        return pd.Series(dtype=float)
     frame = pd.read_csv(path, parse_dates=["date"])
     return frame.set_index("date")["monthly_return"].astype(float)
 

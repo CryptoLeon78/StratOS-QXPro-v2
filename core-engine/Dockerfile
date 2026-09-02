@@ -29,6 +29,9 @@ WORKDIR /app
 COPY --from=builder /install /usr/local
 COPY core-engine/src ./src
 COPY core-engine/alembic ./alembic
+# Dato de referencia del benchmark de Portfolio: viaja con la imagen porque el
+# servicio lo necesita en runtime. Sin el, GET /portfolio/benchmark devolvia 500.
+COPY scripts/data ./scripts/data
 COPY core-engine/alembic.ini ./alembic.ini
 ENV PYTHONPATH=/app/src
 EXPOSE 8000

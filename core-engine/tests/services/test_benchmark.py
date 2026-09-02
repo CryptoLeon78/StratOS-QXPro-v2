@@ -7,6 +7,7 @@ estandar de la industria, no formulas contractuales de PARTE 8."""
 
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -130,3 +131,37 @@ class TestPortfolioMonthlyReturns:
     async def test_no_snapshots_returns_empty_series(self, db_session: object) -> None:
         result = await portfolio_monthly_returns(db_session, datetime.now(UTC))  # type: ignore[arg-type]
         assert result.empty
+
+
+class TestMissingBenchmarkCsv:
+    """Sin CSV de benchmark, ausencia declarada -- nunca un 500 (backlog G12).
+
+    El recorrido autenticado del 2026-09-02 encontró `GET /portfolio/benchmark` devolviendo
+    500 en el stack operacional: `_DEFAULT_CSV_PATH` se calcula con `parents[4]`, que dentro
+    del contenedor resuelve a `/scripts/data/...` en vez de a la raíz del repo. Un fichero de
+    referencia que no está es una ausencia, no un fallo del servidor: la pestaña Portfolio
+    debe poder decir "sin benchmark" en vez de romperse.
+    """
+
+    def test_a_missing_file_yields_an_empty_series(self, tmp_path: Path) -> None:
+        serie = load_sp500_monthly(tmp_path / "no_existe.csv")
+
+        assert serie.empty
+
+    def test_an_empty_benchmark_produces_no_comparison(self, tmp_path: Path) -> None:
+        """`compare_to_benchmark` ya devuelve None sin datos; el endpoint lo sirve como null."""
+        portfolio = pd.Series(
+            [0.01, 0.02, -0.01],
+            index=pd.to_datetime(["2026-01-31", "2026-02-28", "2026-03-31"]),
+        )
+
+        assert compare_to_benchmark(portfolio, load_sp500_monthly(tmp_path / "falta.csv")) is None
+
+    def test_an_existing_file_is_still_read(self, tmp_path: Path) -> None:
+        csv = tmp_path / "sp500.csv"
+        csv.write_text("date,monthly_return\n2026-01-31,0.02\n2026-02-28,-0.01\n", encoding="utf-8")
+
+        serie = load_sp500_monthly(csv)
+
+        assert len(serie) == 2
+        assert serie.iloc[0] == 0.02

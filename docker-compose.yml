@@ -49,6 +49,9 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-stratos_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-stratos}
       APP_DATABASE_URL: postgresql+asyncpg://stratos_app:${APP_DB_PASSWORD}@postgres:5432/${POSTGRES_DB:-stratos}
       REDIS_URL: redis://redis:6379/0
+      # La ruta por defecto se resuelve contra la raiz del repo, que dentro del contenedor
+      # no existe: se declara explicitamente en vez de que el servicio la adivine (P11).
+      BENCHMARK_CSV_PATH: /app/scripts/data/sp500_monthly.csv
     depends_on:
       postgres:
         condition: service_healthy
