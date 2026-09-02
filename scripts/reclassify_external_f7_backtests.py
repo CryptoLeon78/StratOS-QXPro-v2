@@ -16,8 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from record_operational_backtest import VERDICT_PATTERN, load_manifest, seal_payload
-
+from record_operational_backtest import load_manifest, seal_payload
 
 METRIC_PATTERN = re.compile(
     r"^(Net Profit|Profit Factor|Max DD %|# Trades)\s+([0-9,.]+)\s+([0-9,.]+)",
@@ -50,6 +49,26 @@ def config_sha256(config_path: Path) -> str:
     return hashlib.sha256(config_path.read_bytes()).hexdigest()
 
 
+def _fuente_desaparecida(raw_manifest: dict[str, Any]) -> str | None:
+    """Ruta de la fuente si la corrida pertenece a una campaña ya superseded.
+
+    El renombrado MN movió las carpetas de estrategia bajo
+    `user/Estrategias_script_mt5_real_BEPB_y_JJTI/`, así que un `sqx_path` que ya no existe
+    identifica una comparación de la campaña **anterior**. Esas corridas conservan su
+    evidencia sellada y su veredicto sigue siendo válido para lo que se midió entonces,
+    pero no forman parte de la campaña vigente y nunca se registraron en la base.
+
+    Se comprueba la existencia del fichero, no el nombre: un criterio por patrón de nombre
+    se rompería con el próximo renombrado.
+    """
+    source = raw_manifest.get("source") or {}
+    for clave in ("sqx_path", "mq5_path"):
+        ruta = source.get(clave)
+        if isinstance(ruta, str) and ruta and not Path(ruta).exists():
+            return ruta
+    return None
+
+
 def reclassify(manifest_root: Path, panel_dir: Path, config_path: Path) -> dict[str, Any]:
     sys.path.insert(0, str(panel_dir))
     import compare_sqx_vs_mt5 as comparator
@@ -58,9 +77,20 @@ def reclassify(manifest_root: Path, panel_dir: Path, config_path: Path) -> dict[
     configured = config.cargar()
     comparator.UMBRALES = configured["umbrales"]
     entries: list[dict[str, Any]] = []
+    superseded: list[dict[str, str]] = []
     for manifest_path in sorted(manifest_root.rglob("run-manifest.json")):
         raw_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         if raw_manifest.get("mode") != "launch" or raw_manifest.get("result", {}).get("returncode") != 0:
+            continue
+        obsoleta = _fuente_desaparecida(raw_manifest)
+        if obsoleta is not None:
+            # Campaña superseded: el renombrado MN movió las carpetas de estrategia, así que
+            # una corrida cuya fuente ya no existe pertenece a la campaña anterior. Su
+            # veredicto se recalcularía igual de bien --el manifiesto está sellado-- pero
+            # infla el recuento y obliga a retener una entrada en cada persistencia, porque
+            # esas corridas nunca llegaron a registrarse en la base. Se listan aparte.
+            superseded.append({"run_id": raw_manifest.get("run_id", manifest_path.parent.name),
+                               "missing_source": obsoleta})
             continue
         manifest, original_verdict = load_manifest(manifest_path)
         metrics = extract_metrics(str(manifest["result"]["stdout"]))
@@ -95,11 +125,13 @@ def reclassify(manifest_root: Path, panel_dir: Path, config_path: Path) -> dict[
         "panel_config_sha256": config_sha256(config_path),
         "thresholds": configured["umbrales"],
         "entries": entries,
+        "superseded_runs": superseded,
         "summary": {
             "runs": len(entries),
             "changed_verdicts": sum(
                 entry["original_verdict"] != entry["reclassified_verdict"] for entry in entries
             ),
+            "superseded": len(superseded),
         },
     }
     payload["payload_sha256"] = seal_payload(payload)
