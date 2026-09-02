@@ -16,8 +16,39 @@ from datetime import UTC, datetime
 from pathlib import Path, PureWindowsPath
 from typing import Any
 
-
 VERDICT_PATTERN = re.compile(r"VEREDICTO:\s*(VALIDADA|TOLERABLE|DISCREPANTE)")
+
+
+def resolve_external_magic(
+    magic_number: int, identity_registry: Path | None
+) -> tuple[int, bool]:
+    """Traduce un magic anterior a la migración MN al vigente, si hace falta.
+
+    La cola y los manifiestos F7 declaran los magics que los EAs emitían **antes** de la
+    migración de identidad compacta; la tabla `bot` tiene los vigentes desde
+    `sync_bot_magics_to_migration.py`. Registrar una corrida pasando el magic de la cola
+    fallaba con "F7 externo no encontrado" aunque el bot existiera: dos fuentes hablando de
+    lo mismo con identidades distintas.
+
+    La traducción sale **exclusivamente** de los `legacy_magic_numbers` del registro
+    append-only aprobado. Sin registro, o con un magic que el registro no conoce, se
+    devuelve tal cual: no se inventa una correspondencia, y el fallo posterior conserva su
+    mensaje propio en vez de resolverse a otro bot.
+
+    Devuelve ``(magic, resuelto_por_traduccion)``; el segundo valor viaja a la evidencia
+    para que la asociación quede auditable.
+    """
+    if identity_registry is None:
+        return magic_number, False
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from magic_identity import build_legacy_magic_map
+
+    destino = build_legacy_magic_map(identity_registry).get(magic_number)
+    if destino is None:
+        return magic_number, False
+    return int(destino["magic_number"]), True
 
 
 def seal_payload(payload: dict[str, Any]) -> str:
@@ -59,6 +90,7 @@ async def persist(
     manifest_path: Path,
     external_account_login: str | None = None,
     external_magic: int | None = None,
+    identity_registry: Path | None = None,
 ) -> str:
     from core.config import get_settings
     from core.db.base import async_session_factory
@@ -88,8 +120,14 @@ async def persist(
             account = await session.scalar(
                 select(Account).where(Account.login == external_account_login)
             )
+            # La cola declara magics anteriores a la migracion MN y la base ya tiene los
+            # vigentes: se traduce antes de buscar, y se deja constancia de por que via se
+            # resolvio (backlog A25).
+            resolved_magic, resolved_via_legacy = resolve_external_magic(
+                int(external_magic), identity_registry
+            )
             bot = await session.scalar(
-                select(Bot).where(Bot.account_id == account.id, Bot.magic_number == external_magic)
+                select(Bot).where(Bot.account_id == account.id, Bot.magic_number == resolved_magic)
             ) if account is not None else None
             if bot is None or bot.origin_kind != BotOriginKind.EXTERNAL_PRODUCTION:
                 raise ValueError("F7 externo no encontrado por cuenta y magic exactos")
@@ -156,7 +194,12 @@ async def persist(
                     "verdict": verdict,
                     "range": manifest["range"],
                     "external_f7": (
-                        {"account_login": external_account_login, "magic_number": external_magic}
+                        {
+                            "account_login": external_account_login,
+                            "magic_number": resolved_magic,
+                            "declared_magic_number": external_magic,
+                            "resolved_via_legacy_magic": resolved_via_legacy,
+                        }
                         if external_account_login is not None else None
                     ),
                 },
@@ -172,6 +215,15 @@ def main() -> None:
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--external-account-login")
     parser.add_argument("--external-magic", type=int)
+    parser.add_argument(
+        "--identity-registry",
+        type=Path,
+        default=None,
+        help=(
+            "registro append-only de identidad; traduce un magic anterior a la migracion MN "
+            "al vigente antes de buscar el bot F7. Sin el, el magic se usa tal cual."
+        ),
+    )
     parser.add_argument("--apply", action="store_true")
     args = parser.parse_args()
     manifest_path = args.manifest.resolve()
@@ -180,7 +232,12 @@ def main() -> None:
         print(f"verified run_id={manifest['run_id']} verdict={verdict}")
         return
     print(asyncio.run(persist(
-        manifest, verdict, manifest_path, args.external_account_login, args.external_magic
+        manifest,
+        verdict,
+        manifest_path,
+        args.external_account_login,
+        args.external_magic,
+        args.identity_registry,
     )))
 
 

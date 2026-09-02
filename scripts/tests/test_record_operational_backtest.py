@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from record_operational_backtest import load_manifest, seal_payload
+from record_operational_backtest import load_manifest, resolve_external_magic, seal_payload
 
 
 def _write_manifest(tmp_path: Path, *, verdict: str = "DISCREPANTE") -> Path:
@@ -51,3 +51,56 @@ def test_load_manifest_relocates_a_sealed_artifact_into_its_runtime_directory(tm
     manifest, _ = load_manifest(manifest_path)
 
     assert Path(manifest["artifacts"][0]["path"]).parent == tmp_path
+
+
+# --- Magic legacy de la cola contra magic vigente de la base (backlog A25) ---------------
+#
+# La cola y los manifiestos F7 declaran los magics ANTERIORES a la migración MN; la tabla
+# `bot` tiene los vigentes desde `sync_bot_magics_to_migration.py`. Registrar una corrida
+# pasando el magic de la cola fallaba con "F7 externo no encontrado por cuenta y magic
+# exactos" aunque el bot existiera.
+
+def _registry(tmp_path: Path, legacy: int, vigente: int, accounts: list[str]) -> Path:
+    ruta = tmp_path / "registry.jsonl"
+    ruta.write_text(
+        json.dumps(
+            {
+                "event_type": "ASSIGNED",
+                "comment_identity": f"X_MN{vigente}",
+                "magic_number": vigente,
+                "legacy_magic_numbers": [legacy],
+                "accounts": accounts,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return ruta
+
+
+def test_a_current_magic_resolves_to_itself(tmp_path: Path) -> None:
+    """Sin traducción no cambia nada: el magic vigente se busca tal cual."""
+    resuelto, via_legacy = resolve_external_magic(13, _registry(tmp_path, 200730, 13, ["JJTI"]))
+
+    assert (resuelto, via_legacy) == (13, False)
+
+
+def test_a_legacy_magic_from_the_queue_resolves_to_the_current_one(tmp_path: Path) -> None:
+    """El caso real: la cola declara 200730 y el bot ya tiene el 13."""
+    resuelto, via_legacy = resolve_external_magic(200730, _registry(tmp_path, 200730, 13, ["JJTI"]))
+
+    assert (resuelto, via_legacy) == (13, True)
+
+
+def test_without_a_registry_the_magic_is_used_as_given(tmp_path: Path) -> None:
+    """Sin registro no se inventa una traducción: comportamiento anterior intacto."""
+    assert resolve_external_magic(200730, None) == (200730, False)
+
+
+def test_an_unknown_magic_is_left_untouched(tmp_path: Path) -> None:
+    """Un magic que el registro no conoce se pasa tal cual y falla más adelante con su
+    mensaje propio, en vez de resolverse a otra cosa."""
+    assert resolve_external_magic(999999, _registry(tmp_path, 200730, 13, ["JJTI"])) == (
+        999999,
+        False,
+    )
