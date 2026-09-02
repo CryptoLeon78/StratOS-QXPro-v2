@@ -290,3 +290,72 @@ def test_v2_policy_keeps_its_previous_behaviour() -> None:
 
     assert len(queue) == 1  # max_per_symbol_timeframe=1 en POLICY
     assert sum(item["decision"] == "HOLD_DIVERSITY_CAP" for item in decisions) == 4
+
+
+# --- Reparto de la cola entre grupos (A28) ---------------------------------------------
+#
+# Con el tope de validacion sin limite por simbolo (P5.0), la cola se llenaba con las mejores
+# en orden global. Medido sobre el inventario real de 424 candidatas: 205 superaban criterios
+# y las 24 plazas se las llevaban TODAS AUDCAD/H4, que aporta 232 candidatas. Las de DAX40,
+# XAUUSD y NASDAQ no llegaban nunca al Tester, que es justo lo que se buscaba al ampliar el
+# universo. Ordenar por metrica global favorece al grupo mas numeroso, no al mejor portfolio.
+
+def _elegibles_de(grupo: str, n: int, pf_base: float) -> list[dict[str, object]]:
+    simbolo, timeframe = grupo.split("/")
+    return [
+        {
+            "decision": "ELIGIBLE",
+            "symbol": simbolo,
+            "timeframe": timeframe,
+            "sqx_sha256": f"{simbolo}{i:03d}",
+            "metrics": {
+                "profit_factor": pf_base - i * 0.001,
+                "sharpe": 1.5,
+                "expectancy_r": 0.3,
+                "max_dd_pct": 10.0,
+            },
+        }
+        for i in range(n)
+    ]
+
+
+def test_the_queue_is_shared_between_groups_not_taken_by_the_biggest() -> None:
+    """El caso real: un grupo enorme y algo peor no puede vaciar la cola."""
+    decisions = _elegibles_de("AUDCAD/H4", 50, pf_base=2.0) + _elegibles_de("DAX40/M30", 5, 1.9)
+
+    queue = select_queue(decisions, _politica_v3(None, 2, max_queue=10))
+
+    grupos = {f"{item['symbol']}/{item['timeframe']}" for item in queue}
+    assert grupos == {"AUDCAD/H4", "DAX40/M30"}
+    assert len(queue) == 10
+
+
+def test_every_group_gets_a_turn_before_any_repeats() -> None:
+    """Reparto por turnos: cada grupo coloca su mejor candidata antes de la segunda de nadie."""
+    decisions = (
+        _elegibles_de("AUDCAD/H4", 10, 2.0)
+        + _elegibles_de("DAX40/M30", 10, 1.9)
+        + _elegibles_de("XAUUSD/H1", 10, 1.8)
+    )
+
+    queue = select_queue(decisions, _politica_v3(None, 2, max_queue=3))
+
+    assert len({f"{i['symbol']}/{i['timeframe']}" for i in queue}) == 3
+
+
+def test_a_single_group_still_fills_the_queue() -> None:
+    """Sin diversidad disponible no se desperdicia cola: el reparto no impone cuotas vacias."""
+    decisions = _elegibles_de("AUDCAD/H4", 30, 2.0)
+
+    queue = select_queue(decisions, _politica_v3(None, 2, max_queue=8))
+
+    assert len(queue) == 8
+
+
+def test_inside_a_group_the_order_is_still_by_merit() -> None:
+    decisions = _elegibles_de("AUDCAD/H4", 5, 2.0)
+
+    queue = select_queue(decisions, _politica_v3(None, 2, max_queue=3))
+
+    pfs = [item["metrics"]["profit_factor"] for item in queue]
+    assert pfs == sorted(pfs, reverse=True)

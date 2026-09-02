@@ -347,6 +347,29 @@ def evaluate_items(
     return decisions
 
 
+def _round_robin_por_grupo(eligible: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Intercala las candidatas por grupo símbolo/timeframe, conservando el mérito dentro.
+
+    Recibe la lista ya ordenada por métrica y devuelve la misma lista reordenada para que
+    cada grupo coloque su mejor candidata antes de que ninguno coloque la segunda. Los grupos
+    se recorren por el mérito de su mejor candidata, así que el orden es determinista y no
+    depende del recuento: un grupo con una sola candidata excelente entra antes que el segundo
+    puesto de un grupo grande.
+    """
+    grupos: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for item in eligible:
+        clave = (str(item.get("symbol")), str(item.get("timeframe")))
+        grupos.setdefault(clave, []).append(item)
+
+    orden = sorted(grupos.values(), key=lambda xs: eligible.index(xs[0]))
+    intercalada: list[dict[str, Any]] = []
+    for ronda in range(max((len(xs) for xs in orden), default=0)):
+        for xs in orden:
+            if ronda < len(xs):
+                intercalada.append(xs[ronda])
+    return intercalada
+
+
 def select_queue(decisions: list[dict[str, Any]], policy: dict[str, Any]) -> list[dict[str, Any]]:
     eligible = [item for item in decisions if item["decision"] == "ELIGIBLE"]
     # Sólo métricas declaradas por el parser; orden estable por hash para desempates.
@@ -365,6 +388,14 @@ def select_queue(decisions: list[dict[str, Any]], policy: dict[str, Any]) -> lis
     queue_policy = policy["validation_queue"]
     validation_bucket_cap = queue_policy.get("max_per_symbol_timeframe")
     admission_bucket_cap = policy["incubator_admission"].get("max_per_symbol_timeframe")
+
+    # Reparto por turnos entre grupos simbolo/timeframe. Ordenar por metrica global favorece
+    # al grupo mas numeroso, no al mejor portfolio: medido sobre el inventario real de 424
+    # candidatas, 205 superaban criterios y las 24 plazas se las llevaban todas AUDCAD/H4,
+    # que aporta 232. Las de DAX40, XAUUSD y NASDAQ no llegaban nunca al Tester, que es justo
+    # lo que se buscaba al ampliar el universo. Dentro de cada grupo se conserva el orden por
+    # merito, y un grupo unico sigue llenando la cola entera: esto reparte, no impone cuotas.
+    eligible = _round_robin_por_grupo(eligible)
 
     per_bucket: dict[tuple[str, str], int] = {}
     queue: list[dict[str, Any]] = []
