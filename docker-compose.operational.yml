@@ -19,6 +19,8 @@ services:
       - .env.operational
     ports: !override
       - "8300:8000"
+    volumes:
+      - ./runtime/operational:/runtime:ro
   worker:
     env_file: !override
       - .env.operational
