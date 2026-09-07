@@ -9,8 +9,10 @@ Sin conversion de divisa (mismo hueco documentado en risk.py/config_drift.py):
 reporta MT5, no convertido via `FxRate` (tabla migrada en G1, sin ningun
 consumidor todavia)."""
 
+import json
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 from typing import Literal
 
 import pandas as pd
@@ -35,8 +37,26 @@ _SEMAPHORE_SEVERITY = {
     SemaphoreState.AMARILLO: 1,
     SemaphoreState.NARANJA: 2,
 }
-_HEARTBEAT_STALE_AFTER_S = 120  # header_heartbeat_stale_after_s, thresholds.seed.json
-_EQUITY_CURVE_LOOKBACK_DAYS = {"30d": 30, "90d": 90, "180d": 180, "1y": 365, "all": 3650}
+
+
+def _thresholds_seed_path() -> Path:
+    for parent in Path(__file__).resolve().parents:
+        candidate = parent / "config" / "thresholds.seed.json"
+        if candidate.is_file():
+            return candidate
+    raise RuntimeError("thresholds.seed.json is required by the header router")
+
+
+def _load_header_thresholds() -> tuple[int, dict[str, int], dict[str, int]]:
+    thresholds = json.loads(_thresholds_seed_path().read_text(encoding="utf-8"))
+    return (
+        int(thresholds["header_heartbeat_stale_after_s"]),
+        {name: int(days) for name, days in thresholds["equity_curve_lookback_days"].items()},
+        {name: int(days) for name, days in thresholds["header_pnl_window_days"].items()},
+    )
+
+
+_HEARTBEAT_STALE_AFTER_S, _EQUITY_CURVE_LOOKBACK_DAYS, _PNL_WINDOW_DAYS = _load_header_thresholds()
 
 
 class HeaderSummaryResponse(BaseModel):
@@ -102,8 +122,19 @@ async def compute_header_summary(
     )
 
     last_heartbeat = (await session.execute(select(func.max(HeartbeatLog.ts)))).scalar_one_or_none()
-    data_stale_seconds = int((now - last_heartbeat).total_seconds()) if last_heartbeat else None
-    mt_connected = data_stale_seconds is not None and data_stale_seconds <= _HEARTBEAT_STALE_AFTER_S
+    heartbeat_age_seconds = (now - last_heartbeat).total_seconds() if last_heartbeat else None
+    mt_connected = (
+        heartbeat_age_seconds is not None and heartbeat_age_seconds <= _HEARTBEAT_STALE_AFTER_S
+    )
+    # El contrato de `data_stale_seconds` es una señal de incidencia para la
+    # UI, no la edad de cualquier dato: si el heartbeat sigue dentro del
+    # umbral, debe ser None para que el badge no etiquete telemetría fresca
+    # como "DATOS STALE".
+    data_stale_seconds = (
+        int(heartbeat_age_seconds)
+        if heartbeat_age_seconds is not None and not mt_connected
+        else None
+    )
 
     open_positions = (
         await session.execute(select(func.count(Trade.id)).where(Trade.close_time.is_(None)))
@@ -119,9 +150,9 @@ async def compute_header_summary(
 
     return HeaderSummaryResponse(
         equity_eur=equity_eur,
-        pnl_day=_pnl_since(1),
-        pnl_week=_pnl_since(7),
-        pnl_month=_pnl_since(30),
+        pnl_day=_pnl_since(_PNL_WINDOW_DAYS["day"]),
+        pnl_week=_pnl_since(_PNL_WINDOW_DAYS["week"]),
+        pnl_month=_pnl_since(_PNL_WINDOW_DAYS["month"]),
         portfolio_dd_pct=dd_pct,
         ks_level=ks_level,
         global_semaphore=global_semaphore,

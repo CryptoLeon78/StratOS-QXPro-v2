@@ -61,10 +61,13 @@ def query_database(container: str, timeout: float) -> dict[str, Any]:
     return json.loads(result.stdout)
 
 
-def telemetry_ready(accounts: list[dict[str, Any]], threshold: float) -> bool:
-    """Require both streams for EVERY real account; a healthy demo cannot mask a real outage."""
+def telemetry_ready(
+    accounts: list[dict[str, Any]], threshold: float, clock_skew_tolerance: float
+) -> bool:
+    """Require both streams for EVERY real account within bounded clock skew."""
     return bool(accounts) and all(
-        isinstance(row.get(field), (float, int)) and 0 <= row[field] <= threshold
+        isinstance(row.get(field), (float, int))
+        and -clock_skew_tolerance <= row[field] <= threshold
         for row in accounts
         for field in ("heartbeat_age_seconds", "equity_age_seconds")
     )
@@ -115,6 +118,7 @@ def check(config: dict[str, Any]) -> dict[str, Any]:
     threshold = database.get("freshness_threshold")
     if threshold is None:
         threshold = seed["header_heartbeat_stale_after_s"]
+    clock_skew_tolerance = seed["telemetry_clock_skew_tolerance_s"]
     gates = {
         "services_running": all(row["running"] for row in services.values()),
         "automatic_restart": all(
@@ -124,7 +128,9 @@ def check(config: dict[str, Any]) -> dict[str, Any]:
         "anonymous_access_rejected": protected_status == 401,
         "database_readable": database_error is None,
         "operator_hash_prefix": database.get("operator_hash_prefix") is True,
-        "real_telemetry_fresh": telemetry_ready(database.get("real_accounts") or [], threshold),
+        "real_telemetry_fresh": telemetry_ready(
+            database.get("real_accounts") or [], threshold, clock_skew_tolerance
+        ),
     }
     return {
         "observed_at": datetime.now(UTC).isoformat(),
@@ -137,6 +143,7 @@ def check(config: dict[str, Any]) -> dict[str, Any]:
         "database": database,
         "database_error": database_error,
         "freshness_threshold_seconds": threshold,
+        "clock_skew_tolerance_seconds": clock_skew_tolerance,
         "not_verified": [
             "operator_login",
             "authenticated_browser",

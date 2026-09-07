@@ -5,6 +5,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
 from core.db.enums import AccountDataOrigin
+from core.db.models.market import HeartbeatLog
 from core.main import app
 from tests.factories import (
     AccountFactory,
@@ -47,6 +48,65 @@ async def test_header_summary_reflects_real_equity_and_open_positions(
     assert Decimal(body["equity_eur"]) == Decimal("105000")
     assert body["open_positions"] == 0
     assert body["mt_connected"] is False
+
+
+async def test_header_summary_hides_fresh_heartbeat_age(
+    api_client: AsyncClient, db_connection: AsyncConnection
+) -> None:
+    session = AsyncSession(
+        bind=db_connection, join_transaction_mode="create_savepoint", expire_on_commit=False
+    )
+    account = AccountFactory(is_demo=False)
+    session.add(account)
+    await session.flush()
+    now = datetime.now(UTC)
+    session.add(
+        HeartbeatLog(
+            ts=now - timedelta(seconds=1),
+            connector_instance_id="test-connector",
+            account_id=account.id,
+            latency_ms=0,
+            status="OK",
+        )
+    )
+    await session.commit()
+
+    response = await api_client.get("/api/v1/header/summary")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["mt_connected"] is True
+    assert body["data_stale_seconds"] is None
+
+
+async def test_header_summary_reports_age_after_heartbeat_threshold(
+    api_client: AsyncClient, db_connection: AsyncConnection
+) -> None:
+    session = AsyncSession(
+        bind=db_connection, join_transaction_mode="create_savepoint", expire_on_commit=False
+    )
+    account = AccountFactory(is_demo=False)
+    session.add(account)
+    await session.flush()
+    now = datetime.now(UTC)
+    session.add(
+        HeartbeatLog(
+            ts=now - timedelta(seconds=121),
+            connector_instance_id="test-connector",
+            account_id=account.id,
+            latency_ms=0,
+            status="OK",
+        )
+    )
+    await session.commit()
+
+    response = await api_client.get("/api/v1/header/summary")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["mt_connected"] is False
+    assert body["data_stale_seconds"] is not None
+    assert body["data_stale_seconds"] >= 120
 
 
 async def test_equity_curve_returns_points_for_range(

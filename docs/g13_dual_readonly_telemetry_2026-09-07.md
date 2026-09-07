@@ -68,6 +68,21 @@ en datos reales. La entrega externa por Telegram permanece no verificada:
 no se inyectan alertas sintéticas ni se inspeccionan sus credenciales para
 cerrar ese punto.
 
+### Actualización: lectura diaria en el panel y recuperación del core
+
+La vista `Cuentas/EA` se verificó contra la telemetría operacional: JJTI y
+BEPB muestran equity, balance, margen libre, nivel de margen y heartbeat como
+conectados. La cabecera separa ahora correctamente los dos estados: sólo
+muestra `DATOS STALE` cuando el heartbeat excede el umbral de frescura; una
+edad normal no se presenta como incidencia.
+
+Se reinició exclusivamente `core-engine` y los conectores continuaron
+publicando lotes read-only. Tras recuperar el servicio, el core aceptó de
+nuevo `heartbeat` y `equity` de ambas cuentas con HTTP 200. El preflight
+admite una desviación de reloj VPS/core de hasta cinco segundos, configurada
+en `telemetry_clock_skew_tolerance_s`; no relaja el umbral contractual de
+120 segundos para cada stream.
+
 ## Preparación del bridge MCP
 
 1. Mantener los túneles ligados exclusivamente a `127.0.0.1`; no exponer los

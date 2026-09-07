@@ -87,6 +87,21 @@
   "uptime_target_7d": 99.5,
   "header_heartbeat_stale_after_s": 120,
   "header_heartbeat_stale__assumption": "G5-cierre: routers/header.py tenia _HEARTBEAT_STALE_AFTER_S=120 como constante de modulo sin clave sembrada (encontrado en el scan_hardcoding de cierre de fase) -- el badge DATOS STALE del criterio 13 de PARTE 16 necesita un umbral, y 2x heartbeat_interval_s (60s) es el margen minimo razonable antes de considerar un heartbeat perdido, no solo tarde.",
+  "equity_curve_lookback_days": {
+    "30d": 30,
+    "90d": 90,
+    "180d": 180,
+    "1y": 365,
+    "all": 3650
+  },
+  "equity_curve_lookback_days__assumption": "G13-38: las ventanas existentes de la curva de equity se conservan sin cambio funcional, pero dejan de vivir como literales del router. El core empaqueta esta fuente versionada y la lee al iniciar; no hay una clave equivalente poblada en SystemConfig operacional.",
+  "header_pnl_window_days": {
+    "day": 1,
+    "week": 7,
+    "month": 30
+  },
+  "telemetry_clock_skew_tolerance_s": 5,
+  "telemetry_clock_skew_tolerance__assumption": "G13-37: el preflight compara timestamps originados en el VPS contra el reloj del core y acepta hasta cinco segundos de adelanto o atraso para evitar falsos negativos por sincronizacion NTP; sigue exigiendo que cada stream no supere header_heartbeat_stale_after_s.",
   "news_shield_default_hours": 48,
   "news_shield_default_hours__assumption": "G5-cierre: routers/news.py tenia Query(default=48) en /news/shield y /news/shield/windows sin clave sembrada (mismo hallazgo del scan_hardcoding de cierre). 48h cubre el fin de semana + el dia habil siguiente, ventana razonable para planificar el blackout sin recargar la vista por defecto.",
   "news_shield_trades_default_days": 30,
