@@ -8,8 +8,7 @@
 
 [CmdletBinding()]
 param(
-    [ValidateSet('3.12')]
-    [string]$PythonVersion = '3.12'
+    [string]$PythonExe
 )
 
 $ErrorActionPreference = 'Stop'
@@ -18,23 +17,49 @@ $connectorRoot = (Resolve-Path -LiteralPath $PSScriptRoot).Path
 $sealRoot = Join-Path (Split-Path -Parent $connectorRoot) 'shared-ingest-seal'
 $venvPython = Join-Path $connectorRoot '.venv\Scripts\python.exe'
 
+function Test-Python312 {
+    param([Parameter(Mandatory = $true)][string]$Candidate)
+
+    if (-not (Test-Path -LiteralPath $Candidate -PathType Leaf)) {
+        return $false
+    }
+    & $Candidate -c 'import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 12) else 1)'
+    return $LASTEXITCODE -eq 0
+}
+
+function Resolve-Python312 {
+    param([string]$RequestedPythonExe)
+
+    if ($RequestedPythonExe -and (Test-Python312 $RequestedPythonExe)) {
+        return (Resolve-Path -LiteralPath $RequestedPythonExe).Path
+    }
+
+    $launcher = Get-Command py -ErrorAction SilentlyContinue
+    if ($launcher) {
+        $candidate = & $launcher.Source '-3.12' -c 'import sys; print(sys.executable)' | Select-Object -Last 1
+        if ($LASTEXITCODE -eq 0 -and $candidate -and (Test-Python312 $candidate)) {
+            return (Resolve-Path -LiteralPath $candidate).Path
+        }
+    }
+
+    $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
+    if ($pythonCommand -and (Test-Python312 $pythonCommand.Source)) {
+        return (Resolve-Path -LiteralPath $pythonCommand.Source).Path
+    }
+
+    throw 'No se encontro Python 3.12. Instalarlo para todos los usuarios y volver a abrir PowerShell.'
+}
+
 if (-not (Test-Path -LiteralPath (Join-Path $connectorRoot 'pyproject.toml') -PathType Leaf)) {
     throw 'No se encontro el pyproject.toml del mt5-connector.'
 }
 if (-not (Test-Path -LiteralPath (Join-Path $sealRoot 'pyproject.toml') -PathType Leaf)) {
     throw 'No se encontro shared-ingest-seal junto al mt5-connector.'
 }
-if (-not (Get-Command py -ErrorAction SilentlyContinue)) {
-    throw 'No se encontro el lanzador Python (py). Instalar Python 3.12 para todos los usuarios y reabrir PowerShell.'
-}
-
-& py "-$PythonVersion" -c 'import sys; assert sys.version_info[:2] == (3, 12)'
-if ($LASTEXITCODE -ne 0) {
-    throw 'Python 3.12 no esta disponible mediante el lanzador py.'
-}
+$python312 = Resolve-Python312 $PythonExe
 
 if (-not (Test-Path -LiteralPath $venvPython -PathType Leaf)) {
-    & py "-$PythonVersion" -m venv (Join-Path $connectorRoot '.venv')
+    & $python312 -m venv (Join-Path $connectorRoot '.venv')
     if ($LASTEXITCODE -ne 0) {
         throw 'No se pudo crear el entorno virtual del conector.'
     }
