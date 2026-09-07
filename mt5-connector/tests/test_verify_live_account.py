@@ -18,7 +18,7 @@ class FakeMt5:
         self.account = account
         self.shutdown_called = False
 
-    def initialize(self, *, path: str) -> bool:
+    def initialize(self, path: str) -> bool:
         return self.initialized
 
     def account_info(self) -> FakeAccount | None:

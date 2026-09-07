@@ -74,6 +74,11 @@ VPS. Rechaza una URL localhost porque no es alcanzable desde un VPS remoto. La
 API key debe llegar al proceso mediante el mecanismo protegido que gobierne el
 operador; el instalador no la inspecciona ni la persiste.
 
+La ruta se pasa a `MetaTrader5.initialize()` como su primer argumento
+posicional, conforme a su contrato público. No se usa el modo automático ni
+un keyword `path`, porque con varias instalaciones MT5 esa selección puede
+conectar a otro terminal y alterar la procedencia de la observación.
+
 El paquete incluye además
 `mt5-connector/bootstrap_operational_readonly.ps1`. Instala únicamente las
 dependencias Python del conector y `MetaTrader5`; no configura cuentas MT5 ni

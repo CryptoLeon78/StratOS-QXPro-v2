@@ -12,7 +12,7 @@ class AccountInfoProtocol(Protocol):
 
 
 class Mt5IdentityProtocol(Protocol):
-    def initialize(self, *, path: str) -> bool: ...
+    def initialize(self, path: str) -> bool: ...
 
     def account_info(self) -> AccountInfoProtocol | None: ...
 
@@ -25,7 +25,7 @@ def verify_account_identity(
     mt5: Mt5IdentityProtocol, terminal_path: str, expected_login: str
 ) -> None:
     """Raise when the active terminal cannot be identified as the expected account."""
-    if not mt5.initialize(path=terminal_path):
+    if not mt5.initialize(terminal_path):
         code, description = mt5.last_error()
         raise RuntimeError(f"MetaTrader5.initialize() failed: {code} {description}")
     try:

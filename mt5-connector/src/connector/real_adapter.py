@@ -81,7 +81,10 @@ class RealMt5Client:
         import MetaTrader5 as mt5
 
         if path:
-            return bool(mt5.initialize(path=path))
+            # La API publica de MetaQuotes exige `path` como primer argumento
+            # posicional. Como keyword puede caer en la seleccion automatica
+            # del terminal, ambigua cuando el VPS tiene varias instalaciones.
+            return bool(mt5.initialize(path))
         return bool(mt5.initialize())
 
     def login(self, login: int, password: str, server: str) -> bool:
