@@ -67,3 +67,27 @@ async def send_telegram_message(
             delivered_to_all = False
 
     return delivered_to_all
+
+
+async def send_telegram_direct_message(
+    client: httpx.AsyncClient,
+    settings: Settings,
+    chat_id: str,
+    text: str,
+    config: TelegramConfig | None = None,
+) -> bool:
+    """Envia un mensaje puntual a un chat privado, aislado de alertas grupales."""
+    config = config or TelegramConfig()
+    if not settings.telegram_bot_token or not chat_id:
+        return False
+    url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
+    for attempt in range(config.max_retries):
+        try:
+            response = await client.post(url, json={"chat_id": chat_id, "text": text})
+            if response.status_code == 200:
+                return True
+        except httpx.HTTPError:
+            pass
+        if attempt < config.max_retries - 1:
+            await asyncio.sleep(config.backoff_base_s * (2**attempt))
+    return False

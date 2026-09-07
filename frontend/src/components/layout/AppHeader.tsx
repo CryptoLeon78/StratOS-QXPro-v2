@@ -44,6 +44,9 @@ export function AppHeader() {
           <Link to="/dominical" className="text-xs text-text-secondary hover:text-text-primary">
             {uiStrings.dominical.headerLink}
           </Link>
+          <Link to="/seguridad" className="text-xs text-text-secondary hover:text-text-primary">
+            {uiStrings.security.headerLink}
+          </Link>
           {roleLabel && <Badge variant="default">{roleLabel}</Badge>}
         </div>
       </div>

@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     # prioridad sobre el destino unico heredado para permitir alertas a varios
     # grupos sin duplicar procesos de notificacion.
     telegram_chat_ids: str = Field(default="", validation_alias="TELEGRAM_CHAT_IDS")
+    telegram_recovery_chat_id: str = Field(
+        default="", validation_alias="TELEGRAM_RECOVERY_CHAT_ID"
+    )
 
     sentry_dsn: str = Field(default="", validation_alias="SENTRY_DSN")
 
@@ -62,6 +65,19 @@ class Settings(BaseSettings):
 
     operator_email: str = Field(default="", validation_alias="OPERATOR_EMAIL")
     operator_password_hash: str = Field(default="", validation_alias="OPERATOR_PASSWORD_HASH")
+    auth_recovery_code_ttl_s: int = Field(default=600, validation_alias="AUTH_RECOVERY_CODE_TTL_S")
+    auth_recovery_code_length: int = Field(default=6, validation_alias="AUTH_RECOVERY_CODE_LENGTH")
+    auth_recovery_max_attempts: int = Field(default=5, validation_alias="AUTH_RECOVERY_MAX_ATTEMPTS")
+    auth_recovery_request_cooldown_s: int = Field(
+        default=60, validation_alias="AUTH_RECOVERY_REQUEST_COOLDOWN_S"
+    )
+    auth_password_min_length: int = Field(
+        default=12, validation_alias="AUTH_PASSWORD_MIN_LENGTH"
+    )
+    auth_recovery_telegram_template: str = Field(
+        default="StratOS: tu codigo de recuperacion es {code}. Caduca en {minutes} min.",
+        validation_alias="AUTH_RECOVERY_TELEGRAM_TEMPLATE",
+    )
 
     # No esta en la lista literal de PARTE 10.1 (escrita antes de que G6
     # decidiera que el frontend habla DIRECTO con core-engine, sin

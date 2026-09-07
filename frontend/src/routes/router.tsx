@@ -26,6 +26,7 @@ const AuditoriaPage = lazy(() => import("@/routes/AuditoriaPage"));
 // AppHeader (EQUITY/P&L/DD) ni TabBar, es "otro modo de revision", no una
 // pestana mas.
 const DominicalPage = lazy(() => import("@/routes/DominicalPage"));
+const SecurityPage = lazy(() => import("@/routes/SecurityPage"));
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   {
@@ -51,6 +52,7 @@ export const router = createBrowserRouter([
       { path: "escalado", element: <EscaladoPage /> },
       { path: "graveyard", element: <GraveyardPage /> },
       { path: "auditoria", element: <AuditoriaPage /> },
+      { path: "seguridad", element: <SecurityPage /> },
     ],
   },
 ]);

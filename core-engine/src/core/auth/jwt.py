@@ -19,6 +19,7 @@ class TokenPayload:
     role: str
     type: TokenType
     jti: str
+    session_version: int
     exp: datetime
 
 
@@ -31,6 +32,7 @@ def _create_token(
     ttl: timedelta,
     settings: Settings,
     now: datetime,
+    session_version: int = 0,
 ) -> str:
     payload = {
         "sub": str(user_id),
@@ -38,18 +40,26 @@ def _create_token(
         "role": role,
         "type": token_type,
         "jti": str(uuid.uuid4()),
+        "sv": session_version,
         "exp": now + ttl,
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=_ALGORITHM)
 
 
 def create_access_token(
-    *, user_id: int, email: str, role: str, settings: Settings, now: datetime
+    *,
+    user_id: int,
+    email: str,
+    role: str,
+    settings: Settings,
+    now: datetime,
+    session_version: int = 0,
 ) -> str:
     return _create_token(
         user_id=user_id,
         email=email,
         role=role,
+        session_version=session_version,
         token_type="access",
         ttl=timedelta(minutes=settings.jwt_access_ttl_min),
         settings=settings,
@@ -58,12 +68,19 @@ def create_access_token(
 
 
 def create_refresh_token(
-    *, user_id: int, email: str, role: str, settings: Settings, now: datetime
+    *,
+    user_id: int,
+    email: str,
+    role: str,
+    settings: Settings,
+    now: datetime,
+    session_version: int = 0,
 ) -> str:
     return _create_token(
         user_id=user_id,
         email=email,
         role=role,
+        session_version=session_version,
         token_type="refresh",
         ttl=timedelta(days=settings.jwt_refresh_ttl_days),
         settings=settings,
@@ -82,5 +99,6 @@ def decode_token(token: str, settings: Settings) -> TokenPayload:
         role=decoded["role"],
         type=decoded["type"],
         jti=decoded["jti"],
+        session_version=int(decoded.get("sv", 0)),
         exp=datetime.fromtimestamp(decoded["exp"], tz=UTC),
     )

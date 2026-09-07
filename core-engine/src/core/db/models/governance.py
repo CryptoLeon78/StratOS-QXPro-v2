@@ -142,6 +142,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String, unique=True)
     hashed_password: Mapped[str] = mapped_column(String)
     role: Mapped[str] = mapped_column(String, default="operator", server_default="operator")
+    session_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 

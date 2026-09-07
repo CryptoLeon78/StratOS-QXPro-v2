@@ -28,7 +28,7 @@ El Nodo A llama al Nodo B por HTTPS (`CORE_ENGINE_URL` del conector apuntando al
 **No verificado contra un VPS Linux ni un dominio real en ninguna sesión.** Pasos a spec:
 
 1. Instalar Docker + Docker Compose v2 en el VPS.
-2. Clonar el repo, copiar `.env.example` → `.env`, rellenar TODOS los `change-me` (contraseñas de Postgres, `JWT_SECRET` con una cadena aleatoria real ≥32 bytes, `INGEST_API_KEYS`, `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID` o `TELEGRAM_CHAT_IDS` si aplica). `TELEGRAM_CHAT_IDS` acepta una lista separada por comas y tiene prioridad sobre el destino único.
+2. Clonar el repo, copiar `.env.example` → `.env`, rellenar TODOS los `change-me` (contraseñas de Postgres, `JWT_SECRET` con una cadena aleatoria real ≥32 bytes, `INGEST_API_KEYS`, `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID` o `TELEGRAM_CHAT_IDS` si aplica). `TELEGRAM_CHAT_IDS` acepta una lista separada por comas y tiene prioridad sobre el destino único. Para la recuperación de acceso sin comandos, configurar además `TELEGRAM_RECOVERY_CHAT_ID` con el chat privado del operador; nunca usar un grupo de alertas como segundo factor.
    Si el clúster PostgreSQL ya se inicializó, no basta con cambiar
    `POSTGRES_PASSWORD` o `APP_DB_PASSWORD` en el archivo de entorno: rotar las
    contraseñas de los roles dentro de PostgreSQL en la misma intervención y
@@ -51,6 +51,12 @@ El Nodo A llama al Nodo B por HTTPS (`CORE_ENGINE_URL` del conector apuntando al
 ## 4. Backups (G9, verificado de verdad)
 
 `scripts/backup_postgres.sh` (pg_dump diario, formato custom, vía `docker compose exec` — nunca abre una conexión TCP nueva ni toca `.env`) + `scripts/restore_postgres.sh` (restaura SIEMPRE a una BBDD de verificación separada, nunca sobre `stratos` directo).
+
+## Acceso y recuperación
+
+El panel ofrece **Seguridad** para cambiar la contraseña y para mostrar si la recuperación privada está preparada. El enlace **He olvidado mi contraseña** solicita un código de un solo uso al chat configurado en `TELEGRAM_RECOVERY_CHAT_ID`. El código no se persiste en PostgreSQL: Redis conserva sólo su huella durante `AUTH_RECOVERY_CODE_TTL_S`; los intentos y la espera entre solicitudes se rigen por `AUTH_RECOVERY_MAX_ATTEMPTS` y `AUTH_RECOVERY_REQUEST_COOLDOWN_S`.
+
+Tras un cambio o recuperación, todas las sesiones anteriores se invalidan. Aplicar las migraciones antes de reconstruir los servicios: `docker compose run --rm core-engine alembic upgrade head`.
 
 **Programación**: cron diario en el Nodo B —
 ```cron

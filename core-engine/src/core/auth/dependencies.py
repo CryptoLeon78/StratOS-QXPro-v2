@@ -38,4 +38,6 @@ async def get_current_user(
     user = (await session.execute(select(User).where(User.id == payload.sub))).scalar_one_or_none()
     if user is None:
         raise _UNAUTHORIZED
+    if payload.session_version != user.session_version:
+        raise _UNAUTHORIZED
     return user

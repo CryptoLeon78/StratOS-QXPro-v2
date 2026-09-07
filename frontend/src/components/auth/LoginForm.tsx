@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useAuthStore } from "@/stores/authStore";
 import uiStrings from "@/styles/ui_strings.es.json";
+import { PasswordRecoveryDialog } from "@/components/auth/PasswordRecoveryDialog";
 
 function buildLoginSchema() {
   return z.object({
@@ -81,6 +82,7 @@ export function LoginForm() {
         <Button type="submit" className="w-full" disabled={mutation.isPending}>
           {uiStrings.login.submit}
         </Button>
+        <PasswordRecoveryDialog />
       </form>
     </Form>
   );

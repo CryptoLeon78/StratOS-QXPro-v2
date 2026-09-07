@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.auth.jwt import create_access_token, create_refresh_token, decode_token
 from core.auth.revocation import is_revoked, revoke_jti
 from core.auth.schemas import TokenResponse
-from core.auth.security import verify_password
+from core.auth.security import hash_password, verify_password
 from core.config import Settings
 from core.db.models.governance import User
 
@@ -22,10 +22,20 @@ async def authenticate_user(session: AsyncSession, email: str, password: str) ->
 
 async def issue_tokens(user: User, settings: Settings, now: datetime) -> TokenResponse:
     access = create_access_token(
-        user_id=user.id, email=user.email, role=user.role, settings=settings, now=now
+        user_id=user.id,
+        email=user.email,
+        role=user.role,
+        session_version=user.session_version,
+        settings=settings,
+        now=now,
     )
     refresh = create_refresh_token(
-        user_id=user.id, email=user.email, role=user.role, settings=settings, now=now
+        user_id=user.id,
+        email=user.email,
+        role=user.role,
+        session_version=user.session_version,
+        settings=settings,
+        now=now,
     )
     return TokenResponse(
         access_token=access,
@@ -51,6 +61,25 @@ async def refresh_tokens(
     user = (await session.execute(select(User).where(User.id == payload.sub))).scalar_one_or_none()
     if user is None:
         raise jwt.InvalidTokenError("user no longer exists")
+    if payload.session_version != user.session_version:
+        raise jwt.InvalidTokenError("session has been invalidated")
     tokens = await issue_tokens(user, settings, now)
     await revoke_jti(redis, payload.jti, payload.exp, now)
     return tokens
+
+
+async def change_password(
+    session: AsyncSession,
+    user: User,
+    current_password: str,
+    new_password: str,
+    minimum_password_length: int,
+) -> bool:
+    if len(new_password) < minimum_password_length or not verify_password(
+        current_password, user.hashed_password
+    ):
+        return False
+    user.hashed_password = hash_password(new_password)
+    user.session_version += 1
+    await session.commit()
+    return True
