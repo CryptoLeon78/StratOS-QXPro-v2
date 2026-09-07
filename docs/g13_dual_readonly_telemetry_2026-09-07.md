@@ -25,6 +25,22 @@ La base operacional sigue sin filas reales de `heartbeat_log` ni
 `equity_snapshot`. La comprobación `scripts/check_observation.py` permanece
 bloqueada hasta que ambas cuentas las aporten dentro de la ventana contractual.
 
+### Actualización: autenticación MCP restaurada por tailnet
+
+El 2026-09-07 se sustituyeron los túneles SSH por `Tailscale Serve` privado en
+el VPS y se registraron ambos endpoints con bearer token procedente de las
+variables de entorno privadas del cliente. La inicialización MCP autenticada
+de JJTI y BEPB devolvió `HTTP 200` en las dos rutas. Es evidencia de transporte
+y autenticación recuperados, no de telemetría: en esta versión del bridge,
+`tools/list`, `resources/list` y `prompts/list` responden correctamente pero
+sin capacidades publicadas. Por tanto todavía no hay una llamada read-only de
+cuenta que pruebe equity, posiciones o heartbeat mediante ese bridge.
+
+El core operacional se publica únicamente en la tailnet con Tailscale Serve,
+en una URL HTTPS privada y comprobada desde el propio equipo del core. Funnel
+permanece deshabilitado: no se ha abierto ningún puerto del panel al Internet
+público.
+
 ## Preparación del bridge MCP
 
 1. Mantener los túneles ligados exclusivamente a `127.0.0.1`; no exponer los
@@ -55,6 +71,20 @@ health del core desde el VPS. Rechaza una URL localhost porque no es alcanzable
 desde un VPS remoto. La API key debe llegar al proceso mediante el mecanismo
 protegido que gobierne el operador; el instalador no la inspecciona ni la
 persiste.
+
+El paquete incluye además
+`mt5-connector/bootstrap_operational_readonly.ps1`. Instala únicamente las
+dependencias Python del conector y `MetaTrader5`; no configura cuentas MT5 ni
+secretos. El VPS debe tener Python 3.12 y NSSM disponibles antes de instalar
+cualquiera de los dos servicios.
+
+Para que NSSM, que arranca bajo `LocalSystem`, pueda autenticar la ingesta, el
+operador debe crear **en el VPS y como variable de sistema de Windows**
+`CONNECTOR_INGEST_API_KEY` con la clave de ingesta operacional ya existente.
+No sirve una variable de usuario creada en el PC local ni un token MCP de
+JJTI/BEPB. No se pega esa clave en consola, archivos, chat ni repositorio; el
+instalador nunca la inspecciona. Tras crear o cambiar la variable de sistema,
+se reinicia cada servicio para que reciba el nuevo entorno.
 
 Ejemplo para ejecutar localmente en cada VPS, sustituyendo sólo valores que ya
 administra el operador:
