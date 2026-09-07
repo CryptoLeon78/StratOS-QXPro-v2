@@ -12,6 +12,13 @@ El panel local está disponible en `http://localhost:5473/login`. El endpoint
 protegido de cabecera devuelve `401` sin sesión; no se usaron ni se leyeron
 credenciales del operador.
 
+El recorrido de navegador con una sesión autenticada ya existente confirma la
+vista `Cuentas/EA`: JJTI y BEPB aparecen como `REAL / BROKER_REAL`, Incubadora
+como `DEMO / BROKER_DEMO`, y las tres cuentas se muestran como
+`Desconectado`, con equity, balance y margen ausentes. La interfaz, por tanto,
+declara la ausencia de telemetría en vez de completar esos campos con fixture.
+La pestaña permanece abierta localmente para revisión del operador.
+
 La restauración de la base operacional se verificó desde un dump lógico
 sellado hacia una base temporal del mismo clúster. Se compararon recuentos de
 todas las tablas públicas y restricciones. La base temporal y el dump temporal
