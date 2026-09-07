@@ -81,7 +81,8 @@ if ($LASTEXITCODE -ne 0) {
 if ($LASTEXITCODE -ne 0) {
     throw 'No se pudo instalar el paquete MetaTrader5 desde PyPI.'
 }
-& $venvPython -c 'import MetaTrader5, connector, ingest_seal; print("Readonly connector dependencies ready")'
+$runtimeCheck = Join-Path $PSScriptRoot 'src\connector\verify_runtime_dependencies.py'
+& $venvPython $runtimeCheck
 if ($LASTEXITCODE -ne 0) {
     throw 'Las dependencias se instalaron de forma incompleta.'
 }
