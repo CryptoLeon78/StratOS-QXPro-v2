@@ -1,0 +1,19 @@
+{
+  "compose_project": "stratos_operational",
+  "services": ["postgres", "redis", "core-engine", "api-gateway", "frontend", "worker", "scheduler"],
+  "postgres_container": "stratos_operational-postgres-1",
+  "public_urls": ["http://localhost:8300/health", "http://localhost:8380/health", "http://localhost:5473/"],
+  "protected_url": "http://localhost:5473/api/api/v1/header/summary",
+  "timeout_seconds": 10,
+  "backup_step_timeout_seconds": 120,
+  "constraint_equivalences": [
+    {
+      "table_name": "execution_fill",
+      "constraint_name": "ck_execution_fill_status",
+      "source": "CHECK (((status)::text = ANY ((ARRAY['FILLED'::character varying, 'REJECTED'::character varying])::text[])))",
+      "restored": "CHECK (((status)::text = ANY (ARRAY[('FILLED'::character varying)::text, ('REJECTED'::character varying)::text])))"
+    }
+  ],
+  "thresholds_path": "config/thresholds.seed.json",
+  "output_directory": "runtime/operational/observation"
+}
