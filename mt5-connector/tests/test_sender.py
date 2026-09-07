@@ -87,6 +87,23 @@ async def test_429_is_retryable(buffer: Buffer) -> None:
     assert len(due_later) == 1
 
 
+@pytest.mark.parametrize("status_code", [401, 403])
+async def test_auth_failures_are_retained_for_retry(buffer: Buffer, status_code: int) -> None:
+    """Una credencial rotada no puede convertir telemetria real en perdida."""
+    await buffer.enqueue("heartbeat", '{"a":1}')
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(status_code)
+
+    async with _client(httpx.MockTransport(handler)) as client:
+        sent = await drain_once(client, buffer, "key", BACKOFF, datetime.now(UTC))
+
+    assert sent == 0
+    due_later = await buffer.due_batches(datetime.now(UTC).replace(year=2030), limit=10)
+    assert len(due_later) == 1
+    assert due_later[0].attempts == 1
+
+
 async def test_422_seal_mismatch_is_discarded_not_retried(buffer: Buffer) -> None:
     await buffer.enqueue("trades", '{"a":1}')
 

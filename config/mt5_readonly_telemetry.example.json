@@ -1,0 +1,37 @@
+{
+  "bridge_mcp": {
+    "purpose": "Read-only terminal inspection through SSH tunnels. It does not ingest telemetry into StratOS.",
+    "operator_action": "Renew the bearer token only in the existing private MCP configuration; never version or paste it here.",
+    "accounts": [
+      {
+        "alias": "bepb",
+        "terminal_alias": "contabo_bepb",
+        "local_endpoint_env_var": "STRATOS_MT5_BEPB_MCP_URL",
+        "authorization_env_var": "MT5_BEPB_MCP_TOKEN"
+      },
+      {
+        "alias": "jjti",
+        "terminal_alias": "contabo_jjti",
+        "local_endpoint_env_var": "STRATOS_MT5_JJTI_MCP_URL",
+        "authorization_env_var": "MT5_JJTI_MCP_TOKEN"
+      }
+    ]
+  },
+  "direct_connector": {
+    "purpose": "Continuous sealed read-only ingestion of positions, deals, equity, and heartbeat into the operational core.",
+    "ingest_api_key_env_var": "CONNECTOR_INGEST_API_KEY",
+    "core_engine_url_requirement": "HTTPS URL reachable from each VPS; localhost is not valid.",
+    "instances": [
+      {
+        "alias": "bepb",
+        "service_name": "StratOSMt5Readonly_bepb",
+        "buffer_subdirectory": "bepb"
+      },
+      {
+        "alias": "jjti",
+        "service_name": "StratOSMt5Readonly_jjti",
+        "buffer_subdirectory": "jjti"
+      }
+    ]
+  }
+}

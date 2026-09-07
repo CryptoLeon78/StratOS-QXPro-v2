@@ -19,11 +19,14 @@ from connector.http_client import BackoffConfig, next_delay, send_batch
 
 logger = logging.getLogger(__name__)
 
-# 429 (rate limit) y 5xx son transitorios -> reintentar con backoff. Otro
-# 4xx (422 sello invalido, 404 cuenta desconocida, ...) es un lote mal
-# formado que un reintento identico NUNCA arreglaria -- se descarta con
-# log en vez de reintentar indefinidamente y bloquear el resto de la cola.
-_RETRYABLE_STATUS = {429}
+# 401/403 no prueban que el lote sea invalido: pueden deberse a una rotacion
+# de credencial o a un permiso temporalmente retirado. Descartar un lote de
+# telemetria en ese estado perderia evidencia de una cuenta real, asi que se
+# conserva en el buffer y se reintenta con backoff. 429 y 5xx se tratan igual.
+# Los demas 4xx (422 sello invalido, 404 cuenta desconocida, ...) representan
+# un payload que un reintento identico no corregira y se descartan de forma
+# explicita para no bloquear la cola.
+_RETRYABLE_STATUS = {401, 403, 429}
 
 
 def _is_retryable(status_code: int) -> bool:
