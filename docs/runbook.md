@@ -29,6 +29,11 @@ El Nodo A llama al Nodo B por HTTPS (`CORE_ENGINE_URL` del conector apuntando al
 
 1. Instalar Docker + Docker Compose v2 en el VPS.
 2. Clonar el repo, copiar `.env.example` → `.env`, rellenar TODOS los `change-me` (contraseñas de Postgres, `JWT_SECRET` con una cadena aleatoria real ≥32 bytes, `INGEST_API_KEYS`, `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID` o `TELEGRAM_CHAT_IDS` si aplica). `TELEGRAM_CHAT_IDS` acepta una lista separada por comas y tiene prioridad sobre el destino único.
+   Si el clúster PostgreSQL ya se inicializó, no basta con cambiar
+   `POSTGRES_PASSWORD` o `APP_DB_PASSWORD` en el archivo de entorno: rotar las
+   contraseñas de los roles dentro de PostgreSQL en la misma intervención y
+   reiniciar los consumidores. La rotación de `JWT_SECRET` invalida las
+   sesiones existentes.
 3. Construir y levantar el perfil de producción con `docker compose -f docker-compose.yml -f docker-compose.override.prod.yml --profile prod up -d --build`. `nginx` y el contenedor de renovación Certbot ya forman parte del despliegue; el certificado y el dominio reales siguen siendo una precondición operativa, no una tarea pendiente de código.
 4. TLS con certbot (modo webroot, sin exponer el puerto 80 de otro servicio):
    ```bash

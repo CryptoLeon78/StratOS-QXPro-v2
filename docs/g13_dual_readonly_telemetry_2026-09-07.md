@@ -166,3 +166,32 @@ heartbeat y equity frescos. Para certificar una alerta real, Telegram debe
 estar configurado por el operador y debe observarse una alerta producida por
 un hecho operativo real (por ejemplo, una posición real sin SL); no se inyecta
 una alerta sintética en cuentas reales para cerrar este gate.
+
+## Actualización: entrega Telegram a dos grupos
+
+`Gamblers_Bastion_bot` quedó verificado como miembro de los dos grupos
+operativos elegidos por el operador. El primero ya lo contenía como
+administrador; el segundo lo incorporó como miembro normal. No se concedieron
+permisos administrativos adicionales.
+
+El core admite ahora `TELEGRAM_CHAT_IDS`, una lista de destinos separada por
+comas que tiene prioridad sobre el destino único heredado
+`TELEGRAM_CHAT_ID`. Cada alerta se intenta entregar en todos los destinos;
+el resultado sólo es exitoso si todos aceptan el mensaje. La prueba controlada
+de entrega devolvió éxito para los dos destinos configurados. No creó alertas
+ni modificó cuentas, terminales ni EAs.
+
+Tras el redeploy de core, worker y scheduler, `check_observation.py` devolvió
+`PREFLIGHT_PASS`: servicios activos, recuperación automática, acceso anónimo
+rechazado, datos legibles y telemetría real fresca de JJTI y BEPB.
+
+### Gate pendiente: rotación segura de secretos iniciales
+
+Los valores de ejemplo no son aceptables para operación sostenida. Antes de
+declarar una configuración de producción cerrada, el operador debe sustituir
+las credenciales iniciales por secretos aleatorios y rotar las contraseñas de
+los roles correspondientes dentro de PostgreSQL. Cambiar sólo el archivo de
+entorno de un clúster ya inicializado rompería la siguiente reconexión. Rotar
+`JWT_SECRET` invalida las sesiones existentes y requiere reiniciar los
+servicios que emiten o validan tokens. Los valores reales no se registran ni
+se versionan.
