@@ -41,6 +41,33 @@ en una URL HTTPS privada y comprobada desde el propio equipo del core. Funnel
 permanece deshabilitado: no se ha abierto ningún puerto del panel al Internet
 público.
 
+### Evidencia de ingesta real y recuperación de credencial
+
+Tras instalar dos servicios NSSM independientes en el VPS, la comprobación
+read-only `scripts/check_observation.py` devolvió `PREFLIGHT_PASS`. El core
+aceptó lotes de `heartbeat`, `equity`, `positions` y `trades` con HTTP 200, y
+las dos cuentas `BROKER_REAL` aportaron heartbeat y equity por debajo del
+umbral contractual de 120 segundos. La evidencia sellada queda bajo
+`runtime/operational/observation/` y no se versiona.
+
+La identidad de los terminales se comprobó antes de instalar cada servicio:
+los nombres de dos carpetas MT5 estaban cruzados respecto de las cuentas
+logueadas. Los servicios quedaron asociados por identidad observada de cuenta,
+nunca por el nombre editorial de la carpeta. No se relogueó, renombró ni
+modificó ningún terminal.
+
+Antes de configurar la clave de ingesta, ambos conectores recibían HTTP 401 y
+conservaron sus lotes en SQLite. Tras configurar la misma clave permitida en
+el core y reiniciar los servicios, los lotes se aceptaron sin intervención en
+MT5. Esto acredita recuperación ante una credencial inválida, no una prueba de
+reinicio de host ni de corte de red.
+
+La base contiene alertas `CRITICA` recientes emitidas por `ingest_positions`,
+de modo que la generación y persistencia de alertas de ingesta queda observada
+en datos reales. La entrega externa por Telegram permanece no verificada:
+no se inyectan alertas sintéticas ni se inspeccionan sus credenciales para
+cerrar ese punto.
+
 ## Preparación del bridge MCP
 
 1. Mantener los túneles ligados exclusivamente a `127.0.0.1`; no exponer los
