@@ -31,6 +31,10 @@ class Settings(BaseSettings):
 
     telegram_bot_token: str = Field(default="", validation_alias="TELEGRAM_BOT_TOKEN")
     telegram_chat_id: str = Field(default="", validation_alias="TELEGRAM_CHAT_ID")
+    # Lista opcional de destinos, separada por comas. Cuando se define, tiene
+    # prioridad sobre el destino unico heredado para permitir alertas a varios
+    # grupos sin duplicar procesos de notificacion.
+    telegram_chat_ids: str = Field(default="", validation_alias="TELEGRAM_CHAT_IDS")
 
     sentry_dsn: str = Field(default="", validation_alias="SENTRY_DSN")
 

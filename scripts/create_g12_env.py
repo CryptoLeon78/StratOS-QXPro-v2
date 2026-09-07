@@ -53,6 +53,7 @@ def build_g12_env(source: dict[str, str]) -> dict[str, str]:
         "INGEST_API_KEYS": ingest_key,
         "TELEGRAM_BOT_TOKEN": "",
         "TELEGRAM_CHAT_ID": "",
+        "TELEGRAM_CHAT_IDS": "",
         "SENTRY_DSN": "",
         "DEPLOYMENT_PROFILE": "full",
         "TZ_DISPLAY": source.get("TZ_DISPLAY", "Europe/Madrid"),

@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 
@@ -8,6 +10,7 @@ from core.notifications.telegram import (
     TELEGRAM_SENT_TOTAL,
     TelegramConfig,
     send_telegram_message,
+    telegram_destinations,
 )
 
 _SETTINGS = Settings(
@@ -89,5 +92,37 @@ async def test_unconfigured_token_returns_false_without_any_request() -> None:
     result = await send_telegram_message(
         client, _UNCONFIGURED_SETTINGS, "hola", AlertLevel.CRITICA, _FAST_CONFIG
     )
+    assert result is False
+    await client.aclose()
+
+
+async def test_sends_to_each_configured_destination() -> None:
+    destinations: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        destinations.append(str(json.loads(request.content)["chat_id"]))
+        return httpx.Response(200, json={"ok": True})
+
+    settings = _SETTINGS.model_copy(update={"telegram_chat_ids": "first, second, first"})
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+    result = await send_telegram_message(client, settings, "hola", AlertLevel.SUAVE, _FAST_CONFIG)
+
+    assert result is True
+    assert destinations == ["first", "second"]
+    assert telegram_destinations(settings) == ("first", "second")
+    await client.aclose()
+
+
+async def test_returns_false_when_one_destination_fails() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        chat_id = json.loads(request.content)["chat_id"]
+        return httpx.Response(500 if chat_id == "second" else 200)
+
+    settings = _SETTINGS.model_copy(update={"telegram_chat_ids": "first,second"})
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+    result = await send_telegram_message(client, settings, "hola", AlertLevel.SUAVE, _FAST_CONFIG)
+
     assert result is False
     await client.aclose()
