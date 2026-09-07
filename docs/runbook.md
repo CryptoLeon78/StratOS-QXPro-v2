@@ -34,6 +34,9 @@ El Nodo A llama al Nodo B por HTTPS (`CORE_ENGINE_URL` del conector apuntando al
    contraseñas de los roles dentro de PostgreSQL en la misma intervención y
    reiniciar los consumidores. La rotación de `JWT_SECRET` invalida las
    sesiones existentes.
+   Si se recrea `api-gateway` sin recrear el frontend, reiniciar también
+   `frontend`: nginx puede conservar la IP anterior del gateway y devolver
+   temporalmente `502` hasta renovar la resolución interna de Docker.
 3. Construir y levantar el perfil de producción con `docker compose -f docker-compose.yml -f docker-compose.override.prod.yml --profile prod up -d --build`. `nginx` y el contenedor de renovación Certbot ya forman parte del despliegue; el certificado y el dominio reales siguen siendo una precondición operativa, no una tarea pendiente de código.
 4. TLS con certbot (modo webroot, sin exponer el puerto 80 de otro servicio):
    ```bash

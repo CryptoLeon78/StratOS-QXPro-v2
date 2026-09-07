@@ -195,3 +195,17 @@ entorno de un clúster ya inicializado rompería la siguiente reconexión. Rotar
 `JWT_SECRET` invalida las sesiones existentes y requiere reiniciar los
 servicios que emiten o validan tokens. Los valores reales no se registran ni
 se versionan.
+
+### Verificación posterior a la rotación
+
+Tras la rotación coordinada de las contraseñas de los roles y del secreto JWT,
+se recrearon core, worker, scheduler y gateway. El acceso a la base continuó
+legible, las rutas protegidas volvieron a rechazar acceso anónimo con `401` y
+las dos cuentas reales siguieron aportando heartbeat y equity frescos.
+
+La recreación del gateway cambió su IP interna de Docker. El frontend, que no
+se había recreado en la misma orden, devolvió temporalmente `502` al mantener
+la resolución anterior; reiniciarlo una vez restauró el proxy. El preflight
+posterior devolvió `PREFLIGHT_PASS`. Una segunda entrega controlada por
+Telegram fue aceptada por todos los destinos configurados. No se inspeccionó
+ni versionó ningún valor secreto.
