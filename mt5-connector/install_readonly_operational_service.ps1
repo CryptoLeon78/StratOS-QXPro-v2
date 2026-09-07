@@ -96,8 +96,8 @@ $serviceEnvironment = @(
 if ($PSCmdlet.ShouldProcess($ServiceName, 'install or update read-only connector service')) {
     New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
 
-    $existing = & nssm status $ServiceName 2>$null
-    if ($LASTEXITCODE -ne 0) {
+    $existingService = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+    if ($null -eq $existingService) {
         & nssm install $ServiceName $PythonExe $ScriptPath
     }
     & nssm set $ServiceName AppDirectory $PSScriptRoot
