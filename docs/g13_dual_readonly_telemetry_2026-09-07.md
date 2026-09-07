@@ -66,11 +66,13 @@ persista.
 El instalador versionado es
 `mt5-connector/install_readonly_operational_service.ps1`. Antes de iniciar,
 comprueba NSSM, Python, la ruta del terminal y que la instancia exacta de
-`terminal64.exe` ya esté abierta. Al usar `-Start`, exige además HTTP 200 del
-health del core desde el VPS. Rechaza una URL localhost porque no es alcanzable
-desde un VPS remoto. La API key debe llegar al proceso mediante el mecanismo
-protegido que gobierne el operador; el instalador no la inspecciona ni la
-persiste.
+`terminal64.exe` ya esté abierta. Además inicializa esa ruta de forma
+read-only y exige que `account_info().login` coincida con la cuenta declarada;
+así no puede etiquetar por error la telemetría de Demo, JJTI o BEPB con otro
+alias. Al usar `-Start`, exige además HTTP 200 del health del core desde el
+VPS. Rechaza una URL localhost porque no es alcanzable desde un VPS remoto. La
+API key debe llegar al proceso mediante el mecanismo protegido que gobierne el
+operador; el instalador no la inspecciona ni la persiste.
 
 El paquete incluye además
 `mt5-connector/bootstrap_operational_readonly.ps1`. Instala únicamente las

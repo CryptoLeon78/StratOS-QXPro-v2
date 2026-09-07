@@ -73,6 +73,14 @@ $terminal = Get-Process -Name 'terminal64' -ErrorAction SilentlyContinue |
 if (-not $terminal) {
     throw 'La instancia MT5 indicada no esta abierta. Arrancarla y autenticarla manualmente antes de instalar el servicio.'
 }
+$identityCheck = Join-Path $PSScriptRoot 'src\connector\verify_live_account.py'
+if (-not (Test-Path -LiteralPath $identityCheck -PathType Leaf)) {
+    throw "No se encuentra la comprobacion de identidad MT5 en $identityCheck."
+}
+& $PythonExe $identityCheck --terminal-path $TerminalPath --expected-login $AccountLogin
+if ($LASTEXITCODE -ne 0) {
+    throw 'La instancia MT5 activa no coincide con la cuenta declarada; no se instala el servicio.'
+}
 
 $instanceRoot = Join-Path $DataRoot $AccountAlias
 $bufferPath = Join-Path $instanceRoot 'buffer.sqlite'
