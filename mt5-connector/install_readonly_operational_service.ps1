@@ -40,6 +40,8 @@ param(
     [string]$PythonExe = "$PSScriptRoot\.venv\Scripts\python.exe",
     [string]$ScriptPath = "$PSScriptRoot\src\connector\main.py",
     [string]$DataRoot = 'C:\ProgramData\StratOSQXPro\operational',
+    [string]$ReporterOutboxDir,
+    [string]$ReporterOutboxFilename = '*.jsonl',
     [switch]$Start
 )
 
@@ -57,6 +59,12 @@ if (-not (Test-Path -LiteralPath $PythonExe -PathType Leaf)) {
 }
 if (-not (Test-Path -LiteralPath $ScriptPath -PathType Leaf)) {
     throw "No se encuentra el entrypoint del conector en $ScriptPath."
+}
+if ($ReporterOutboxDir -and -not (Test-Path -LiteralPath $ReporterOutboxDir -PathType Container)) {
+    throw "No existe el directorio read-only del reporter: $ReporterOutboxDir."
+}
+if ([IO.Path]::GetFileName($ReporterOutboxFilename) -ne $ReporterOutboxFilename) {
+    throw 'ReporterOutboxFilename debe ser un patron local sin ruta.'
 }
 try {
     $coreUri = [Uri]$CoreEngineUrl
@@ -90,7 +98,8 @@ $serviceEnvironment = @(
     "CONNECTOR_ACCOUNT_LOGIN=$AccountLogin",
     "CONNECTOR_BUFFER_DB_PATH=$bufferPath",
     "CONNECTOR_MT5_TERMINAL_PATH=$TerminalPath",
-    'CONNECTOR_REPORTER_OUTBOX_DIR='
+    "CONNECTOR_REPORTER_OUTBOX_DIR=$ReporterOutboxDir",
+    "CONNECTOR_REPORTER_OUTBOX_FILENAME=$ReporterOutboxFilename"
 )
 
 if ($PSCmdlet.ShouldProcess($ServiceName, 'install or update read-only connector service')) {
@@ -126,5 +135,8 @@ if ($PSCmdlet.ShouldProcess($ServiceName, 'install or update read-only connector
 
 Write-Host "Configuracion read-only preparada para $AccountAlias en $ServiceName."
 Write-Host "Buffer: $bufferPath"
+if ($ReporterOutboxDir) {
+    Write-Host "Reporter outbox read-only: $ReporterOutboxDir\\$ReporterOutboxFilename"
+}
 Write-Host 'La API key de ingesta debe estar disponible para el servicio por el mecanismo protegido elegido por el operador; este script no la inspecciona ni la persiste.'
 Write-Host 'Validar despues con scripts\check_observation.py; el servicio no certifica por si solo llegada al core.'
