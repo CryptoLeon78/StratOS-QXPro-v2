@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "policy_version": "g13-magic-identity-v2",
+  "policy_version": "g13-magic-identity-v3",
   "comment": {
     "separator": "_MN",
     "max_chars": 30,
@@ -13,6 +13,18 @@
     "maximum": 2147483647,
     "reserved": [0],
     "assignment": "next_free_non_reusable"
+  },
+  "allocation_scopes": {
+    "operational": {
+      "minimum": 1,
+      "maximum": 999999,
+      "purpose": "approved operational identities"
+    },
+    "analysis_candidate": {
+      "minimum": 1000000,
+      "maximum": 1999999,
+      "purpose": "exported research candidates before operational admission"
+    }
   },
   "strategy_key": {
     "algorithm": "sha256-json-v1",
