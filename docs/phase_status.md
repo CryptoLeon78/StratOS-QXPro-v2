@@ -141,24 +141,27 @@ ignorado pese a declararse la única plantilla versionada, y `docs/history_deals
   los `legacy_magic_numbers` del registro aprobado, sellada en el artefacto de importación, y
   un informe que mide la cobertura antes de importar.
 
-### Lo que la auditoría descubrió y sigue abierto
+### Lo que la auditoría descubrió — estado 2026-09-26
 
-1. **El histórico exportado no llega a 2018**, sino a `2025-02-03` (BEPB) y `2025-03-20`
-   (JJTI). El caché de deals del terminal guarda ~19 meses. La documentación que prometía
-   2018 queda corregida; la decisión sobre el tramo anterior es del operador.
-2. **La migración MN está aplicada casi por completo, no del todo**: medido sobre los deals
-   del 1-2 de septiembre, 14 por cuenta llevan magic nuevo pero **dos EAs siguen emitiendo su
-   legacy** (`2004262` en BEPB, `2084` en JJTI) y tres magics desplegados no pertenecen al
-   lote aprobado de 40 (`9519`, `90727`, `0`).
-3. **Una comparación completada no está registrada**: `20260830T210536Z_91538465c20a` tiene
-   evidencia sellada en disco y ningún evento en la base (`backlog A15`).
-4. **El 87-90 % del histórico es de EAs ya retirados** (`backlog A17`). La traducción de
-   magics triplica la cobertura y aun así deja huérfana la mayoría. No es un fallo: es la
-   rotación real del portfolio, y conviene tenerlo medido antes de prometer métricas por bot
-   sobre el histórico completo.
-5. **Los `docs/registro_*_MN_*.md` se mantienen a mano y divergen del despliegue** — registran
+Snapshot original del 2026-09-02; de sus 5 hallazgos, 4 están cerrados y sólo el quinto sigue
+genuinamente abierto:
+
+1. ~~**El histórico exportado no llega a 2018**~~ **CERRADO por decisión del operador (A11):**
+   la ventana real es `2025-02-03`→`2026-09-01` (BEPB) y `2025-03-20`→`2026-09-01` (JJTI), ~19
+   meses porque el caché de deals del terminal no guarda más. El operador confirma que bastan.
+2. ~~**La migración MN aplicada casi por completo**~~ **CERRADO por revisión del operador
+   (A12):** los dos EAs que emitían magic legacy y los tres magics fuera del lote de 40
+   corresponden a EAs desplegados fuera de la propuesta y a operaciones sin EA (`magic=0`), no
+   a un fallo de la migración. El operador revisó los terminales y confirma la configuración.
+3. ~~**Una comparación completada no registrada**~~ **RESUELTO (A15):** `20260830T210536Z_…`
+   era una campaña pre-migración MN cuyo origen ya no existe, no una pérdida de registro.
+4. ~~**87-90 % del histórico de EAs retirados**~~ **RESUELTO por decisión del operador (A17):**
+   los retirados no se inventarían ni se presentan. `GET /data-provenance` declara la cobertura
+   real (`trade_attribution`) en vez de prometer métricas sobre el histórico completo.
+5. **Los `docs/registro_*_MN_*.md` siguen sin regenerar (`backlog A13`, abierto)** — registran
    el comment con el magic legacy mientras la propuesta aprobada asigna magics cortos, y los
-   deals demuestran que lo desplegado usa los nuevos (`backlog A13`).
+   deals demuestran que lo desplegado usa los nuevos. Regenerarlos desde el post-scan en vez
+   de mantenerlos a mano sigue pendiente.
 
 ## Fase actual: G12 — Validación operativa por pestaña y demo SQX — BASE DEMO OPERATIVA; G12-02 CONTRACTUAL CONFORME, OPERACIONES BLOQUEADAS POR NARANJA
 
