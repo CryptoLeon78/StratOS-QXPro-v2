@@ -1,12 +1,16 @@
 from datetime import UTC, datetime
 
 import fakeredis
+import pytest
 
+import core.auth.recovery as recovery_module
 from core.auth.recovery import (
     _code_digest,
+    _cooldown_key,
     _recovery_key,
     complete_recovery,
     recovery_is_configured,
+    request_recovery_code,
 )
 from core.auth.security import hash_password, verify_password
 from core.auth.service import change_password
@@ -56,6 +60,79 @@ def _user() -> User:
         session_version=0,
         created_at=datetime.now(UTC),
     )
+
+
+class _ScalarResult:
+    def __init__(self, value: object) -> None:
+        self._value = value
+
+    def scalar_one_or_none(self) -> object:
+        return self._value
+
+
+class _UserLookupSession:
+    """Solo soporta el `select(User.id)...` que hace `request_recovery_code`."""
+
+    def __init__(self, user_id: int | None) -> None:
+        self._user_id = user_id
+
+    async def execute(self, _statement: object) -> _ScalarResult:
+        return _ScalarResult(self._user_id)
+
+
+async def test_request_recovery_code_keeps_the_code_when_telegram_delivers(monkeypatch) -> None:
+    settings = _settings()
+    redis = fakeredis.FakeAsyncRedis()
+    session = _UserLookupSession(user_id=1)
+    delivered_to: list[str] = []
+
+    async def _fake_send(_client, _settings, chat_id, _text, _config=None) -> bool:
+        delivered_to.append(chat_id)
+        return True
+
+    monkeypatch.setattr(recovery_module, "send_telegram_direct_message", _fake_send)
+
+    await request_recovery_code(session, redis, settings, settings.operator_email)
+
+    assert delivered_to == [settings.telegram_recovery_chat_id]
+    assert await redis.get(_recovery_key(settings.operator_email)) is not None
+    assert await redis.exists(_cooldown_key(settings.operator_email))
+
+
+async def test_request_recovery_code_discards_the_code_when_telegram_fails_to_deliver(
+    monkeypatch,
+) -> None:
+    """Incidente 2026-09-26 (ver ASSUMPTIONS G13-65): si Telegram no entrega, el codigo
+    generado no debe quedar vivo en Redis -- de lo contrario un `chat_id` mal configurado
+    dejaria un codigo valido que nadie puede introducir a tiempo antes de que caduque."""
+    settings = _settings()
+    redis = fakeredis.FakeAsyncRedis()
+    session = _UserLookupSession(user_id=1)
+
+    async def _fake_send(*_args, **_kwargs) -> bool:
+        return False
+
+    monkeypatch.setattr(recovery_module, "send_telegram_direct_message", _fake_send)
+
+    await request_recovery_code(session, redis, settings, settings.operator_email)
+
+    assert await redis.get(_recovery_key(settings.operator_email)) is None
+    assert not await redis.exists(_cooldown_key(settings.operator_email))
+
+
+async def test_request_recovery_code_does_nothing_for_an_unregistered_email(monkeypatch) -> None:
+    settings = _settings()
+    redis = fakeredis.FakeAsyncRedis()
+    session = _UserLookupSession(user_id=None)
+
+    async def _fail_if_called(*_args, **_kwargs) -> bool:
+        pytest.fail("no deberia intentar enviar sin un usuario registrado")
+
+    monkeypatch.setattr(recovery_module, "send_telegram_direct_message", _fail_if_called)
+
+    await request_recovery_code(session, redis, settings, settings.operator_email)
+
+    assert await redis.get(_recovery_key(settings.operator_email)) is None
 
 
 def test_recovery_requires_a_private_telegram_destination() -> None:

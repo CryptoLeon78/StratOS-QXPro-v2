@@ -5,6 +5,7 @@ de esta funcion para continuar). Sin `TELEGRAM_BOT_TOKEN` y algun destino
 configurados (Settings, ya existen), no hace ninguna peticion de red."""
 
 import asyncio
+import logging
 from dataclasses import dataclass
 
 import httpx
@@ -12,6 +13,8 @@ from prometheus_client import Counter
 
 from core.config import Settings
 from core.db.enums import AlertLevel
+
+logger = logging.getLogger(__name__)
 
 TELEGRAM_SENT_TOTAL = Counter(
     "telegram_sent_total", "Mensajes de Telegram enviados con exito", ["level", "channel"]
@@ -51,6 +54,7 @@ async def send_telegram_message(
     delivered_to_all = True
     for chat_id in destinations:
         delivered = False
+        last_error: str | None = None
         for attempt in range(config.max_retries):
             try:
                 response = await client.post(url, json={"chat_id": chat_id, "text": text})
@@ -58,13 +62,21 @@ async def send_telegram_message(
                     TELEGRAM_SENT_TOTAL.labels(level=level.value, channel="telegram").inc()
                     delivered = True
                     break
-            except httpx.HTTPError:
-                pass
+                last_error = f"http_status={response.status_code}"
+            except httpx.HTTPError as error:
+                last_error = f"{type(error).__name__}: {error}"
             if attempt < config.max_retries - 1:
                 await asyncio.sleep(config.backoff_base_s * (2**attempt))
         if not delivered:
             TELEGRAM_FAILURES_TOTAL.labels(level=level.value).inc()
             delivered_to_all = False
+            logger.warning(
+                "telegram_delivery_failed chat_id=%s level=%s attempts=%d last_error=%s",
+                chat_id,
+                level.value,
+                config.max_retries,
+                last_error,
+            )
 
     return delivered_to_all
 
@@ -79,15 +91,24 @@ async def send_telegram_direct_message(
     """Envia un mensaje puntual a un chat privado, aislado de alertas grupales."""
     config = config or TelegramConfig()
     if not settings.telegram_bot_token or not chat_id:
+        logger.warning("telegram_direct_message_skipped chat_id=%s reason=not_configured", chat_id)
         return False
     url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
+    last_error: str | None = None
     for attempt in range(config.max_retries):
         try:
             response = await client.post(url, json={"chat_id": chat_id, "text": text})
             if response.status_code == 200:
                 return True
-        except httpx.HTTPError:
-            pass
+            last_error = f"http_status={response.status_code}"
+        except httpx.HTTPError as error:
+            last_error = f"{type(error).__name__}: {error}"
         if attempt < config.max_retries - 1:
             await asyncio.sleep(config.backoff_base_s * (2**attempt))
+    logger.warning(
+        "telegram_direct_message_failed chat_id=%s attempts=%d last_error=%s",
+        chat_id,
+        config.max_retries,
+        last_error,
+    )
     return False

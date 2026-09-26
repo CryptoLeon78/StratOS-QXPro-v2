@@ -9,6 +9,7 @@ from core.notifications.telegram import (
     TELEGRAM_FAILURES_TOTAL,
     TELEGRAM_SENT_TOTAL,
     TelegramConfig,
+    send_telegram_direct_message,
     send_telegram_message,
     telegram_destinations,
 )
@@ -125,4 +126,63 @@ async def test_returns_false_when_one_destination_fails() -> None:
     result = await send_telegram_message(client, settings, "hola", AlertLevel.SUAVE, _FAST_CONFIG)
 
     assert result is False
+    await client.aclose()
+
+
+async def test_failed_delivery_is_logged_without_leaking_the_message_text(caplog) -> None:
+    """Incidente 2026-09-26 (recuperacion de contrasena, ver ASSUMPTIONS G13-65): un fallo de
+    entrega no dejaba ningun rastro. El aviso lleva el chat_id y la causa, nunca el texto
+    (puede contener el codigo de recuperacion en claro)."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    with caplog.at_level("WARNING"):
+        result = await send_telegram_message(
+            client, _SETTINGS, "codigo secreto 000000", AlertLevel.CRITICA, _FAST_CONFIG
+        )
+    assert result is False
+    assert any("telegram_delivery_failed" in record.message for record in caplog.records)
+    assert not any("codigo secreto" in record.message for record in caplog.records)
+    await client.aclose()
+
+
+async def test_direct_message_returns_true_on_200() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert json.loads(request.content)["chat_id"] == "private-chat-id"
+        return httpx.Response(200, json={"ok": True})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    result = await send_telegram_direct_message(
+        client, _SETTINGS, "private-chat-id", "hola", _FAST_CONFIG
+    )
+    assert result is True
+    await client.aclose()
+
+
+async def test_direct_message_without_chat_id_is_skipped_and_logged(caplog) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        pytest.fail("no deberia llamarse sin chat_id")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    with caplog.at_level("WARNING"):
+        result = await send_telegram_direct_message(client, _SETTINGS, "", "hola", _FAST_CONFIG)
+    assert result is False
+    assert any("telegram_direct_message_skipped" in record.message for record in caplog.records)
+    await client.aclose()
+
+
+async def test_direct_message_failure_is_logged_without_leaking_the_message_text(caplog) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(403)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    with caplog.at_level("WARNING"):
+        result = await send_telegram_direct_message(
+            client, _SETTINGS, "private-chat-id", "codigo secreto 000000", _FAST_CONFIG
+        )
+    assert result is False
+    assert any("telegram_direct_message_failed" in record.message for record in caplog.records)
+    assert not any("codigo secreto" in record.message for record in caplog.records)
     await client.aclose()
