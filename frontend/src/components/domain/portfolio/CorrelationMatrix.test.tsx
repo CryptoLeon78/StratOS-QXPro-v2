@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 
@@ -19,17 +19,17 @@ function renderMatrix() {
 describe("CorrelationMatrix", () => {
   it("muestra la media y los nombres de bot cruzados desde /bots", async () => {
     server.use(
-      http.get(`${API_BASE_URL}/api/v1/portfolio/correlations`, () =>
-        HttpResponse.json([
-          {
-            bot_a_id: 1,
-            bot_b_id: 2,
-            correlation: 0.2,
-            is_redundant_pair: false,
-            ts: "2026-01-01T00:00:00Z",
-          },
-        ])
-      ),
+      http.get(`${API_BASE_URL}/api/v1/portfolio/correlations/latest`, ({ request }) => {
+        if (new URL(request.url).searchParams.get("source") !== "MT5_REAL") return HttpResponse.json(null);
+        return HttpResponse.json({
+          id: 1, source: "MT5_REAL", status: "COMPLETED", reason: null,
+          created_at: "2026-01-01T00:00:00Z", window_start: "2025-01-01T00:00:00Z",
+          window_end: "2026-01-01T00:00:00Z", window_days: 365,
+          algorithm_version: "daily-net-pnl-v2", account_scope: { account_ids: [1] },
+          input_sha256: "a".repeat(64),
+          pairs: [{ bot_a_id: 1, bot_b_id: 2, correlation: 0.2, is_redundant_pair: false, snapshot_id: 1, source: "MT5_REAL", created_at: "2026-01-01T00:00:00Z" }],
+        });
+      }),
       http.get(`${API_BASE_URL}/api/v1/bots`, () =>
         HttpResponse.json([
           { id: 1, name: "Atlas Trend EURUSD" },
@@ -47,12 +47,14 @@ describe("CorrelationMatrix", () => {
 
   it("estado vacio cuando no hay correlaciones calculadas todavia", async () => {
     server.use(
-      http.get(`${API_BASE_URL}/api/v1/portfolio/correlations`, () => HttpResponse.json([])),
+      http.get(`${API_BASE_URL}/api/v1/portfolio/correlations/latest`, () => HttpResponse.json(null)),
       http.get(`${API_BASE_URL}/api/v1/bots`, () => HttpResponse.json([]))
     );
 
     renderMatrix();
 
-    expect(await screen.findByText("Sin bots activos (F7/Producción) todavía.")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getAllByText("Aún no existe un snapshot sellado para esta fuente.")).toHaveLength(2);
+    });
   });
 });

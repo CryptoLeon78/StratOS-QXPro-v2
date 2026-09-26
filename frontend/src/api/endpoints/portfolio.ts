@@ -22,12 +22,39 @@ export interface CorrelationRow {
   bot_b_id: number;
   correlation: number;
   is_redundant_pair: boolean;
-  ts: string;
+  snapshot_id: number;
+  source: CorrelationSource;
+  created_at: string;
 }
 
-export function getPortfolioCorrelations(windowDays?: number): Promise<CorrelationRow[]> {
-  const query = windowDays ? `?window_days=${windowDays}` : "";
+export type CorrelationSource = "MT5_BACKTEST" | "MT5_REAL";
+
+export interface CorrelationSnapshot {
+  id: number;
+  source: CorrelationSource;
+  status: "COMPLETED" | "WITHHELD";
+  reason: string | null;
+  created_at: string;
+  window_start: string | null;
+  window_end: string | null;
+  window_days: number;
+  algorithm_version: string;
+  account_scope: Record<string, unknown>;
+  input_sha256: string;
+  pairs: CorrelationRow[];
+}
+
+export function getPortfolioCorrelations(source: CorrelationSource, windowDays?: number): Promise<CorrelationRow[]> {
+  const params = new URLSearchParams({ source });
+  if (windowDays) params.set("window_days", String(windowDays));
+  const query = `?${params.toString()}`;
   return apiFetch<CorrelationRow[]>(`/api/v1/portfolio/correlations${query}`);
+}
+
+export function getPortfolioCorrelationSnapshot(source: CorrelationSource, windowDays?: number): Promise<CorrelationSnapshot | null> {
+  const params = new URLSearchParams({ source });
+  if (windowDays) params.set("window_days", String(windowDays));
+  return apiFetch<CorrelationSnapshot | null>(`/api/v1/portfolio/correlations/latest?${params.toString()}`);
 }
 
 // G10: "¿Añade valor real el portfolio?" -- espejo 1:1 de

@@ -3,8 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import {
   getPortfolioBenchmark,
   getPortfolioBlocks,
+  getPortfolioCorrelationSnapshot,
   getPortfolioCorrelations,
   getPortfolioProfiles,
+  type CorrelationSource,
 } from "@/api/endpoints/portfolio";
 
 export function usePortfolioBlocks() {
@@ -15,10 +17,17 @@ export function usePortfolioProfiles() {
   return useQuery({ queryKey: ["portfolio-profiles"], queryFn: getPortfolioProfiles });
 }
 
-export function usePortfolioCorrelations(windowDays?: number) {
+export function usePortfolioCorrelations(source: CorrelationSource, windowDays?: number) {
   return useQuery({
-    queryKey: ["portfolio-correlations", windowDays],
-    queryFn: () => getPortfolioCorrelations(windowDays),
+    queryKey: ["portfolio-correlations", source, windowDays],
+    queryFn: () => getPortfolioCorrelations(source, windowDays),
+  });
+}
+
+export function usePortfolioCorrelationSnapshot(source: CorrelationSource, windowDays?: number) {
+  return useQuery({
+    queryKey: ["portfolio-correlation-snapshot", source, windowDays],
+    queryFn: () => getPortfolioCorrelationSnapshot(source, windowDays),
   });
 }
 
