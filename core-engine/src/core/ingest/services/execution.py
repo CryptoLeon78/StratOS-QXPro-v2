@@ -18,7 +18,7 @@ from core.ingest.services import IngestOutcome
 async def ingest_execution(
     session: AsyncSession, account: Account, req: ExecutionIngestRequest
 ) -> IngestOutcome:
-    batch = await seal_and_create_batch(
+    batch, ya_visto = await seal_and_create_batch(
         session,
         account,
         batch_type="execution",
@@ -28,6 +28,16 @@ async def ingest_execution(
         records=[req.model_dump(mode="json", exclude={"batch_sha256"})],
         record_count=len(req.fills),
     )
+    if ya_visto:
+        # Sello ya registrado: el lote es byte a byte el mismo y no hay nada
+        # que ingerir. El intento queda sellado igual (traza append-only);
+        # lo que se salta es el reproceso de sus registros.
+        return IngestOutcome(
+            accepted=0,
+            duplicated=0,
+            batch_id=batch.id,
+            server_time=batch.server_ts,
+        )
     bot_id = (
         await session.execute(
             select(Bot.id).where(Bot.account_id == account.id, Bot.magic_number == req.magic)

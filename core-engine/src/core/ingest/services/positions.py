@@ -71,7 +71,7 @@ async def _apply_p5_check(
 async def ingest_positions(
     session: AsyncSession, account: Account, req: PositionsIngestRequest
 ) -> IngestOutcome:
-    batch = await seal_and_create_batch(
+    batch, ya_visto = await seal_and_create_batch(
         session,
         account,
         batch_type="positions",
@@ -81,6 +81,16 @@ async def ingest_positions(
         records=[req.model_dump(mode="json", exclude={"batch_sha256"})],
         record_count=len(req.positions),
     )
+    if ya_visto:
+        # Sello ya registrado: el lote es byte a byte el mismo y no hay nada
+        # que ingerir. El intento queda sellado igual (traza append-only);
+        # lo que se salta es el reproceso de sus registros.
+        return IngestOutcome(
+            accepted=0,
+            duplicated=len(req.positions),
+            batch_id=batch.id,
+            server_time=batch.server_ts,
+        )
 
     now = datetime.now(UTC)
     accepted = 0

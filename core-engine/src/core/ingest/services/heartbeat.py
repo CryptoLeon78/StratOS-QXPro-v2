@@ -18,7 +18,7 @@ _STATUS_OK = "OK"
 async def ingest_heartbeat(
     session: AsyncSession, account: Account, req: HeartbeatIngestRequest
 ) -> IngestOutcome:
-    batch = await seal_and_create_batch(
+    batch, ya_visto = await seal_and_create_batch(
         session,
         account,
         batch_type="heartbeat",
@@ -28,6 +28,16 @@ async def ingest_heartbeat(
         records=[req.model_dump(mode="json", exclude={"batch_sha256"})],
         record_count=1,
     )
+    if ya_visto:
+        # Sello ya registrado: el lote es byte a byte el mismo y no hay nada
+        # que ingerir. El intento queda sellado igual (traza append-only);
+        # lo que se salta es el reproceso de sus registros.
+        return IngestOutcome(
+            accepted=0,
+            duplicated=1,
+            batch_id=batch.id,
+            server_time=batch.server_ts,
+        )
 
     stmt = (
         pg_insert(HeartbeatLog)
