@@ -1,4 +1,16 @@
-from scan_mt5_chart_identity import _logical_charts, _mt5_chart_id, _values
+import pytest
+
+from scan_mt5_chart_identity import _logical_charts, _mt5_chart_id, _values, profile_chart_root
+
+
+def test_uses_the_mt5_data_folder_profile_location() -> None:
+    assert profile_chart_root("StratOS_Incubadora") == "Profiles/Charts/StratOS_Incubadora"
+
+
+@pytest.mark.parametrize("profile", ["", "../Default", "Default/other"])
+def test_rejects_non_profile_path(profile: str) -> None:
+    with pytest.raises(ValueError, match="profile"):
+        profile_chart_root(profile)
 
 
 def test_keeps_ea_name_when_chart_contains_trade_object_names() -> None:

@@ -16,6 +16,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 IDENTITY_KEYS = {"name", "MagicNumber", "CustomComment", "symbol", "period"}
+# ``target.ruta_absoluta`` resolves relative paths below ``<data_root>/MQL5``.
+_CHARTS_ROOT = "Profiles/Charts"
+
+
+def profile_chart_root(profile: str) -> str:
+    """Return the canonical MT5 data-folder location of a chart profile."""
+    normalized = profile.strip().replace("\\", "/").strip("/")
+    if not normalized or "/" in normalized or normalized in {".", ".."}:
+        raise ValueError("profile must be one MT5 chart-profile name")
+    return f"{_CHARTS_ROOT}/{normalized}"
 
 
 def _values(payload: bytes) -> dict[str, str]:
@@ -105,7 +115,7 @@ def main() -> None:
     from target import crear_target  # noqa: PLC0415
 
     target = crear_target(resolver_terminal(args.terminal_alias))
-    root = f"Profiles/Charts/{args.profile}"
+    root = profile_chart_root(args.profile)
     rows: list[dict[str, object]] = []
     for entry in target.listar_dir(target.ruta_absoluta(root)):
         name = entry["nombre"]

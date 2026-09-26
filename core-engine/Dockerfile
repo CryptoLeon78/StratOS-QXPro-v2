@@ -33,6 +33,9 @@ COPY config ./config
 # Dato de referencia del benchmark de Portfolio: viaja con la imagen porque el
 # servicio lo necesita en runtime. Sin el, GET /portfolio/benchmark devolvia 500.
 COPY scripts/data ./scripts/data
+# Herramienta operacional read-only sobre evidencias ya selladas. Se ejecuta
+# dentro de la red Docker para no exponer ni reinterpretar DATABASE_URL local.
+COPY scripts/record_mt5_backtest_correlation_snapshot.py ./scripts/record_mt5_backtest_correlation_snapshot.py
 COPY core-engine/alembic.ini ./alembic.ini
 ENV PYTHONPATH=/app/src
 EXPOSE 8000

@@ -11,15 +11,18 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import time
+import csv
+import io
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-
-
-DEFAULT_START_DATE = "2018-01-01"
 
 
 def sha256_file(path: Path) -> str:
@@ -29,6 +32,15 @@ def sha256_file(path: Path) -> str:
 def seal_payload(payload: dict[str, Any]) -> str:
     canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def resolve_test_range(sqx_cost: dict[str, Any], since: str | None, until: str | None) -> tuple[str, str]:
+    """Prefer the exact SQX setup dates; never silently extend to today's date."""
+    start = since or str(sqx_cost.get("date_from") or "").replace(".", "-")
+    end = until or str(sqx_cost.get("date_to") or "").replace(".", "-")
+    if not start or not end:
+        raise ValueError("el rango no está definido en SQX; indique --from y --to explícitamente")
+    return start, end
 
 
 def assert_safe_terminal(terminal: dict[str, Any] | None, expected_terminal: str, allow_real: bool) -> None:
@@ -81,6 +93,83 @@ def close_target_terminal(compare: Any, terminal_exe: str) -> bool:
     return not compare.terminal_abierto(terminal_exe)
 
 
+def sqx_databank_identity(sqx_path: Path, sqx_root: Path) -> tuple[str, str, str]:
+    """Resolve a candidate's SQX project/databank from its actual path."""
+    try:
+        relative = sqx_path.resolve().relative_to((sqx_root / "user" / "projects").resolve())
+    except ValueError as exc:
+        raise ValueError("el .sqx no está dentro de user/projects; no se puede exportar desde su databank SQX") from exc
+    parts = relative.parts
+    if len(parts) != 4 or parts[1].casefold() != "databanks" or Path(parts[3]).suffix.casefold() != ".sqx":
+        raise ValueError("ruta .sqx no reconocida; se esperaba user/projects/<project>/databanks/<databank>/<strategy>.sqx")
+    return parts[0], parts[2], Path(parts[3]).stem
+
+
+def export_sqx_trade_list(
+    *, sqx_path: Path, sqx_root: Path, symbol: str, timeframe: str, output_path: Path,
+    api_url: str, timeout_s: float = 60,
+) -> dict[str, Any]:
+    """Ask SQX's native trade-list export endpoint for the full L+S CSV."""
+    project, databank, strategy = sqx_databank_identity(sqx_path, sqx_root)
+    base = api_url.rstrip("/")
+    parsed_base = urllib.parse.urlsplit(base)
+    if parsed_base.scheme not in {"http", "https"} or not parsed_base.hostname:
+        raise ValueError("SQX_API_URL debe ser una URL HTTP(S) válida")
+    if parsed_base.username or parsed_base.password or parsed_base.query or parsed_base.fragment:
+        raise ValueError("SQX_API_URL no puede incluir credenciales, query ni fragmento; no se sellan secretos en el manifiesto")
+    route = "/tradelist/{}/{}/{}/export".format(*(urllib.parse.quote(part, safe="") for part in (project, databank, strategy)))
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    result_key = f"Main: {symbol}/{timeframe}"
+    form = urllib.parse.urlencode({
+        "resultKey": result_key,
+        "direction": "0",       # SQX constants: both directions
+        "sampleType": "127",    # SQX constants: full sample
+        "path": str(output_path.resolve()),
+        "useComma": "false",    # SQX UI default; semicolon-delimited CSV
+    }).encode("utf-8")
+    request = urllib.request.Request(
+        base + route,
+        data=form,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout_s) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"falló la exportación nativa de List of Trades en SQX ({base}): {exc}") from exc
+    if not isinstance(payload, dict) or payload.get("success") != "Tradelist exported.":
+        raise ValueError(f"SQX no confirmó la exportación de List of Trades: {payload!r}")
+    if not output_path.is_file() or output_path.stat().st_size == 0:
+        raise ValueError("SQX confirmó la exportación pero no creó un CSV no vacío")
+    try:
+        rows = list(csv.reader(io.StringIO(output_path.read_text(encoding="utf-8-sig")), delimiter=";"))
+    except (OSError, UnicodeError, csv.Error) as exc:
+        raise ValueError(f"no se pudo validar el CSV de List of Trades: {exc}") from exc
+    if not rows:
+        raise ValueError("el CSV exportado por SQX no contiene cabecera")
+    header = {column.strip() for column in rows[0]}
+    required = {"Open time", "Close time", "Profit/Loss", "Size"}
+    has_costs = "Comm/Swap" in header or {"Commission", "Swap"} <= header
+    if not required <= header or not has_costs:
+        raise ValueError(f"CSV de SQX sin columnas requeridas de trades/costes: {sorted(header)}")
+    if len(rows) < 2:
+        raise ValueError("SQX exportó una lista de trades sin operaciones")
+    return {
+        "path": str(output_path.resolve()),
+        "sha256": sha256_file(output_path),
+        "project": project,
+        "databank": databank,
+        "strategy": strategy,
+        "result_key": result_key,
+        "direction": "BOTH",
+        "sample_type": "FULL",
+        "cost_column": "Comm/Swap" if "Comm/Swap" in header else "SEPARATE_COMPONENTS",
+        "trade_rows": len(rows) - 1,
+        "endpoint": base + route,
+    }
+
+
 def build_command(
     *, panel_dir: Path, sqx_path: Path, mq5_path: Path, output_dir: Path,
     since: str, until: str, symbol: str, timeframe: str, sqx_trades_csv: Path | None = None,
@@ -118,12 +207,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mq5", type=Path, required=True)
     parser.add_argument(
         "--sqx-trades-csv", type=Path,
-        help="CSV sellado de operaciones exportado por AlgoWizard; permite .sqx sin orders.bin.",
+        help="CSV de operaciones SQX ya exportado; si se omite, se obtiene de List of Trades automáticamente.",
+    )
+    parser.add_argument(
+        "--sqx-api-url", default=os.environ.get("SQX_API_URL", "http://127.0.0.1:8080"),
+        help="Base URL local de SQX Remote Access (por defecto env SQX_API_URL o http://127.0.0.1:8080).",
     )
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--expected-terminal", required=True)
-    parser.add_argument("--from", dest="since", default=DEFAULT_START_DATE)
-    parser.add_argument("--to", dest="until", default=datetime.now(UTC).date().isoformat())
+    parser.add_argument("--from", dest="since", help="Por defecto usa dateFrom del .sqx")
+    parser.add_argument("--to", dest="until", help="Por defecto usa dateTo del .sqx")
     parser.add_argument("--allow-real-strategy-tester", action="store_true")
     parser.add_argument(
         "--manage-backtest-terminal",
@@ -150,10 +243,29 @@ def main() -> None:
     import compare_sqx_vs_mt5 as compare  # noqa: PLC0415
     import sqx_mt5_config as config  # noqa: PLC0415
 
+    # Cost-model comparability is independent of the aggregate performance
+    # verdict. Preserve its source-backed audit in the same sealed run manifest.
+    cost_gate_dir = panel_dir.parent / "capa2_candidate_selector"
+    if not (cost_gate_dir / "cost_gate.py").is_file():
+        raise SystemExit("falta el gate de costes Capa2; se bloquea la corrida auditable")
+    sys.path.insert(0, str(cost_gate_dir))
+    from cost_gate import (  # noqa: PLC0415
+        build_audit as build_cost_audit,
+        finalize_with_empirical_observation,
+    )
+
     cfg = config.cargar(forzar=True)
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "_" + sha256_file(sqx_path)[:12]
+    output_dir = args.output_root.resolve() / run_id
     terminal = config.terminal(cfg, "terminal_backtest")
     try:
-        assert_safe_terminal(terminal, args.expected_terminal, args.allow_real_strategy_tester)
+        # Discover and inspect-only preflight is safe even when the configured
+        # tester terminal is the user's real-account installation. The explicit
+        # flag is required only for an actual Strategy Tester launch.
+        assert_safe_terminal(
+            terminal, args.expected_terminal,
+            args.allow_real_strategy_tester or not args.launch,
+        )
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
     if args.launch and compare.terminal_abierto(terminal["exe"]):
@@ -162,32 +274,57 @@ def main() -> None:
         if not close_target_terminal(compare, terminal["exe"]):
             raise SystemExit("MT5 no aceptó el cierre limpio de la instancia de backtest")
 
+    # The official Results > List of Trades export carries cost evidence absent
+    # from many .sqx orders.bin files. Keep it beside the run for a reproducible seal.
+    export_evidence: dict[str, Any] | None = None
+    if not sqx_trades_csv:
+        try:
+            sqx_context = compare.contexto_sqx_desde_archivo(sqx_path)
+            export_evidence = export_sqx_trade_list(
+                sqx_path=sqx_path,
+                sqx_root=Path(cfg["raiz_sqx"]),
+                symbol=sqx_context["simbolo"],
+                timeframe=sqx_context["timeframe"],
+                output_path=output_dir / "sqx-trades-source.csv",
+                api_url=args.sqx_api_url,
+            )
+            sqx_trades_csv = Path(export_evidence["path"])
+        except (OSError, ValueError) as exc:
+            raise SystemExit(f"no se pudo obtener evidencia de costes desde SQX; queda WITHHELD: {exc}") from exc
+
     # El preflight replica las precondiciones de --strict-real-ticks sin compilar
     # ni abrir MT5. Así una cola no deja resultados ambiguos por M1-OHLC.
     compare.aplicar_config(cfg)
     sqx = compare.cargar_lado_sqx(sqx_path, sqx_trades_csv)
+    try:
+        cost_audit = build_cost_audit(sqx_path, mt5_spread_model="REAL_TICKS")
+    except (OSError, ValueError) as exc:
+        raise SystemExit(f"no se pudo auditar comparabilidad de costes; queda WITHHELD: {exc}") from exc
     sqx_symbol, timeframe = sqx["simbolo"], sqx["timeframe"]
+    sqx_cost = cost_audit["cost_comparability"]["sqx"]
+    try:
+        since, until = resolve_test_range(sqx_cost, args.since, args.until)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     if not sqx_symbol or not timeframe:
         raise SystemExit("no se pudo extraer símbolo/timeframe del .sqx; queda WITHHELD")
     symbol = resolve_symbol_for_ticks(config, cfg, sqx_symbol)
     if not symbol:
         raise SystemExit("no hay alias o ticks reales para el símbolo; queda WITHHELD")
     ticks = compare.cobertura_ticks(symbol)
-    since_dt, until_dt = compare.parsear_fecha(args.since), compare.parsear_fecha(args.until)
+    since_dt, until_dt = compare.parsear_fecha(since), compare.parsear_fecha(until)
     if since_dt is None or until_dt is None or since_dt >= until_dt:
         raise SystemExit("rango de backtest inválido")
     if not ticks or since_dt < ticks[0] or until_dt > ticks[1]:
         raise SystemExit("el rango 2018-actual exige ticks reales completos; queda WITHHELD")
 
-    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "_" + sha256_file(sqx_path)[:12]
-    output_dir = args.output_root.resolve() / run_id
     command = build_command(
         panel_dir=panel_dir,
         sqx_path=sqx_path,
         mq5_path=mq5_path,
         output_dir=output_dir,
-        since=args.since,
-        until=args.until,
+        since=since,
+        until=until,
         symbol=symbol,
         timeframe=timeframe,
         sqx_trades_csv=sqx_trades_csv,
@@ -199,6 +336,7 @@ def main() -> None:
         "terminal": {
             "id": terminal["id"],
             "name": terminal["nombre"],
+            "exe": terminal["exe"],
             "algotrading": terminal["algotrading"],
             "is_real": terminal["es_real"],
         },
@@ -209,8 +347,11 @@ def main() -> None:
             "mq5_sha256": sha256_file(mq5_path),
             **({"sqx_trades_csv": str(sqx_trades_csv), "sqx_trades_csv_sha256": sha256_file(sqx_trades_csv)}
                if sqx_trades_csv else {}),
+            **({"sqx_trade_export": export_evidence} if export_evidence else {}),
         },
-        "range": {"from": args.since, "to": args.until, "real_ticks_required": True},
+        "range": {"from": since, "to": until, "real_ticks_required": True},
+        "cost_audit": cost_audit,
+        "seal_eligible": bool(cost_audit["seal_allowed"]),
         "strategy": {
             "symbol": symbol,
             "timeframe": timeframe,
@@ -226,6 +367,21 @@ def main() -> None:
 
     result = subprocess.run(command, cwd=panel_dir, text=True, capture_output=True, timeout=4 * 3600)
     payload["result"] = {"returncode": result.returncode, "stdout": result.stdout, "stderr": result.stderr}
+    observation_path = output_dir / "cost-reconciliation.json"
+    if result.returncode == 0 and observation_path.is_file():
+        try:
+            cost_audit = finalize_with_empirical_observation(
+                cost_audit,
+                observation_path,
+                expected_sqx_sha256=payload["source"]["sqx_sha256"],
+                expected_sqx_trades_sha256=payload["source"].get("sqx_trades_csv_sha256"),
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            payload["cost_reconciliation_error"] = str(exc)
+        payload["cost_audit"] = cost_audit
+        payload["seal_eligible"] = bool(cost_audit["seal_allowed"])
+    elif result.returncode == 0:
+        payload["cost_reconciliation_error"] = "missing cost-reconciliation.json; cost gate remains blocked"
     payload["artifacts"] = [
         {"path": str(path), "sha256": sha256_file(path)}
         for path in sorted(output_dir.glob("*"))

@@ -61,6 +61,244 @@ def load_manifest(path: Path) -> tuple[dict[str, Any], str]:
     supplied = manifest.pop("manifest_sha256", None)
     if not isinstance(supplied, str) or supplied != seal_payload(manifest):
         raise ValueError("sello de manifiesto inválido")
+    cost_audit = manifest.get("cost_audit")
+    cost_comparability = cost_audit.get("cost_comparability") if isinstance(cost_audit, dict) else None
+    unsigned_cost_audit = (
+        {key: value for key, value in cost_audit.items() if key != "audit_sha256"}
+        if isinstance(cost_audit, dict) else None
+    )
+    cost_audit_hash_valid = (
+        isinstance(cost_audit, dict)
+        and isinstance(unsigned_cost_audit, dict)
+        and cost_audit.get("audit_sha256") == seal_payload(unsigned_cost_audit)
+    )
+    mt5_cost_evidence = cost_comparability.get("mt5") if isinstance(cost_comparability, dict) else None
+    separate_transaction_costs_valid = (
+        isinstance(mt5_cost_evidence, dict)
+        and all(
+            isinstance(mt5_cost_evidence.get(key), dict)
+            and mt5_cost_evidence[key].get("verified") is True
+            for key in ("commission_evidence", "swap_evidence")
+        )
+    )
+    combined_transaction_evidence = (
+        mt5_cost_evidence.get("transaction_cost_evidence")
+        if isinstance(mt5_cost_evidence, dict) else None
+    )
+    combined_transaction_costs_valid = (
+        isinstance(combined_transaction_evidence, dict)
+        and cost_comparability.get("transaction_cost_basis") == "SQX_COMBINED_COMM_SWAP_TOTAL"
+        and combined_transaction_evidence.get("verified") is True
+        and combined_transaction_evidence.get("aggregate_match") is True
+        and combined_transaction_evidence.get("source_column") == "Comm/Swap"
+        and combined_transaction_evidence.get("components_separated_by_sqx") is False
+        and combined_transaction_evidence.get("full_trade_set_paired") is True
+        and combined_transaction_evidence.get("matched_trades", 0) > 0
+        and combined_transaction_evidence.get("sqx_trades") == combined_transaction_evidence.get("matched_trades")
+        and combined_transaction_evidence.get("mt5_trades") == combined_transaction_evidence.get("matched_trades")
+        and combined_transaction_evidence.get("matched_volume_equal") is True
+        and combined_transaction_evidence.get("matched_direction_equal") is True
+        and combined_transaction_evidence.get("trades_with_discrepancy") == 0
+        and combined_transaction_evidence.get("maximum_absolute_trade_delta", float("inf")) <= 0.01
+    )
+    component_evidence_valid = (
+        isinstance(mt5_cost_evidence, dict)
+        and mt5_cost_evidence.get("spread_model") == "REAL_TICKS"
+        and isinstance(mt5_cost_evidence.get("spread_evidence"), dict)
+        and mt5_cost_evidence["spread_evidence"].get("verified") is True
+        and (separate_transaction_costs_valid or combined_transaction_costs_valid)
+    )
+    reconciliation = cost_audit.get("empirical_reconciliation") if isinstance(cost_audit, dict) else None
+    reconciliation_name = (
+        reconciliation.get("path") if isinstance(reconciliation, dict) else None
+    )
+    reconciliation_artifact = next(
+        (
+            artifact for artifact in manifest.get("artifacts", [])
+            if (
+                PureWindowsPath(str(artifact.get("path", ""))).name
+                if "\\" in str(artifact.get("path", ""))
+                else Path(str(artifact.get("path", ""))).name
+            ) == reconciliation_name
+        ),
+        None,
+    )
+    standard_reconciliation_source_valid = (
+        isinstance(reconciliation, dict)
+        and isinstance(reconciliation_artifact, dict)
+        and reconciliation.get("path") == "cost-reconciliation.json"
+        and reconciliation.get("sha256") == reconciliation_artifact.get("sha256")
+        and reconciliation.get("status") == "PROVEN"
+    )
+    standard_cost_gate_valid = (
+        isinstance(cost_comparability, dict)
+        and cost_comparability.get("policy") == "REAL_MT5_TICKS_BLOCK_COST_DISCREPANCIES_V1"
+        and cost_comparability.get("status") == "PROVEN"
+        and cost_comparability.get("comparable") is True
+        and component_evidence_valid
+        and standard_reconciliation_source_valid
+        and cost_comparability.get("mt5", {}).get("spread_model") == "REAL_TICKS"
+    )
+    sensitivity = (
+        cost_comparability.get("current_tariff_sensitivity")
+        if isinstance(cost_comparability, dict) else None
+    )
+    sensitivity_app = (
+        sensitivity.get("tester_application") if isinstance(sensitivity, dict) else None
+    )
+    sensitivity_source = sensitivity.get("source") if isinstance(sensitivity, dict) else None
+    sensitivity_rates = sensitivity.get("rates") if isinstance(sensitivity, dict) else None
+    deal_export = sensitivity_app.get("deal_export") if isinstance(sensitivity_app, dict) else None
+    source_snapshot = (
+        sensitivity_source.get("snapshot_artifact")
+        if isinstance(sensitivity_source, dict)
+        else None
+    )
+    deal_artifact = next(
+        (
+            artifact for artifact in manifest.get("artifacts", [])
+            if (
+                PureWindowsPath(str(artifact.get("path", ""))).name
+                if "\\" in str(artifact.get("path", ""))
+                else Path(str(artifact.get("path", ""))).name
+            ) == "mt5-deals.csv"
+        ),
+        None,
+    )
+    source_snapshot_artifact = next(
+        (
+            artifact for artifact in manifest.get("artifacts", [])
+            if (
+                PureWindowsPath(str(artifact.get("path", ""))).name
+                if "\\" in str(artifact.get("path", ""))
+                else Path(str(artifact.get("path", ""))).name
+            ) == "broker-tariff-snapshot.json"
+        ),
+        None,
+    )
+    try:
+        if not isinstance(sensitivity, dict) or not isinstance(sensitivity_source, dict):
+            raise ValueError("missing sensitivity metadata")
+        from datetime import date
+
+        scenario_date = date.fromisoformat(str(sensitivity.get("scenario_as_of")))
+        published_at = datetime.fromisoformat(
+            str(sensitivity_source.get("published_at", "")).replace("Z", "+00:00")
+        )
+        run_time = datetime.fromisoformat(
+            str(manifest.get("generated_at_utc", "")).replace("Z", "+00:00")
+        )
+        scenario_dates_valid = (
+            published_at.tzinfo is not None
+            and run_time.tzinfo is not None
+            and published_at.date() <= scenario_date <= run_time.date()
+        )
+    except (TypeError, ValueError):
+        scenario_dates_valid = False
+    sensitivity_artifact = (
+        isinstance(reconciliation, dict)
+        and isinstance(reconciliation_artifact, dict)
+        and reconciliation.get("path") == "sensitivity-reconciliation.json"
+        and reconciliation.get("status") == "SCENARIO_VALIDATED"
+        and reconciliation.get("sha256") == reconciliation_artifact.get("sha256")
+    )
+    parent_artifact = next(
+        (
+            artifact for artifact in manifest.get("artifacts", [])
+            if (
+                PureWindowsPath(str(artifact.get("path", ""))).name
+                if "\\" in str(artifact.get("path", ""))
+                else Path(str(artifact.get("path", ""))).name
+            ) == "parent-run-manifest.json"
+        ),
+        None,
+    )
+    try:
+        sensitivity_path = path.parent / str(reconciliation.get("path", ""))
+        sensitivity_payload = json.loads(sensitivity_path.read_text(encoding="utf-8"))
+        parent_path = path.parent / "parent-run-manifest.json"
+        parent_manifest = json.loads(parent_path.read_text(encoding="utf-8"))
+        source_snapshot_path = path.parent / str(source_snapshot.get("path", ""))
+        source_snapshot_payload = json.loads(source_snapshot_path.read_text(encoding="utf-8"))
+        expected_source = {
+            key: value for key, value in sensitivity_source.items()
+            if key != "snapshot_artifact"
+        }
+        source_snapshot_valid = (
+            source_snapshot_payload.get("scenario_as_of") == sensitivity.get("scenario_as_of")
+            and source_snapshot_payload.get("instrument") == sensitivity.get("instrument")
+            and source_snapshot_payload.get("source") == expected_source
+            and source_snapshot_payload.get("rates") == sensitivity_rates
+        )
+        parent_unsigned = {
+            key: value for key, value in parent_manifest.items() if key != "manifest_sha256"
+        }
+        parent_payload_valid = (
+            parent_manifest.get("manifest_sha256") == seal_payload(parent_unsigned)
+            and parent_manifest.get("manifest_sha256")
+            == manifest.get("sensitivity_parent_manifest_sha256")
+            and parent_artifact is not None
+            and hashlib.sha256(parent_path.read_bytes()).hexdigest()
+            == parent_artifact.get("sha256")
+            and sensitivity_payload == sensitivity
+            and source_snapshot_valid
+        )
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        parent_payload_valid = False
+    current_tariff_sensitivity_valid = (
+        isinstance(cost_comparability, dict)
+        and cost_comparability.get("policy") == "CURRENT_TARIFF_SENSITIVITY_V1"
+        and cost_comparability.get("status") == "SCENARIO_VALIDATED"
+        and cost_comparability.get("comparable") is True
+        and cost_comparability.get("transaction_cost_basis") == "CURRENT_BROKER_TARIFF_SCENARIO"
+        and isinstance(sensitivity, dict)
+        and sensitivity.get("schema_version") == 1
+        and sensitivity.get("scenario") == "CURRENT_BROKER_TARIFF_SENSITIVITY"
+        and scenario_dates_valid
+        and sensitivity.get("instrument") == manifest.get("strategy", {}).get("symbol")
+        and isinstance(sensitivity_source, dict)
+        and "darwinex.com" in str(sensitivity_source.get("url", "")).casefold()
+        and isinstance(source_snapshot, dict)
+        and source_snapshot.get("path") == "broker-tariff-snapshot.json"
+        and isinstance(source_snapshot_artifact, dict)
+        and source_snapshot.get("sha256") == source_snapshot_artifact.get("sha256")
+        and isinstance(sensitivity_rates, dict)
+        and isinstance(sensitivity_rates.get("commission_per_order_per_contract"), dict)
+        and sensitivity_rates["commission_per_order_per_contract"].get("value", 0) > 0
+        and sensitivity_rates["commission_per_order_per_contract"].get("currency") == "AUD"
+        and isinstance(sensitivity_rates.get("swap_long_per_contract_per_day"), dict)
+        and sensitivity_rates["swap_long_per_contract_per_day"].get("value", 0) > 0
+        and sensitivity_rates["swap_long_per_contract_per_day"].get("currency") == "CAD"
+        and isinstance(sensitivity_app, dict)
+        and sensitivity_app.get("mode") == "MT5_STRATEGY_TESTER"
+        and sensitivity_app.get("price_model") == "REAL_TICKS"
+        and sensitivity_app.get("range") == manifest.get("range")
+        and sensitivity_app.get("sqx_cost_equivalence_claimed") is False
+        and isinstance(sensitivity_app.get("closed_positions"), int)
+        and sensitivity_app.get("closed_positions", 0) > 0
+        and isinstance(deal_export, dict)
+        and deal_export.get("path") == "mt5-deals.csv"
+        and isinstance(deal_artifact, dict)
+        and deal_export.get("sha256") == deal_artifact.get("sha256")
+        and sensitivity.get("parent_manifest_sha256") == manifest.get("sensitivity_parent_manifest_sha256")
+        and parent_payload_valid
+        and isinstance(manifest.get("sensitivity_parent_manifest_sha256"), str)
+        and re.fullmatch(r"[0-9a-f]{64}", manifest.get("sensitivity_parent_manifest_sha256", "")) is not None
+        and sensitivity_app.get("closed_positions") == sensitivity_app.get("exported_closed_positions")
+        and sensitivity_artifact
+        and isinstance(mt5_cost_evidence, dict)
+        and mt5_cost_evidence.get("spread_model") == "REAL_TICKS"
+        and isinstance(mt5_cost_evidence.get("spread_evidence"), dict)
+        and mt5_cost_evidence["spread_evidence"].get("verified") is True
+    )
+    cost_gate_valid = standard_cost_gate_valid or current_tariff_sensitivity_valid
+    if (
+        not cost_audit_hash_valid
+        or not cost_gate_valid
+        or not isinstance(cost_audit.get("source"), dict)
+        or cost_audit["source"].get("sqx_sha256") != manifest.get("source", {}).get("sqx_sha256")
+    ):
+        raise ValueError("comparabilidad de costes no probada para el SQX exacto; BACKTEST_VALIDATED bloqueado")
     if manifest.get("mode") != "launch" or manifest.get("result", {}).get("returncode") != 0:
         raise ValueError("el manifiesto no acredita un backtest terminado correctamente")
     verdict = VERDICT_PATTERN.search(str(manifest["result"].get("stdout", "")))
@@ -192,6 +430,10 @@ async def persist(
                     "manifest_artifact_id": manifest_artifact.id,
                     "artifact_ids": artifact_ids,
                     "verdict": verdict,
+                    "validation_mode": manifest["cost_audit"]["cost_comparability"]["policy"],
+                    "current_tariff_sensitivity": manifest["cost_audit"]["cost_comparability"].get(
+                        "current_tariff_sensitivity"
+                    ),
                     "range": manifest["range"],
                     "external_f7": (
                         {
