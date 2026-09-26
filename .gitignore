@@ -56,3 +56,21 @@ Thumbs.db
 # Docs generated
 docs/screenshots/*.png
 docs/screenshots/*.diff.png
+
+# Robocorp/RCC quedo instalado dentro de .github/workflows: 66 MB de binarios
+# (bin/, micromamba/) mas sus cachés y journals. Ahi solo deben vivir los
+# workflows de GitHub Actions -- Actions intenta interpretar como workflow todo
+# .yml/.yaml de esa carpeta, asi que rcc.yaml y rcccache.yaml tampoco pintan
+# nada. Se listan uno a uno a proposito: una regla amplia sobre este directorio
+# acabaria escondiendo un workflow de verdad.
+.github/workflows/bin/
+.github/workflows/micromamba/
+.github/workflows/temp/
+.github/workflows/hololib/
+.github/workflows/journals/
+.github/workflows/pipcache/
+.github/workflows/pkgs/
+.github/workflows/robots/
+.github/workflows/rcc.yaml
+.github/workflows/rcccache.yaml
+.github/workflows/*.lck
