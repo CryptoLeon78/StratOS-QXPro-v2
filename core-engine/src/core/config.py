@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     # Solo la usa la migracion 0001 para crear el rol stratos_app (CREATE
     # ROLE ... PASSWORD); no se usa en runtime de la app.
     app_db_password: str = Field(validation_alias="APP_DB_PASSWORD")
+    # Dimensionado del pool de conexiones. El default implicito de SQLAlchemy
+    # (5 + 10) no cubre un despliegue que recibe telemetria continua de varias
+    # cuentas mientras el operador usa la UI: la ingesta agota las conexiones y
+    # el login deja de responder. Es un parametro de despliegue, no de negocio.
+    db_pool_size: int = Field(default=20, validation_alias="DB_POOL_SIZE")
+    db_max_overflow: int = Field(default=20, validation_alias="DB_MAX_OVERFLOW")
     redis_url: str = Field(validation_alias="REDIS_URL")
 
     jwt_secret: str = Field(validation_alias="JWT_SECRET")
@@ -49,6 +55,7 @@ class Settings(BaseSettings):
     operational_runtime_dir: Path = Field(
         default=Path("/runtime"), validation_alias="OPERATIONAL_RUNTIME_DIR"
     )
+    pipeline_agent_api_key: str = Field(default="", validation_alias="PIPELINE_AGENT_API_KEY")
 
     news_provider: str = Field(default="ics", validation_alias="NEWS_PROVIDER")
     news_source_url: str = Field(default="", validation_alias="NEWS_SOURCE_URL")
