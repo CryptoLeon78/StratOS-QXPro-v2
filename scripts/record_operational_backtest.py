@@ -20,7 +20,7 @@ VERDICT_PATTERN = re.compile(r"VEREDICTO:\s*(VALIDADA|TOLERABLE|DISCREPANTE)")
 
 
 def resolve_external_magic(
-    magic_number: int, identity_registry: Path | None
+    magic_number: int, identity_registry: Path | None, account_name: str
 ) -> tuple[int, bool]:
     """Traduce un magic anterior a la migración MN al vigente, si hace falta.
 
@@ -31,9 +31,12 @@ def resolve_external_magic(
     lo mismo con identidades distintas.
 
     La traducción sale **exclusivamente** de los `legacy_magic_numbers` del registro
-    append-only aprobado. Sin registro, o con un magic que el registro no conoce, se
-    devuelve tal cual: no se inventa una correspondencia, y el fallo posterior conserva su
-    mensaje propio en vez de resolverse a otro bot.
+    append-only aprobado, filtrada por `account_name` (incidente A16, ASSUMPTIONS G13-64:
+    el mapa es global, pero cada entrada declara `accounts`; sin filtrar, el magic de una
+    cuenta se resolvería sobre la otra). Sin registro, o con un magic que el registro no
+    conoce o no aplica a esta cuenta, se devuelve tal cual: no se inventa una
+    correspondencia, y el fallo posterior conserva su mensaje propio en vez de resolverse a
+    otro bot.
 
     Devuelve ``(magic, resuelto_por_traduccion)``; el segundo valor viaja a la evidencia
     para que la asociación quede auditable.
@@ -43,10 +46,10 @@ def resolve_external_magic(
     import sys
 
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from magic_identity import build_legacy_magic_map
+    from magic_identity import build_legacy_magic_map, entry_matches_account
 
     destino = build_legacy_magic_map(identity_registry).get(magic_number)
-    if destino is None:
+    if destino is None or not entry_matches_account(destino, account_name):
         return magic_number, False
     return int(destino["magic_number"]), True
 
@@ -362,7 +365,9 @@ async def persist(
             # vigentes: se traduce antes de buscar, y se deja constancia de por que via se
             # resolvio (backlog A25).
             resolved_magic, resolved_via_legacy = resolve_external_magic(
-                int(external_magic), identity_registry
+                int(external_magic),
+                identity_registry,
+                account.name if account is not None else "",
             )
             bot = await session.scalar(
                 select(Bot).where(Bot.account_id == account.id, Bot.magic_number == resolved_magic)

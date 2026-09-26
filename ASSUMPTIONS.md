@@ -442,9 +442,10 @@ Fase nueva, fuera del plan original G0-G9 (proyecto ya completo tras G9) — ini
   bug latente, nunca disparado en producción porque ningún import posterior a la migración
   necesitó traducir un magic compartido) ahora filtran el mapa por la cuenta que están
   procesando antes de usarlo. `record_operational_backtest.py` y
-  `report_history_attribution.py` no se tocaron: son herramientas de reporte/lectura, no
-  escriben `Trade`, y quedan anotadas en `docs/backlog.md` para revisión si en algún momento
-  operan sobre un magic compartido entre cuentas.
+  `report_history_attribution.py` no se tocaron en el momento de este incidente (son
+  herramientas de reporte/lectura, no escriben `Trade`) pero se corrigieron después, ver
+  [A48] en `docs/backlog.md`: `resolve_external_magic()` y `classify()` ganan un parámetro
+  de cuenta y filtran igual que los tres consumidores de escritura.
 
 - **[G13-65] Recuperación de contraseña "no llegaba" porque `TELEGRAM_RECOVERY_CHAT_ID` en
   `.env.operational` apuntaba a un grupo de alertas, no al chat privado del operador:**

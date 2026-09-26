@@ -292,14 +292,15 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   uso de esos scripts. Las referencias históricas en `docs/AUDITORIA_2026-09-02.md`,
   `docs/PLAN_CONTINUACION_2026-09-02.md` y las entradas ya cerradas de este mismo backlog no
   se tocan: describen un estado real de esa fecha, no la ubicación actual.
-- **[A48] `record_operational_backtest.py` y `report_history_attribution.py` usan
-  `build_legacy_magic_map()` sin el filtro de `entry_matches_account()`** añadido en el
-  incidente A16 (ver ASSUMPTIONS G13-64). No se corrigieron en esa sesión porque son
-  herramientas de reporte/lectura (no escriben `Trade` ni ninguna tabla), así que un magic
-  compartido entre BEPB/JJTI solo produciría un informe o una propuesta de backtest con la
-  traducción de la cuenta equivocada — molesto, no una corrupción de datos. Revisar si alguna
-  vez procesan un magic legacy que el registro declare `accounts`-scoped para OTRA cuenta
-  antes de confiar en su salida sin contrastar a mano.
+- ~~**[A48] `record_operational_backtest.py` y `report_history_attribution.py` usan
+  `build_legacy_magic_map()` sin el filtro de `entry_matches_account()`**~~ **RESUELTO
+  2026-09-27**: `resolve_external_magic()` (en `record_operational_backtest.py`) y
+  `classify()` (en `report_history_attribution.py`) ahora reciben el nombre de cuenta y
+  filtran el mapa igual que los tres consumidores de escritura del incidente A16. El segundo
+  gana un `--account` obligatorio en su CLI (repetido 1:1 con `--csv`, en el mismo orden) —
+  antes no tenía ninguna forma de saber a qué cuenta pertenecía cada CSV. 2 tests de
+  regresión nuevos reproducen el caso real (magic aprobado solo para una cuenta, pedido para
+  la otra) en ambos scripts; suite `scripts/` completa: 266/266 verde.
 - ~~**[A10] `SQX_Edge_Suite_v1` sin versionar ni indexar**~~ **RETIRADO DEL BACKLOG G13
   2026-09-02**: Edge Suite es una aplicación independiente, con método, documentación y plan
   propios. No existe trabajo de integración ni dependencia de StratOS que mantener en este backlog.

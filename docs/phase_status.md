@@ -4,6 +4,14 @@
 
 ## Fase activa: G13 — Stack operacional real/incubadora/análisis — FUNDACIÓN IMPLEMENTADA; GATES EXTERNOS ABIERTOS
 
+**A48 cerrado, 2026-09-27:** los dos consumidores de solo-lectura que quedaban sin el
+filtro de cuenta del incidente A16 (`record_operational_backtest.py::resolve_external_magic`,
+`report_history_attribution.py::classify`) ya lo aplican; `report_history_attribution.py`
+gana `--account` obligatorio en su CLI. 2 tests de regresión nuevos, suite `scripts/`
+266/266 verde. **Todas las entradas `[AXX]` numeradas del backlog quedan cerradas** — lo
+que resta en `docs/backlog.md` son huecos arquitectónicos G13 que dependen de evidencia
+externa (Darwinex, terminal real, decisión del operador), no tareas de código pendientes.
+
 **A14/A30 cerrados, 2026-09-27:** A14 (mover `docs/history_deals_*.csv` a
 `runtime/operational/history/`) resuelto y verificado (264/264 tests). A30 (RETEST OOS/WFM en
 5 proyectos) cerrado **sin ejecutar**: 2 de 5 proyectos ya no existían (mismo cierre XAUUSD

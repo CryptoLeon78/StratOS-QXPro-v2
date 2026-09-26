@@ -19,7 +19,7 @@ Las categorías son excluyentes:
 
 Uso:
     python scripts/report_history_attribution.py \\
-        --csv runtime/operational/history/history_deals_BEPB.csv \\
+        --csv runtime/operational/history/history_deals_BEPB.csv --account BEPB \\
         --identity-registry runtime/operational/magic_identity/magic_identity_registry.jsonl
 """
 
@@ -36,7 +36,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from magic_identity import build_legacy_magic_map  # noqa: E402
+from magic_identity import build_legacy_magic_map, entry_matches_account  # noqa: E402
 
 MAGIC_SIN_EA = 0
 
@@ -55,9 +55,17 @@ def current_magics(registry_path: Path) -> set[int]:
     return vigentes
 
 
-def classify(csv_path: Path, registry_path: Path) -> dict[str, Any]:
+def classify(csv_path: Path, registry_path: Path, account_name: str) -> dict[str, Any]:
     vigentes = current_magics(registry_path)
-    legacy_map = build_legacy_magic_map(registry_path)
+    # Incidente A16 (ASSUMPTIONS G13-64): el mapa es global, pero cada traduccion aplica
+    # solo a las cuentas que declara. Sin filtrar, un magic aprobado para la OTRA cuenta
+    # se contaria aqui como "magic_legacy" (rescatable) cuando en realidad seria huerfano
+    # para esta cuenta.
+    legacy_map = {
+        legacy: entry
+        for legacy, entry in build_legacy_magic_map(registry_path).items()
+        if entry_matches_account(entry, account_name)
+    }
 
     por_magic: Counter[int] = Counter()
     fechas: list[str] = []
@@ -100,11 +108,23 @@ def classify(csv_path: Path, registry_path: Path) -> dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--csv", required=True, type=Path, action="append")
+    parser.add_argument(
+        "--account",
+        required=True,
+        action="append",
+        help="cuenta de cada --csv, en el mismo orden (BEPB/JJTI) -- filtra las "
+        "traducciones de magic legacy a las aprobadas para esa cuenta",
+    )
     parser.add_argument("--identity-registry", required=True, type=Path)
     parser.add_argument("--json", type=Path, default=None, help="vuelca el informe a un fichero")
     args = parser.parse_args()
+    if len(args.csv) != len(args.account):
+        parser.error("--account debe repetirse una vez por cada --csv, en el mismo orden")
 
-    informes = [classify(ruta, args.identity_registry) for ruta in args.csv]
+    informes = [
+        classify(ruta, args.identity_registry, cuenta)
+        for ruta, cuenta in zip(args.csv, args.account, strict=True)
+    ]
     for informe in informes:
         cat = informe["categorias"]
         print(f"\n{Path(informe['csv']).name}: {informe['deals']} deals, "

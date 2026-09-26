@@ -54,7 +54,7 @@ def test_current_magics_only_counts_assignments(tmp_path: Path) -> None:
 def test_the_four_categories_are_exclusive_and_add_up(tmp_path: Path) -> None:
     csv_path = _csv(tmp_path, [1, 1, 7786, 0, 987654, 987654, 987654])
 
-    informe = classify(csv_path, _registro(tmp_path))
+    informe = classify(csv_path, _registro(tmp_path), "BEPB")
 
     assert informe["deals"] == 7
     assert informe["categorias"] == {
@@ -69,7 +69,7 @@ def test_the_four_categories_are_exclusive_and_add_up(tmp_path: Path) -> None:
 def test_translation_is_what_moves_the_coverage(tmp_path: Path) -> None:
     csv_path = _csv(tmp_path, [1, 7786, 7786, 7786])
 
-    informe = classify(csv_path, _registro(tmp_path))
+    informe = classify(csv_path, _registro(tmp_path), "BEPB")
 
     assert informe["cobertura_sin_traducir_pct"] == 25.0
     assert informe["cobertura_pct"] == 100.0
@@ -78,7 +78,18 @@ def test_translation_is_what_moves_the_coverage(tmp_path: Path) -> None:
 def test_unknown_magics_are_listed_so_they_can_be_investigated(tmp_path: Path) -> None:
     csv_path = _csv(tmp_path, [55555, 55555, 66666])
 
-    informe = classify(csv_path, _registro(tmp_path))
+    informe = classify(csv_path, _registro(tmp_path), "BEPB")
 
     assert informe["magics_huerfanos_top"][0] == {"magic": 55555, "deals": 2}
+    assert informe["cobertura_pct"] == 0.0
+
+
+def test_a_magic_scoped_to_another_account_counts_as_orphan(tmp_path: Path) -> None:
+    """Incidente A16 (ASSUMPTIONS G13-64): 7786->1 esta aprobado solo para BEPB. Pedir el
+    informe para JJTI no debe rescatarlo como magic_legacy -- para JJTI es huerfano."""
+    csv_path = _csv(tmp_path, [7786, 7786])
+
+    informe = classify(csv_path, _registro(tmp_path), "JJTI")
+
+    assert informe["categorias"] == {"sin_identidad": 2}
     assert informe["cobertura_pct"] == 0.0

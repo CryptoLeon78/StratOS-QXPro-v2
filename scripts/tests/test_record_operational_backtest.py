@@ -323,27 +323,40 @@ def _registry(tmp_path: Path, legacy: int, vigente: int, accounts: list[str]) ->
 
 def test_a_current_magic_resolves_to_itself(tmp_path: Path) -> None:
     """Sin traducción no cambia nada: el magic vigente se busca tal cual."""
-    resuelto, via_legacy = resolve_external_magic(13, _registry(tmp_path, 200730, 13, ["JJTI"]))
+    resuelto, via_legacy = resolve_external_magic(
+        13, _registry(tmp_path, 200730, 13, ["JJTI"]), "JJTI"
+    )
 
     assert (resuelto, via_legacy) == (13, False)
 
 
 def test_a_legacy_magic_from_the_queue_resolves_to_the_current_one(tmp_path: Path) -> None:
     """El caso real: la cola declara 200730 y el bot ya tiene el 13."""
-    resuelto, via_legacy = resolve_external_magic(200730, _registry(tmp_path, 200730, 13, ["JJTI"]))
+    resuelto, via_legacy = resolve_external_magic(
+        200730, _registry(tmp_path, 200730, 13, ["JJTI"]), "JJTI"
+    )
 
     assert (resuelto, via_legacy) == (13, True)
 
 
 def test_without_a_registry_the_magic_is_used_as_given(tmp_path: Path) -> None:
     """Sin registro no se inventa una traducción: comportamiento anterior intacto."""
-    assert resolve_external_magic(200730, None) == (200730, False)
+    assert resolve_external_magic(200730, None, "JJTI") == (200730, False)
 
 
 def test_an_unknown_magic_is_left_untouched(tmp_path: Path) -> None:
     """Un magic que el registro no conoce se pasa tal cual y falla más adelante con su
     mensaje propio, en vez de resolverse a otra cosa."""
-    assert resolve_external_magic(999999, _registry(tmp_path, 200730, 13, ["JJTI"])) == (
-        999999,
-        False,
+    assert resolve_external_magic(
+        999999, _registry(tmp_path, 200730, 13, ["JJTI"]), "JJTI"
+    ) == (999999, False)
+
+
+def test_a_magic_scoped_to_another_account_is_left_untouched(tmp_path: Path) -> None:
+    """Incidente A16 (ASSUMPTIONS G13-64): 200730->13 esta aprobado solo para JJTI. Pedir
+    la traduccion para BEPB no debe resolverla -- el mapa es global pero la aprobacion no."""
+    resuelto, via_legacy = resolve_external_magic(
+        200730, _registry(tmp_path, 200730, 13, ["JJTI"]), "BEPB"
     )
+
+    assert (resuelto, via_legacy) == (200730, False)
