@@ -22,8 +22,9 @@ import pandas as pd
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.db.models.accounts import Bot
-from core.db.models.governance import CorrelationMatrix
+from core.db.enums import AccountDataOrigin, CorrelationSource
+from core.db.models.accounts import Account, Bot
+from core.db.models.governance import CorrelationSnapshot, CorrelationSnapshotPair
 from core.db.models.market import Trade
 from core.formulas.portfolio import sortino_ratio
 from core.formulas.trading import calmar_ratio, max_drawdown_pct, recovery_factor, ulcer_index
@@ -202,23 +203,29 @@ async def compute_portfolio_contribution(session: AsyncSession, bot: Bot) -> Por
     total_pnl = Decimal(total_pnl_raw) if total_pnl_raw is not None else Decimal("0")
     pct_of_total = float(pnl_bot / total_pnl * 100) if total_pnl != 0 else None
 
-    latest_ts = (
-        await session.execute(
-            select(func.max(CorrelationMatrix.ts)).where(
-                (CorrelationMatrix.bot_a_id == bot.id) | (CorrelationMatrix.bot_b_id == bot.id)
-            )
-        )
-    ).scalar_one_or_none()
-
     correlation_vs_rest = None
-    if latest_ts is not None:
+    account_origin = await session.scalar(
+        select(Account.data_origin).where(Account.id == bot.account_id)
+    )
+    snapshot = None
+    if account_origin == AccountDataOrigin.BROKER_REAL:
+        snapshot = await session.scalar(
+            select(CorrelationSnapshot)
+            .where(
+                CorrelationSnapshot.source == CorrelationSource.MT5_REAL,
+                CorrelationSnapshot.status == "COMPLETED",
+            )
+            .order_by(CorrelationSnapshot.created_at.desc())
+            .limit(1)
+        )
+    if snapshot is not None:
         correlations = (
             (
                 await session.execute(
-                    select(CorrelationMatrix.correlation).where(
-                        CorrelationMatrix.ts == latest_ts,
-                        (CorrelationMatrix.bot_a_id == bot.id)
-                        | (CorrelationMatrix.bot_b_id == bot.id),
+                    select(CorrelationSnapshotPair.correlation).where(
+                        CorrelationSnapshotPair.snapshot_id == snapshot.id,
+                        (CorrelationSnapshotPair.bot_a_id == bot.id)
+                        | (CorrelationSnapshotPair.bot_b_id == bot.id),
                     )
                 )
             )

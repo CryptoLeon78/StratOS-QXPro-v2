@@ -8,13 +8,19 @@ import pandas as pd
 import pytest
 from sqlalchemy import select
 
-from core.db.models.governance import CorrelationMatrix
+from core.db.enums import AccountDataOrigin, CorrelationSource
+from core.db.models.governance import (
+    CorrelationMatrix,
+    CorrelationSnapshot,
+    CorrelationSnapshotPair,
+)
 from core.services.correlations import (
     CorrelationServiceConfig,
     TradePnl,
     build_daily_pnl_by_bot,
     classify_redundant_pairs,
     run_correlation_job,
+    run_mt5_real_correlation_snapshot,
 )
 from tests.factories import AccountFactory, BotFactory, IngestBatchFactory, TradeFactory
 
@@ -125,6 +131,55 @@ class TestRunCorrelationJob:
         assert (min(bot_a.id, bot_b.id), max(bot_a.id, bot_b.id)) in pairs
         assert not any(bot_short.id in pair for pair in pairs)
         await redis.aclose()
+
+
+class TestMt5RealCorrelationSnapshots:
+    async def test_only_broker_real_trades_can_enter_snapshot(self, db_session: object) -> None:
+        real = AccountFactory(data_origin=AccountDataOrigin.BROKER_REAL)
+        fixture = AccountFactory(data_origin=AccountDataOrigin.FIXTURE)
+        db_session.add_all([real, fixture])  # type: ignore[attr-defined]
+        await db_session.flush()  # type: ignore[attr-defined]
+        now = datetime.now(UTC)
+        pattern = [Decimal("10"), Decimal("-4"), Decimal("2")]
+        real_a = await _bot_with_daily_trades(db_session, real.id, 35, pattern, now)
+        real_b = await _bot_with_daily_trades(db_session, real.id, 35, pattern, now)
+        fixture_a = await _bot_with_daily_trades(db_session, fixture.id, 35, pattern, now)
+        fixture_b = await _bot_with_daily_trades(db_session, fixture.id, 35, pattern, now)
+
+        result = await run_mt5_real_correlation_snapshot(db_session, CONFIG, now)  # type: ignore[arg-type]
+        await db_session.commit()  # type: ignore[attr-defined]
+
+        assert result.snapshot.source == CorrelationSource.MT5_REAL
+        assert result.snapshot.status == "COMPLETED"
+        pairs = list(
+            (
+                await db_session.scalars(  # type: ignore[attr-defined]
+                    select(CorrelationSnapshotPair).where(
+                        CorrelationSnapshotPair.snapshot_id == result.snapshot.id
+                    )
+                )
+            ).all()
+        )
+        assert pairs
+        assert {real_a.id, real_b.id} == {pairs[0].bot_a_id, pairs[0].bot_b_id}
+        assert all(fixture_a.id not in (pair.bot_a_id, pair.bot_b_id) for pair in pairs)
+        assert all(fixture_b.id not in (pair.bot_a_id, pair.bot_b_id) for pair in pairs)
+
+    async def test_same_real_evidence_is_idempotent(self, db_session: object) -> None:
+        account = AccountFactory(data_origin=AccountDataOrigin.BROKER_REAL)
+        db_session.add(account)  # type: ignore[attr-defined]
+        await db_session.flush()  # type: ignore[attr-defined]
+        now = datetime.now(UTC)
+        pattern = [Decimal("3"), Decimal("-1"), Decimal("2")]
+        await _bot_with_daily_trades(db_session, account.id, 35, pattern, now)
+        await _bot_with_daily_trades(db_session, account.id, 35, pattern, now)
+
+        first = await run_mt5_real_correlation_snapshot(db_session, CONFIG, now)  # type: ignore[arg-type]
+        second = await run_mt5_real_correlation_snapshot(db_session, CONFIG, now)  # type: ignore[arg-type]
+        assert first.created is True
+        assert second.created is False
+        assert first.snapshot.id == second.snapshot.id
+        assert len(list((await db_session.scalars(select(CorrelationSnapshot))).all())) == 1  # type: ignore[attr-defined]
 
     async def test_perfectly_correlated_bots_flagged_redundant_and_cached(
         self, db_session: object

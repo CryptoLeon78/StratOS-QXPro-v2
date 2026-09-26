@@ -61,7 +61,10 @@ async def assemble_metrics(
     window_days = 30
     recent_close_times = [ct for ct in close_times if ct >= now - timedelta(days=window_days)]
     freq = trades_per_week_formula(recent_close_times, window_days=window_days)
-    incubation_days = (now - candidate.entered_phase_at).days
+    observed_close_times = [
+        close_time for close_time in close_times if close_time >= candidate.entered_phase_at
+    ]
+    incubation_days = (now - observed_close_times[0]).days if observed_close_times else 0
 
     return PipelineGateMetrics(
         profit_factor=profit_factor,

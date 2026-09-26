@@ -4,8 +4,8 @@ from decimal import Decimal
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
-from core.db.enums import BotOriginKind, BotProfile, PipelinePhase
-from core.db.models.governance import CorrelationMatrix
+from core.db.enums import BotOriginKind, BotProfile, CorrelationSource, PipelinePhase
+from core.db.models.governance import CorrelationSnapshot, CorrelationSnapshotPair
 from tests.factories import AccountFactory, BotFactory
 
 
@@ -95,14 +95,28 @@ class TestPortfolioCorrelations:
         session.add(bot_a)
         session.add(bot_b)
         await session.flush()
+        snapshot = CorrelationSnapshot(
+            source=CorrelationSource.MT5_REAL,
+            status="COMPLETED",
+            reason=None,
+            created_at=datetime.now(UTC),
+            window_start=datetime.now(UTC),
+            window_end=datetime.now(UTC),
+            window_days=1240,
+            algorithm_version="daily-net-pnl-v2",
+            account_scope={"account_ids": [account.id]},
+            input_manifest={"trades": []},
+            input_sha256="a" * 64,
+        )
+        session.add(snapshot)
+        await session.flush()
         session.add(
-            CorrelationMatrix(
-                ts=datetime.now(UTC),
+            CorrelationSnapshotPair(
+                snapshot_id=snapshot.id,
                 bot_a_id=bot_a.id,
                 bot_b_id=bot_b.id,
                 correlation=0.52,
                 is_redundant_pair=True,
-                window_days=1240,
             )
         )
         await session.commit()
@@ -111,6 +125,7 @@ class TestPortfolioCorrelations:
         assert response.status_code == 200
         assert len(response.json()) == 1
         assert response.json()[0]["is_redundant_pair"] is True
+        assert response.json()[0]["source"] == "MT5_REAL"
 
     async def test_no_data_returns_empty_list(self, api_client: AsyncClient) -> None:
         response = await api_client.get("/api/v1/portfolio/correlations")

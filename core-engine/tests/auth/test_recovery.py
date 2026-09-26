@@ -74,7 +74,12 @@ async def test_invalid_recovery_code_exhausts_the_one_time_code() -> None:
 
     for _ in range(settings.auth_recovery_max_attempts):
         completed = await complete_recovery(
-            None, redis, settings, email, "000000", "new-password-123"  # type: ignore[arg-type]
+            None,
+            redis,
+            settings,
+            email,
+            "000000",
+            "new-password-123",  # type: ignore[arg-type]
         )
         assert not completed
 

@@ -13,15 +13,15 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.auth.dependencies import get_current_user
 from core.config import get_settings
 from core.db.base import get_session
-from core.db.enums import PipelinePhase
+from core.db.enums import CorrelationSource, PipelinePhase
 from core.db.models.accounts import Bot
-from core.db.models.governance import CorrelationMatrix
+from core.db.models.governance import CorrelationSnapshot, CorrelationSnapshotPair
 from core.services.benchmark import (
     compare_to_benchmark,
     load_sp500_monthly,
@@ -89,9 +89,24 @@ class CorrelationRow(BaseModel):
     bot_b_id: int
     correlation: float
     is_redundant_pair: bool
-    ts: datetime
+    snapshot_id: int
+    source: CorrelationSource
+    created_at: datetime
 
-    model_config = {"from_attributes": True}
+
+class CorrelationSnapshotResponse(BaseModel):
+    id: int
+    source: CorrelationSource
+    status: str
+    reason: str | None
+    created_at: datetime
+    window_start: datetime | None
+    window_end: datetime | None
+    window_days: int
+    algorithm_version: str
+    account_scope: dict[str, object]
+    input_sha256: str
+    pairs: list[CorrelationRow]
 
 
 async def _active_bot_allocations(session: AsyncSession) -> list[tuple[str, Decimal]]:
@@ -158,18 +173,61 @@ async def portfolio_benchmark(
     return BenchmarkComparisonResponse.model_validate(result, from_attributes=True)
 
 
+@router.get("/correlations/latest", response_model=CorrelationSnapshotResponse | None)
+async def latest_portfolio_correlation_snapshot(
+    source: CorrelationSource = CorrelationSource.MT5_REAL,
+    window_days: int | None = None,
+    session: AsyncSession = Depends(get_session),
+) -> CorrelationSnapshotResponse | None:
+    """Devuelve una sola evidencia con fuente explícita, nunca la legacy."""
+    query = select(CorrelationSnapshot).where(CorrelationSnapshot.source == source)
+    if window_days is not None:
+        query = query.where(CorrelationSnapshot.window_days == window_days)
+    snapshot = await session.scalar(query.order_by(CorrelationSnapshot.created_at.desc()).limit(1))
+    if snapshot is None:
+        return None
+    pairs = list(
+        (
+            await session.scalars(
+                select(CorrelationSnapshotPair)
+                .where(CorrelationSnapshotPair.snapshot_id == snapshot.id)
+                .order_by(CorrelationSnapshotPair.bot_a_id, CorrelationSnapshotPair.bot_b_id)
+            )
+        ).all()
+    )
+    return CorrelationSnapshotResponse(
+        id=snapshot.id,
+        source=snapshot.source,
+        status=snapshot.status,
+        reason=snapshot.reason,
+        created_at=snapshot.created_at,
+        window_start=snapshot.window_start,
+        window_end=snapshot.window_end,
+        window_days=snapshot.window_days,
+        algorithm_version=snapshot.algorithm_version,
+        account_scope=snapshot.account_scope,
+        input_sha256=snapshot.input_sha256,
+        pairs=[
+            CorrelationRow(
+                bot_a_id=pair.bot_a_id,
+                bot_b_id=pair.bot_b_id,
+                correlation=pair.correlation,
+                is_redundant_pair=pair.is_redundant_pair,
+                snapshot_id=snapshot.id,
+                source=snapshot.source,
+                created_at=snapshot.created_at,
+            )
+            for pair in pairs
+        ],
+    )
+
+
 @router.get("/correlations", response_model=list[CorrelationRow])
 async def portfolio_correlations(
-    window_days: int | None = None, session: AsyncSession = Depends(get_session)
-) -> list[CorrelationMatrix]:
-    latest_query = select(func.max(CorrelationMatrix.ts))
-    if window_days is not None:
-        latest_query = latest_query.where(CorrelationMatrix.window_days == window_days)
-    latest_ts = (await session.execute(latest_query)).scalar_one_or_none()
-    if latest_ts is None:
-        return []
-
-    query = select(CorrelationMatrix).where(CorrelationMatrix.ts == latest_ts)
-    if window_days is not None:
-        query = query.where(CorrelationMatrix.window_days == window_days)
-    return list((await session.execute(query)).scalars().all())
+    source: CorrelationSource = CorrelationSource.MT5_REAL,
+    window_days: int | None = None,
+    session: AsyncSession = Depends(get_session),
+) -> list[CorrelationRow]:
+    """Compatibilidad de pares, limitada al último snapshot de una fuente."""
+    snapshot = await latest_portfolio_correlation_snapshot(source, window_days, session)
+    return [] if snapshot is None else snapshot.pairs

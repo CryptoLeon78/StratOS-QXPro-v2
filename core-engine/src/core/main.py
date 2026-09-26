@@ -23,6 +23,7 @@ from core.routers.impulses import router as impulses_router
 from core.routers.killswitch import router as killswitch_router
 from core.routers.news import router as news_router
 from core.routers.pipeline import router as pipeline_router
+from core.routers.pipeline_orchestrator import router as pipeline_orchestrator_router
 from core.routers.portfolio import router as portfolio_router
 from core.routers.risk import router as risk_router
 from core.routers.scaling import router as scaling_router
@@ -63,6 +64,7 @@ app.include_router(killswitch_router)
 app.include_router(news_router)
 app.include_router(execution_router)
 app.include_router(pipeline_router)
+app.include_router(pipeline_orchestrator_router)
 app.include_router(cemetery_router)
 app.include_router(impulses_router)
 app.include_router(scaling_router)

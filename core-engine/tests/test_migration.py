@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 # PARTE 5.2 (25) + ea_state/virtual_trade (G4) + checklist_item_signature (G5)
 # + instrument_spec/symbol_currency (G10, docs/backlog.md) + las 6 de G11/G13 de abajo.
-EXPECTED_TABLE_COUNT = 36
+EXPECTED_TABLE_COUNT = 39
 
 # Tablas anadidas despues de G10. Se comprueban por nombre y no solo por recuento: un
 # recuento suelto no dice cual falta ni cual sobra cuando una migracion se olvida.
@@ -19,6 +19,9 @@ EXPECTED_G11_G13_TABLES = {
     "external_ea_inventory",  # G13, inventario de EAs externos observados
     "operational_asset",  # G13, catalogo de Analisis
     "operational_asset_event",  # G13, admision append-only
+    "pipeline_work_item",  # G13-43, plano de control F0--F7
+    "pipeline_agent_command",  # G13-46, solicitud idempotente al agente
+    "pipeline_agent_command_event",  # G13-46, resultado terminal append-only
 }
 
 

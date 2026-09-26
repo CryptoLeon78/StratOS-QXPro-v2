@@ -10,9 +10,14 @@ import pytest
 from core.services.sqx_baseline_parser import parse_sqx144_baseline
 
 
-def _record(opened: datetime, closed: datetime, pnl: float) -> bytes:
+def _record(
+    opened: datetime,
+    closed: datetime,
+    pnl: float,
+    magic: bytes = b"\x04\x03\x02\x01",
+) -> bytes:
     row = bytearray(149)
-    row[:4] = b"\x04\x03\x02\x01"
+    row[:4] = magic
     row[15:23] = struct.pack(">q", int(opened.timestamp() * 1000))
     row[44:52] = struct.pack(">q", int(closed.timestamp() * 1000))
     row[66:70] = struct.pack(">f", pnl)
@@ -44,6 +49,32 @@ def test_accepts_complete_sqx144_artifact() -> None:
     assert parsed.symbol == "EURUSD"
     assert parsed.trade_count == 2
     assert parsed.profit_factor == pytest.approx(2.0)
+
+
+@pytest.mark.parametrize(
+    "magic",
+    (
+        b"\x04\x02\x05\x01",
+        b"\x05\x02\x03\x01",
+        b"\x05\x03\x02\x01",
+        b"\x05\x02\x04\x01",
+    ),
+)
+def test_accepts_sqx144_export_record_tag_variants(magic: bytes) -> None:
+    now = datetime(2025, 1, 1, tzinfo=UTC)
+    records = _record(now, now + timedelta(hours=1), 120.0, magic)
+    records += _record(now + timedelta(days=1), now + timedelta(days=1, hours=1), -60.0, magic)
+    stream = io.BytesIO()
+    with zipfile.ZipFile(stream, "w") as archive:
+        archive.writestr("strategy_Portfolio.xml", '<Strategy AppVersion="SQX Build 144.2938"/>')
+        archive.writestr(
+            "lastSettings.xml",
+            '<Chart symbol="EURUSD" timeframe="H1"/>'
+            '<Setup dateFrom="2024.01.01" dateTo="2025.01.01"/>'
+            "<InitialCapital>10000</InitialCapital>",
+        )
+        archive.writestr("orders.bin", b"\x7a" + struct.pack(">I", len(records)) + records)
+    assert parse_sqx144_baseline(stream.getvalue()).trade_count == 2
 
 
 def test_rejects_non_sqx144_or_missing_required_member() -> None:

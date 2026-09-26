@@ -94,6 +94,37 @@ class TestPromoteCandidate:
         response = await api_client.post(f"/api/v1/pipeline/{candidate_id}/promote")
         assert response.status_code == 409
 
+    async def test_f3_promotion_is_rejected_until_demo_attachment_is_verified(
+        self, api_client: AsyncClient, db_connection: AsyncConnection
+    ) -> None:
+        candidate_id, _ = await _candidate(db_connection, PipelinePhase.F3)
+        response = await api_client.post(f"/api/v1/pipeline/{candidate_id}/promote")
+        assert response.status_code == 409
+
+
+class TestDemoReadiness:
+    async def test_f3_readiness_fails_closed_without_attachment_evidence(
+        self, api_client: AsyncClient, db_connection: AsyncConnection
+    ) -> None:
+        candidate_id, _ = await _candidate(
+            db_connection, PipelinePhase.F3, AccountDataOrigin.BROKER_DEMO
+        )
+        response = await api_client.post(f"/api/v1/pipeline/{candidate_id}/demo-readiness")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["ready"] is False
+        assert {item["key"] for item in payload["requirements"]} >= {
+            "baseline_signed",
+            "demo_attachment_verified",
+        }
+
+    async def test_readiness_rejects_other_phases(
+        self, api_client: AsyncClient, db_connection: AsyncConnection
+    ) -> None:
+        candidate_id, _ = await _candidate(db_connection, PipelinePhase.F2)
+        response = await api_client.post(f"/api/v1/pipeline/{candidate_id}/demo-readiness")
+        assert response.status_code == 409
+
 
 class TestKillCandidate:
     async def test_archives_with_autopsy(

@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from math import isfinite
 
-PARSER_VERSION = "sqx144-orders-v1"
+PARSER_VERSION = "sqx144-orders-v2"
 _MAX_ARTIFACT_BYTES = 50 * 1024 * 1024
 _REQUIRED_MEMBERS = {"orders.bin", "strategy_Portfolio.xml", "lastSettings.xml"}
 _MAGIC = (
@@ -26,6 +26,11 @@ _MAGIC = (
     b"\x02\x04\x03\x01",
     b"\x04\x02\x03\x01",
     b"\x02\x03\x05\x01",
+    # SQX 144 export variants with the same complete 149-byte record layout.
+    b"\x04\x02\x05\x01",
+    b"\x05\x02\x03\x01",
+    b"\x05\x03\x02\x01",
+    b"\x05\x02\x04\x01",
 )
 
 

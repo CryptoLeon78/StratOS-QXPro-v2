@@ -55,9 +55,8 @@ async def request_recovery_code(
 ) -> None:
     """No revela si el correo existe ni detalles de la configuracion."""
     normalized = _normalized_email(email)
-    if (
-        normalized != _normalized_email(settings.operator_email)
-        or not recovery_is_configured(settings)
+    if normalized != _normalized_email(settings.operator_email) or not recovery_is_configured(
+        settings
     ):
         return
     if await redis.exists(_cooldown_key(normalized)):
