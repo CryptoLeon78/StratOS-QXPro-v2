@@ -460,7 +460,11 @@ def full_production_roster() -> tuple[ProductionBotSpec, ...]:
 
 
 async def seed_production_bots(
-    session: AsyncSession, account: Account, roster: tuple[ProductionBotSpec, ...], now: datetime
+    session: AsyncSession,
+    account: Account,
+    roster: tuple[ProductionBotSpec, ...],
+    now: datetime,
+    baseline_created_at: datetime | None = None,
 ) -> dict[str, Bot]:
     """Devuelve {nombre: Bot} para que otros modulos (graveyard, escenarios,
     correlaciones) puedan referenciar bots por nombre sin volver a consultar."""
@@ -507,7 +511,13 @@ async def seed_production_bots(
             max_consec_losses=spec.max_consec_losses,
             expected_trades_30d=spec.expected_trades_30d,
             dd_contract_pct=spec.dd_contract_pct,
-            created_at=now,
+            # La baseline de un backtest existe DESDE ANTES de que el bot opere,
+            # y `semaphore_sweep` se salta todo bot cuya baseline no haya
+            # superado `baseline_grace_days` (5). Sembrandola con la fecha de
+            # ejecucion, la gracia excluia a los 32 bots y el barrido no
+            # evaluaba a ninguno: cero transiciones, Poseidon se quedaba en
+            # AMARILLO y el seed fallaba por "cero decisiones pendientes".
+            created_at=baseline_created_at or now,
             is_active=True,
         )
         session.add(baseline)

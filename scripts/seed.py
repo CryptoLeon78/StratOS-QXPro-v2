@@ -105,7 +105,9 @@ async def run_seed(
     async with async_session_factory() as session:
         accounts = await seed_accounts(session)
         roster = full_production_roster()
-        bots = await seed_production_bots(session, accounts["prod"], roster, now)
+        bots = await seed_production_bots(
+            session, accounts["prod"], roster, now, baseline_created_at=profile.history_start
+        )
         candidates = await seed_pipeline_bots(session, accounts["prod"], accounts["quarry"], now)
         graveyard = await seed_graveyard(session, accounts["prod"], now)
         test_user = await seed_test_user(session, now)
