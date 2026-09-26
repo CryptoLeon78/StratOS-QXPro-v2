@@ -185,10 +185,31 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   a la campaña vigente. No es un error de veredicto —cada uno se recalcula sobre su propio
   manifiesto sellado— pero infla el recuento y obliga a retener una entrada en cada
   reclasificación. Filtrar por existencia de la fuente, o por pertenencia a la cola alineada.
-- **[A16] La importación del histórico está construida pero sin ejecutar** — la traducción de
-  magics legacy, el sellado de la traducción en el artefacto y el informe de cobertura están
-  probados (17 tests), pero `import_mt5_history_export.py --identity-registry` no se ha
-  corrido todavía contra el stack operacional. Cobertura esperada: 10,3 % BEPB y 8,2 % JJTI.
+- ~~**[A16] La importación del histórico estaba construida pero sin ejecutar**~~ **RESUELTO
+  2026-09-26, con un hallazgo real por el camino**: re-ejecutar
+  `import_mt5_history_export.py --identity-registry` como decía este ítem **no habría hecho
+  nada**. Los dos CSV se importaron el 2026-09-01 sin el flag y sus posiciones quedaron
+  cerradas; `ingest_trades` es idempotente por diseño (`ON CONFLICT ... WHERE close_time IS
+  NULL`), así que un reenvío nunca toca el `magic_number` de una fila ya cerrada — repetir la
+  importación es un no-op silencioso sobre datos ya asentados.
+
+  Se escribió `scripts/backfill_legacy_magic_attribution.py`, el caso legítimo de mutar una
+  fila cerrada (traducción de identidad aprobada, no un reenvío del conector). El dry-run
+  contra el stack real descubrió algo que la asunción inicial no contemplaba: 184 trades BEPB
+  y 133 JJTI ya tenían `bot_id` asignado bajo un magic legacy — no por error, sino porque
+  `sync_bot_magics_to_migration.py` ya había corregido el `Bot.magic_number` de legacy a
+  vigente antes, dejando el `magic_number` del trade como único campo obsoleto. Verificado uno
+  a uno para los 21 magics legacy de BEPB: todos traducían exactamente al magic vigente del
+  bot al que ya apuntaban. El diseño se corrigió para distinguir esa corrección de campo
+  (segura) de un conflicto real (`bot_id` que traduciría a un bot *distinto* — eso sí se
+  retiene y se declara).
+
+  Aplicado y verificado contra `stratos_operational`: **BEPB 297→480 trades atribuidos**
+  (401 `magic_number` corregidos, 0 conflictos), **JJTI 217→351** (291 corregidos, 0
+  conflictos). Idempotente: una segunda corrida con `--apply` da 0 en ambas cuentas. Un caso
+  quedó correctamente huérfano y declarado (34 trades BEPB bajo magic 12,
+  `XAUH1D1L__3.12.88_MN12`): ese bot existe para JJTI pero no está registrado para BEPB — no
+  se inventó una atribución.
 - ~~**[A17] El 87-90 % del histórico es de EAs ya retirados**~~ **RESUELTO 2026-09-02**: decisión del operador — los retirados no se inventarían ni se presentan. Las métricas por bot ya lo cumplían; los agregados ahora declaran la cobertura vía `trade_attribution` en `/data-provenance` (377 de 8.831). ASSUMPTIONS G13-31. Antes: — medido con
   `report_history_attribution.py`: 4.355 deals BEPB y 3.694 JJTI con un magic que no está en
   el registro de identidad. No es un fallo: es la rotación real del portfolio. Decidir si las

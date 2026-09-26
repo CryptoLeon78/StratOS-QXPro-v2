@@ -260,8 +260,11 @@ rotación. Conviene tenerlo medido antes de prometer métricas por bot sobre el 
 completo — las métricas por bot de cuentas reales sólo cubrirán, de forma realista, a los EAs
 vivos y su ventana desde 2025.
 
-**Falta ejecutar la importación** contra el stack operacional. La pieza está construida y
-probada; el paso es una decisión de cuándo, no de si se puede.
+~~**Falta ejecutar la importación** contra el stack operacional.~~ **CERRADO 2026-09-26**: no
+bastaba con ejecutarla — `ingest_trades` es idempotente y un reenvío nunca toca una fila ya
+cerrada, así que las 2.486/2.041 posiciones importadas el 1-sep sin `--identity-registry`
+habrían quedado igual. Se escribió un backfill dedicado (`backlog A16`) y se aplicó: BEPB
+297→480 trades atribuidos, JJTI 217→351, 0 conflictos, idempotente.
 
 ### P2.3 — Telemetría viva de las cuentas reales
 
