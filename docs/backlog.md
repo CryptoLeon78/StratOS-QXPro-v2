@@ -335,9 +335,25 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   (los propios `terminal64.exe` de BEPB/JJTI/Incubadora, que sirven el bridge in-process) sí
   están vivos allí. Sin el túnel abierto en esta máquina, esos puertos locales no existen. Se
   abrió el túnel (`ssh -L 22346:127.0.0.1:22346 -L 22347:... -L 22348:...`) y los tres
-  endpoints ya responden a través de él; falta que el operador escriba `/mcp` en la sesión de
-  Claude Code para que reconecte esos tres servidores (no son "conectores", así que el agente
-  no puede forzar la reconexión).
+  endpoints ya respondieron a través de él (401, no `ConnectionRefused` — el protocolo llega).
+
+  **Addendum — el 401 no era de red, era de token, y ahí se detiene por decisión del
+  operador:** tras reconectar con `/mcp`, los tres seguían rechazando la `Authorization`
+  configurada. El bridge que sirve esos puertos vive **dentro** de los propios `terminal64.exe`
+  de BEPB/JJTI (`FigaroBridgeLib.dll`, cargada como Library, 41 KB, sin coincidencia en todo
+  `Apps_entorno_SQX`) — un componente de terceros sin documentación en este repo. Se buscó el
+  token/config por lectura en `MQL5\Files`, `MQL5\Experts`, `MQL5\Services` (vacía),
+  `MQL5\Logs` (Experts), el Journal del terminal (fuera de `MQL5\`, vía SSH) y `Terminal\Common\Files`
+  compartida: **ninguno lo menciona**. El valor en `.mcp.json` viene del primer commit del
+  repo (`284fb08`, 2026-08-25) sin mensaje que explique su origen — el operador tampoco sabe de
+  dónde salió ("debió ser algo que Codex hizo"). **El operador decide dejarlo así** (opción 1):
+  no bloquea nada real (P2.3 es independiente, ver arriba), y seguir habría exigido inspeccionar
+  el binario de un componente de terceros contra terminales con dinero real, sin saber qué es.
+  El túnel SSH que se abrió para probarlo se cerró (era un proceso huérfano tras un corte de
+  sesión, PID confirmado y matado). **Si se retoma en el futuro**, no repetir esta búsqueda:
+  empezar preguntando al operador si identifica "Figaro" como algo que instaló él mismo, o
+  revisando el terminal por RDP en vivo (Herramientas → Opciones, o inputs de un EA/indicador
+  en algún gráfico).
 
 - ~~**[A47] Admisión contractual de las tres observaciones externas de Incubadora**~~ **CERRADO
   POR DECISIÓN DEL OPERADOR 2026-09-26** — *replanteado, no implementado*: al comprobar el
