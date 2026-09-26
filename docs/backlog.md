@@ -31,11 +31,16 @@ síntoma era siempre el mismo: la pantalla de login no hacía nada.
   dice en cabecera (`DATOS STALE`). Subir el pool no lo arregla: sólo deja de robarle conexiones
   al resto. El arreglo es sacar la evaluación del pipeline de la transacción de escritura (o
   confirmar el upsert antes de evaluar), y es una decisión de diseño que no se toma de pasada.
-- **[A38] El worker no encuentra ninguna de sus funciones cron** — *abierto*. En sus logs,
-  cada minuto: `function 'cron:task_run_killswitch_sweep' not found`, y lo mismo con
-  `task_run_semaphore_sweep` y `task_run_watchdog`. Es decir, **el barrido de kill-switch, el de
-  semáforos y el watchdog llevan sin ejecutarse desde que arrancó el stack**. Para un sistema
-  cuya función es vigilar riesgo, es el hallazgo más serio de los cuatro.
+- **[A38] El worker compite con el scheduler por los jobs de cron** — *corregido el
+  diagnóstico 2026-09-26*. **Lo que escribí primero era falso**: dije que el kill-switch, el
+  barrido de semáforos y el watchdog llevaban sin ejecutarse, leyendo sólo los logs del worker
+  (`function 'cron:task_run_killswitch_sweep' not found`, cada minuto). Los logs del
+  **scheduler** muestran lo contrario: `← cron:task_run_killswitch_sweep ●` cada minuto, en
+  0,4-0,5 s. **Los barridos sí se ejecutan.** Lo real es que worker y scheduler comparten la
+  cola ARQ por defecto: el worker ve encolados unos `cron:*` que no declara y los descarta con
+  ese mensaje. Queda el riesgo de que el worker se adelante y un barrido concreto se pierda.
+  Se resuelve dando al scheduler su propia `queue_name`.
+
 - ~~**[A39] Tres accesos distintos y ninguno abría la aplicación**~~ **RESUELTO 2026-09-26**:
   `StratOS_Operacional.bat` (refresca admisión), `StratOS_Backtests.bat` (comparaciones) y
   `StratOS_Stack_Operacional.bat` (abría **Swagger**, `8300/docs`, que es herramienta de

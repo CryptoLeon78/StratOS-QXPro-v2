@@ -59,6 +59,12 @@ CRON_JOBS = [
 
 
 class SchedulerSettings:
+    # Cola propia: con la de por defecto, el worker -- que apunta al mismo
+    # Redis y no declara estos `cron_jobs` -- ve los jobs de cron encolados
+    # aqui y los descarta (`function 'cron:task_...' not found` cada minuto en
+    # sus logs). El barrido seguia corriendo en este proceso, pero nada impedia
+    # que el worker se adelantara y ese barrido concreto se perdiera.
+    queue_name = "arq:scheduler"
     cron_jobs = CRON_JOBS
     on_startup: Any = startup
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url)
