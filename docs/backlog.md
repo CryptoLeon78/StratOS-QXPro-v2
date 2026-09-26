@@ -2,6 +2,47 @@
 
 - **[G13-49] Cierre de F3 a F4 para las dos candidatas AUDCAD:** ya tienen `BACKTEST_VALIDATED` archivado y baseline enlazada; queda registrar por candidata el adjunto existente con su hash EX5, identidad de comentario y ruta reporter, y esperar un `ea_state` posterior al registro. No se reinstalan ni sustituyen los gráficos/magics 243 y 295 durante esta reconciliación.
 
+## 2026-09-26 (tarde) — CI verde por primera vez, y el trabajo de Codex adoptado
+
+El operador cierra la etapa con Codex: a partir de ahora el orquestador y ejecutor es uno solo.
+Se adoptan sus 87 ficheros sin commitear tras dejarlos verdes, y **el CI pasa de rojo permanente
+—ni un solo run verde desde el 2 de septiembre— a 10/10**.
+
+- ~~**[A41] 87 ficheros de Codex fuera de git y de CI**~~ **RESUELTO 2026-09-26**: 40 modificados
+  y 47 nuevos, incluidas 5 migraciones Alembic, 3 ADR y 12 ficheros de frontend. Commiteados por
+  áreas (base de datos, core, frontend, scripts, pipeline-agent, documentación), no en bloque.
+  Antes de adoptarlos hubo que arreglar lo que dejaba el pipeline en rojo: 11 errores de ruff,
+  17 ficheros sin formatear y 3 de `mypy --strict`. `alembic heads` devuelve un único head, así
+  que la cadena de migraciones no quedó ramificada.
+- ~~**[A42] mypy pasaba en local y fallaba en CI**~~ **RESUELTO 2026-09-26**: el venv local tenía
+  SQLAlchemy **2.0.52** y el CI instala **2.1.1**, que tipa mejor las columnas nullable — 0
+  errores aquí, 11 allí. Se alineó el entorno local con el del pipeline y se arreglaron de
+  verdad (`pipeline_gate`, `portfolio`, `correlations`, `f6_*`): se reafirma en Python el filtro
+  que ya hace SQL, en vez de castear a ciegas. **Mantener el venv local en la versión del CI**, o
+  esta clase de error vuelve a pasar desapercibida.
+- ~~**[A43] El seed no terminaba: `baseline_grace_days` excluía a todos los bots**~~ **RESUELTO
+  2026-09-26**: `semaphore_sweep` se salta todo bot cuya baseline no haya superado 5 días, y el
+  seed las creaba con `created_at=now`. Resultado: **el barrido no evaluaba a ninguno de los 32
+  bots**, cero transiciones, Poseidón se quedaba en AMARILLO en vez de avanzar a NARANJA y el
+  seed abortaba con "cero decisiones pendientes". Era la causa de que `e2e-acceptance-full` y
+  `e2e-playwright` llevaran rojos desde el 2 de septiembre: ambos arrancan sembrando. La
+  baseline pasa a nacer con `profile.history_start`; la gracia no se toca.
+- ~~**[A44] La pestaña Portfolio perdió el título de la matriz**~~ **RESUELTO 2026-09-26**:
+  dividir la matriz en una tarjeta por procedencia está cubierto por su ADR, pero el título pasó
+  a ser sólo `aria-label`. `pestaña Portfolio.jpg` lo muestra **visible**, así que se restauró
+  como `<h2>`. Un título que sólo existe para el lector de pantalla no cumple la fidelidad 1:1.
+- ~~**[A45] El seed escribía la matriz de correlación legacy que ya nadie lee**~~ **RESUELTO
+  2026-09-26**: la UI y `compute_portfolio_contribution` leen `CorrelationSnapshot` sellado, y el
+  seed sólo llamaba a `run_correlation_job`. Ahora escribe ambas, como el barrido real. La fuente
+  observada sigue retenida en el fixture y **es correcto**: sólo mira cuentas `BROKER_REAL`
+  —"fixture y demo no se consultan ni siquiera como relleno"— y el seed es `FIXTURE`.
+- ~~**[A46] Los specs de Playwright validaban una UI retirada**~~ **RESUELTO 2026-09-26**:
+  `pipeline_bots` exigía el kanban F1–F7 que el **ADR 0012** retiró por decisión del operador; se
+  reescribió sobre lo que ese ADR promete (banner, tres carriles y ausencia de cualquier botón de
+  despliegue sobre BEPB/JJTI). Las tres capturas de referencia se regeneraron **desde el propio
+  runner**, no en local: en Windows las fuentes no coinciden y la baseline sería falsa. El CI
+  ahora sube `test-results/` al fallar, que es lo que permite hacerlo sin reproducir su entorno.
+
 ## Hallazgos 2026-09-26 — el panel no se podía usar
 
 El operador pidió "un solo acceso, el definitivo". Al cablearlo apareció que **nadie había
