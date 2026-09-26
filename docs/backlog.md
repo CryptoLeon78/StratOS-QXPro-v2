@@ -22,6 +22,33 @@ síntoma era siempre el mismo: la pantalla de login no hacía nada.
   el valor que recibe la aplicación. `bootstrap_operational_operator.py` ahora nombra el caso en
   vez de mandar a regenerar un hash que ya era bueno. **El login lee de la base, no del env**,
   así que esto sólo muerde en el próximo bootstrap.
+- ~~**[A40] El backoff del conector desbordaba y congelaba la telemetría**~~ **RESUELTO
+  2026-09-26**. Es la causa **raíz** de A35, encontrada en el VPS. `next_delay` calculaba
+  `min(base * multiplier**attempts, max_seconds)`: la potencia se evalúa entera **antes** del
+  `min()`, así que el tope no protegía de nada. La cadena completa:
+
+  1. El 2026-09-07 a las 17:09 un lote de `trades` de BEPB falla. El último trade en la base es
+     de ese mismo día a las 17:19 — encaja.
+  2. Reintentos con backoff exponencial: `attempts` crece sin freno.
+  3. Al intento **1025**, `2**1025` supera el rango del float y `next_delay` lanza
+     `OverflowError: (34, 'Result too large')`. Medido en el buffer: `max(attempts)=1025`.
+  4. El conector ya no puede calcular el retardo, así que **deja de drenar**.
+  5. Detrás se apilan 19 días de telemetría: 257.899 `positions`, 43.094 `equity` y 21.552
+     `heartbeat` desde el 11-sep, con `avg(attempts)=0,003` — no eran reintentos, era
+     acumulación detrás de un único registro atascado. Buffers de 326/274/127 MB y 66 MB de la
+     misma traza repetida.
+
+  Arquitectura del VPS (`vmi2101908`, Contabo): **tres servicios Windows bajo NSSM**
+  —`StratOSMt5Readonly_bepb`, `_jjti`, `_incubadora`—, cada uno con su propio buffer en
+  `C:\ProgramData\StratOSQXPro\operational\<cuenta>\`. El código de allí es idéntico al del
+  repo; no era una versión antigua, como se supuso en A35.
+
+  Corregido en `http_client.py` (se calcula antes a partir de qué intento se alcanza el techo),
+  desplegado por SSH y los tres servicios reiniciados. Verificado: el `OverflowError` desaparece
+  de los logs, que pasan a `HTTP 200 OK`, y la cola drena a ~229 registros/minuto. **Quedan unas
+  24 h de drenaje** de los 966.484 registros acumulados; no se purga nada, es telemetría real.
+  Los ficheros `.sqlite` no encogerán hasta un `VACUUM` (SQLite no libera páginas al borrar).
+
 - ~~**[A35] La ingesta se serializaba sobre las mismas filas y no avanzaba**~~ **RESUELTO
   2026-09-26**, en dos movimientos:
   1. `post_trades` y `post_equity` hacían el upsert y **después** evaluaban F4/F5/F6, todo en la
