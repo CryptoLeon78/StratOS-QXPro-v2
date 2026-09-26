@@ -52,18 +52,33 @@ async def _create_bot(session: AsyncSession, account_id: int) -> Bot:
     return bot
 
 
+# 42501 = insufficient_privilege en el estandar SQL. Se comprueba el codigo y
+# no el texto del error: el mensaje cambia entre versiones del driver -- con
+# SQLAlchemy 2.0 incluia "InsufficientPrivilege" y con 2.1 pasa a ser
+# "permission denied for table ..." -- y ademas depende del idioma del
+# servidor. La garantia que este test defiende es que el motor deniega, no
+# como lo redacta.
+SQLSTATE_PRIVILEGIO_INSUFICIENTE = "42501"
+
+
+async def _assert_denied(session: AsyncSession, statement: Any) -> None:
+    with pytest.raises(DBAPIError) as excinfo:
+        await session.execute(statement)
+    sqlstate = getattr(excinfo.value.orig, "sqlstate", None)
+    assert sqlstate == SQLSTATE_PRIVILEGIO_INSUFICIENTE, (
+        f"se esperaba denegacion por privilegios ({SQLSTATE_PRIVILEGIO_INSUFICIENTE}), "
+        f"y llego sqlstate={sqlstate!r}: {excinfo.value}"
+    )
+    await session.rollback()
+
+
 async def _assert_update_and_delete_denied(
     session: AsyncSession, model: type[Any], pk_value: Any, set_values: dict[str, Any]
 ) -> None:
     pk_col = next(iter(model.__table__.primary_key.columns))
 
-    with pytest.raises(DBAPIError, match="InsufficientPrivilege"):
-        await session.execute(update(model).where(pk_col == pk_value).values(**set_values))
-    await session.rollback()
-
-    with pytest.raises(DBAPIError, match="InsufficientPrivilege"):
-        await session.execute(delete(model).where(pk_col == pk_value))
-    await session.rollback()
+    await _assert_denied(session, update(model).where(pk_col == pk_value).values(**set_values))
+    await _assert_denied(session, delete(model).where(pk_col == pk_value))
 
 
 async def test_decision_log_insert_ok_update_delete_denied(app_session: AsyncSession) -> None:

@@ -119,7 +119,14 @@ async def _active_bot_allocations(session: AsyncSession) -> list[tuple[str, Deci
             )
         )
     ).all()
-    return [(profile.value, capital) for profile, capital in rows]
+    # `profile` y `capital_allocated_pct` son nullable y el tipo estatico no
+    # refleja los `is_not(None)` de la consulta: se reafirman aqui en vez de
+    # castear a ciegas.
+    return [
+        (profile.value, capital)
+        for profile, capital in rows
+        if profile is not None and capital is not None
+    ]
 
 
 def _aggregate(

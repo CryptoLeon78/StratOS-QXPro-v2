@@ -234,10 +234,20 @@ class TestComputePortfolioContribution:
     async def test_averages_correlation_across_all_pairs_involving_the_bot(
         self, db_session: object
     ) -> None:
-        from core.db.models.governance import CorrelationMatrix
+        """La media sale de un snapshot sellado, no de la matriz legacy.
+
+        `compute_portfolio_contribution` dejo de leer `CorrelationMatrix`: ahora
+        exige un `CorrelationSnapshot` COMPLETED de procedencia MT5_REAL sobre
+        una cuenta BROKER_REAL, para que ninguna correlacion entre en las
+        metricas sin decir de donde sale. Este test sembraba la tabla vieja y
+        por eso obtenia None.
+        """
+        from core.db.enums import AccountDataOrigin, CorrelationSource
+        from core.db.models.governance import CorrelationSnapshot, CorrelationSnapshotPair
         from core.services.bot_equity import compute_portfolio_contribution
 
         bot, account, _batch = await _bot(db_session)
+        account.data_origin = AccountDataOrigin.BROKER_REAL  # type: ignore[attr-defined]
         bot_b = BotFactory(account_id=account.id)  # type: ignore[call-arg]
         bot_c = BotFactory(account_id=account.id)  # type: ignore[call-arg]
         db_session.add(bot_b)  # type: ignore[attr-defined]
@@ -245,37 +255,33 @@ class TestComputePortfolioContribution:
         await db_session.flush()  # type: ignore[attr-defined]
 
         now = datetime.now(UTC)
-        db_session.add(  # type: ignore[attr-defined]
-            CorrelationMatrix(
-                ts=now,
-                bot_a_id=bot.id,
-                bot_b_id=bot_b.id,
-                correlation=0.2,
-                is_redundant_pair=False,
-                window_days=90,
-            )
+        snapshot = CorrelationSnapshot(
+            source=CorrelationSource.MT5_REAL,
+            status="COMPLETED",
+            created_at=now,
+            window_days=90,
+            algorithm_version="test",
+            account_scope={"account_ids": [account.id]},
+            input_manifest={"trades": 0},
+            input_sha256="0" * 64,
         )
-        db_session.add(  # type: ignore[attr-defined]
-            CorrelationMatrix(
-                ts=now,
-                bot_a_id=bot_c.id,
-                bot_b_id=bot.id,
-                correlation=0.6,
-                is_redundant_pair=False,
-                window_days=90,
+        db_session.add(snapshot)  # type: ignore[attr-defined]
+        await db_session.flush()  # type: ignore[attr-defined]
+
+        for bot_a_id, bot_b_id, correlation, redundante in (
+            (bot.id, bot_b.id, 0.2, False),
+            (bot_c.id, bot.id, 0.6, False),
+            (bot_b.id, bot_c.id, 0.9, True),  # par SIN el bot -- no debe contar
+        ):
+            db_session.add(  # type: ignore[attr-defined]
+                CorrelationSnapshotPair(
+                    snapshot_id=snapshot.id,
+                    bot_a_id=bot_a_id,
+                    bot_b_id=bot_b_id,
+                    correlation=correlation,
+                    is_redundant_pair=redundante,
+                )
             )
-        )
-        # par SIN el bot -- no debe contar
-        db_session.add(  # type: ignore[attr-defined]
-            CorrelationMatrix(
-                ts=now,
-                bot_a_id=bot_b.id,
-                bot_b_id=bot_c.id,
-                correlation=0.9,
-                is_redundant_pair=True,
-                window_days=90,
-            )
-        )
         await db_session.flush()  # type: ignore[attr-defined]
 
         contribution = await compute_portfolio_contribution(db_session, bot)  # type: ignore[arg-type]

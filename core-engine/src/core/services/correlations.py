@@ -115,6 +115,10 @@ async def _fetch_closed_trades(
     ).all()
     trades_by_bot: dict[int, list[TradePnl]] = {}
     for bot_id, close_time, profit, commission, swap in rows:
+        # `bot_id` y `close_time` son nullable y el tipo estatico no refleja los
+        # `is_not(None)` de la consulta: se reafirman aqui en vez de castear.
+        if bot_id is None or close_time is None:
+            continue
         trades_by_bot.setdefault(bot_id, []).append(
             TradePnl(closed_at=close_time, net_pnl=profit + commission + swap)
         )
@@ -251,6 +255,9 @@ async def run_mt5_real_correlation_snapshot(
     input_rows: list[dict[str, object]] = []
     account_ids: set[int] = set()
     for trade_id, bot_id, close_time, profit, commission, swap, account_id in rows:
+        # Mismo criterio: la consulta ya filtra los nulos, el tipo no lo sabe.
+        if bot_id is None or close_time is None:
+            continue
         account_ids.add(account_id)
         net_pnl = profit + commission + swap
         trades_by_bot.setdefault(bot_id, []).append(TradePnl(closed_at=close_time, net_pnl=net_pnl))

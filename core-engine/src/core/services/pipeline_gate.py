@@ -46,7 +46,10 @@ async def assemble_metrics(
     ).all()
 
     net_profits = [profit + commission + swap for profit, commission, swap, _, _ in rows]
-    close_times = [close_time for _, _, _, close_time, _ in rows]
+    # `close_time` es nullable en la tabla y el tipo estatico no refleja el
+    # filtro SQL que ya selecciona cerrados: se reafirma aqui, igual que en
+    # f6_evaluation/f6_staging, en vez de castear a ciegas.
+    close_times = [close_time for _, _, _, close_time, _ in rows if close_time is not None]
     r_multiples = [r for _, _, _, _, r in rows if r is not None]
 
     profit_factor = rolling_profit_factor_formula(net_profits, window=len(net_profits)) or 0.0

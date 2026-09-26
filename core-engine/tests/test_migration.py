@@ -7,8 +7,12 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 # PARTE 5.2 (25) + ea_state/virtual_trade (G4) + checklist_item_signature (G5)
-# + instrument_spec/symbol_currency (G10, docs/backlog.md) + las 6 de G11/G13 de abajo.
-EXPECTED_TABLE_COUNT = 39
+# + instrument_spec/symbol_currency (G10, docs/backlog.md) + las 6 de G11/G13 de abajo
+# + las 5 que anaden las migraciones del pipeline operacional: correlation_snapshot,
+# correlation_snapshot_pair, demo_chart_attachment, pipeline_agent_command,
+# pipeline_agent_command_event y pipeline_work_item (contrastadas una a una contra
+# las tablas reales de la base migrada, no contadas a ojo).
+EXPECTED_TABLE_COUNT = 44
 
 # Tablas anadidas despues de G10. Se comprueban por nombre y no solo por recuento: un
 # recuento suelto no dice cual falta ni cual sobra cuando una migracion se olvida.

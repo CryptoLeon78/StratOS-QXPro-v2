@@ -31,10 +31,12 @@ async def ingest_execution(
     if ya_visto:
         # Sello ya registrado: el lote es byte a byte el mismo y no hay nada
         # que ingerir. El intento queda sellado igual (traza append-only);
-        # lo que se salta es el reproceso de sus registros.
+        # lo que se salta es el reproceso de sus registros. Los fills del lote
+        # cuentan como duplicados: ya estaban, y el contrato de respuesta dice
+        # cuantos registros traia el lote que no se ingirieron.
         return IngestOutcome(
             accepted=0,
-            duplicated=0,
+            duplicated=len(req.fills),
             batch_id=batch.id,
             server_time=batch.server_ts,
         )
