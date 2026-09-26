@@ -18,6 +18,7 @@ from core.db.enums import (
     BotRole,
     CemeteryCause,
     ChecklistType,
+    CorrelationSource,
     DecisionStatus,
     ImpulseAction,
     ImpulseStatus,
@@ -47,3 +48,4 @@ account_data_origin = SAEnum(AccountDataOrigin, name="account_data_origin")
 bot_origin_kind = SAEnum(BotOriginKind, name="bot_origin_kind")
 asset_source_group = SAEnum(AssetSourceGroup, name="asset_source_group")
 asset_admission_status = SAEnum(AssetAdmissionStatus, name="asset_admission_status")
+correlation_source = SAEnum(CorrelationSource, name="correlation_source")

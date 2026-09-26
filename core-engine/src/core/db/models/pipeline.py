@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -55,6 +55,51 @@ class PipelinePhaseTransition(Base):
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     actor: Mapped[ActorType] = mapped_column(sa_enums.actor_type)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class F6Evaluation(Base):
+    """Veredicto inmutable F5→F6 derivado sólo de observación demo válida.
+
+    ``evidence_sha256`` hace que una misma fotografía F5 no pueda generar
+    más de una decisión, aunque el conector reenvíe telemetría o se reinicie
+    el core. Las métricas y el snapshot de configuración quedan junto al
+    resultado, sin mezclar el baseline de Tester con el rendimiento demo.
+    """
+
+    __tablename__ = "f6_evaluation"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    candidate_id: Mapped[int] = mapped_column(ForeignKey("pipeline_candidate.id"))
+    evidence_sha256: Mapped[str] = mapped_column(String(64))
+    configuration_sha256: Mapped[str] = mapped_column(String(64))
+    outcome: Mapped[str] = mapped_column(String)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metrics: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    gates: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    evaluated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class F6StagingEvaluation(Base):
+    """Plan inmutable de escalado dentro de F6, sin aplicar cambios en MT5.
+
+    La fila conserva la evidencia que habilita o bloquea el siguiente escalón
+    y la lectura challenger/champion. Incluso un resultado favorable sólo es
+    una recomendación para el operador: F7 no se modifica desde este ledger.
+    """
+
+    __tablename__ = "f6_staging_evaluation"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    candidate_id: Mapped[int] = mapped_column(ForeignKey("pipeline_candidate.id"))
+    evidence_sha256: Mapped[str] = mapped_column(String(64))
+    configuration_sha256: Mapped[str] = mapped_column(String(64))
+    outcome: Mapped[str] = mapped_column(String)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    requested_sizing_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    metrics: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    gates: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    challenger: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    evaluated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class ChallengerEvaluation(Base):

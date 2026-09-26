@@ -21,7 +21,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from core.db import sa_enums
 from core.db.base import Base
 from core.db.column_types import DrawdownPct, Money
-from core.db.enums import ChecklistType, NewsImpact
+from core.db.enums import ChecklistType, CorrelationSource, NewsImpact
 
 
 class CorrelationMatrix(Base):
@@ -35,6 +35,46 @@ class CorrelationMatrix(Base):
     correlation: Mapped[float] = mapped_column()
     is_redundant_pair: Mapped[bool] = mapped_column(Boolean)
     window_days: Mapped[int] = mapped_column(Integer)
+
+
+class CorrelationSnapshot(Base):
+    """Snapshot append-only de una única procedencia de P&L diario MT5.
+
+    ``input_sha256`` sella exactamente los trades o artefactos que alimentan
+    la ejecución. Un resultado retenido también se persiste: ausencia de
+    pares no significa que la evidencia sea inexistente ni permite reutilizar
+    la matriz legacy sin procedencia.
+    """
+
+    __tablename__ = "correlation_snapshot"
+    __table_args__ = (UniqueConstraint("source", "input_sha256"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source: Mapped[CorrelationSource] = mapped_column(sa_enums.correlation_source)
+    status: Mapped[str] = mapped_column(String)
+    reason: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    window_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    window_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    window_days: Mapped[int] = mapped_column(Integer)
+    algorithm_version: Mapped[str] = mapped_column(String)
+    account_scope: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    input_manifest: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    input_sha256: Mapped[str] = mapped_column(String(64))
+
+
+class CorrelationSnapshotPair(Base):
+    """Un par calculado exclusivamente dentro de su snapshot sellado."""
+
+    __tablename__ = "correlation_snapshot_pair"
+    __table_args__ = (UniqueConstraint("snapshot_id", "bot_a_id", "bot_b_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    snapshot_id: Mapped[int] = mapped_column(ForeignKey("correlation_snapshot.id"))
+    bot_a_id: Mapped[int] = mapped_column(ForeignKey("bot.id"))
+    bot_b_id: Mapped[int] = mapped_column(ForeignKey("bot.id"))
+    correlation: Mapped[float] = mapped_column()
+    is_redundant_pair: Mapped[bool] = mapped_column(Boolean)
 
 
 class MonteCarloRun(Base):

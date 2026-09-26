@@ -138,3 +138,14 @@ class AssetAdmissionStatus(StrEnum):
     INCUBATING = "INCUBATING"
     CLASSIFIED = "CLASSIFIED"
     REJECTED = "REJECTED"
+
+
+class CorrelationSource(StrEnum):
+    """Origen homogéneo de una matriz de correlación operacional.
+
+    La tabla histórica ``correlation_matrix`` carece de esta distinción y
+    queda sólo como legado. Un snapshot nuevo nunca combina estas fuentes.
+    """
+
+    MT5_BACKTEST = "MT5_BACKTEST"
+    MT5_REAL = "MT5_REAL"
