@@ -28,6 +28,21 @@ La corrección del primer EA a `SP500/H4` quedó observada por el exporter a `20
 
 Estas métricas sólo explican por qué se inició la observación; no son una validación de estrategia ni habilitan un cambio de cuenta.
 
-## Siguiente condición admisible
+## Cierre — 2026-09-26, decisión del operador
 
-La transición desde esta observación requiere implementar y ejecutar la ruta sellada `incubator_admission` definida por ADR 0012: identidad y perfil explícitos, evidencia de backtest reproducible, baseline importada, plaza y correlación evaluadas, y posterior telemetría contractual `EaState`, heartbeat y equity. Hasta entonces, estos registros permanecen fuera de F5 y ningún proceso de StratOS cambia gráficos, EAs u órdenes MT5.
+Los tres EAs de este expediente son bots `EXTERNAL_PRODUCTION` **ya en F7 sobre cuentas
+reales** (`bot.id` 31 para `SPH4L_1.26.31_4.2.29_MN24` en BEPB; 9 y 7 para
+`USDJPYH1L_2.22.171_MN13` y `USDJPYH1L_5.15.110_MN8` en JJTI), no candidatas nuevas. El
+operador confirma que la observación en `INCUBADORA_DARWINEX_DEMO` es **vigilancia paralela,
+sin intención de que pasen por F3–F7 de nuevo**.
+
+Por tanto esta observación **no transiciona**: no procede la ruta `incubator_admission` de
+ADR 0012 para estos tres registros, porque admitirlos crearía un segundo `Bot` con
+`origin_kind=INCUBATION` duplicando una identidad que ya opera en F7 real — un modelo de
+datos contradictorio, no un paso pendiente. Las filas `external_ea_inventory` 81/82/83
+permanecen como observación de identidad de forma permanente y deliberada, sin
+`OperationalAsset`, baseline ni `PipelineCandidate`. Detalle en `docs/backlog.md` A47 y
+`ASSUMPTIONS.md` G13-62.
+
+La ruta `incubator_admission` en sí sigue vigente y probada (bots 42/43 de AUDCAD,
+2026-09-08/10) para candidatas nuevas genuinas que no estén ya en producción.

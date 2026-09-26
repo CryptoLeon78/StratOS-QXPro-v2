@@ -339,7 +339,19 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   Claude Code para que reconecte esos tres servidores (no son "conectores", así que el agente
   no puede forzar la reconexión).
 
-- **[A47] Admisión contractual de las tres observaciones externas de Incubadora** — `external_ea_inventory` ya conserva las identidades verificadas de `SPH4L_1.26.31_4.2.29_MN24`, `USDJPYH1L_2.22.171_MN13` y `USDJPYH1L_5.15.110_MN8`, pero ninguna tiene `OperationalAsset` validado, baseline ni `PipelineCandidate`. Implementar la ruta sellada `incubator_admission` de ADR 0012 y evaluar evidencia reproducible, plaza y correlación antes de crear cualquier F5; jamás inferirla del adjunto manual ni del nombre del archivo.
+- ~~**[A47] Admisión contractual de las tres observaciones externas de Incubadora**~~ **CERRADO
+  POR DECISIÓN DEL OPERADOR 2026-09-26** — *replanteado, no implementado*: al comprobar el
+  estado real antes de escribir código, `SPH4L_1.26.31_4.2.29_MN24`, `USDJPYH1L_2.22.171_MN13`
+  y `USDJPYH1L_5.15.110_MN8` resultaron ser bots `EXTERNAL_PRODUCTION` **ya en F7 sobre cuentas
+  reales** (`bot.id` 31/9/7, BEPB/JJTI, semáforo VERDE, sizing 100 %), no candidatas nuevas.
+  El operador confirma: la observación en la cuenta demo es **vigilancia paralela, sin
+  intención de que pasen por F3–F7 de nuevo**. Admitirlas crearía un segundo `Bot` duplicando
+  una identidad ya en F7 real — modelo de datos contradictorio, no una mejora. Sus filas en
+  `external_ea_inventory` (81/82/83) permanecen como observación de identidad, sin
+  `OperationalAsset`, baseline ni `PipelineCandidate`, de forma permanente y deliberada. La
+  ruta general `incubator_admission` de ADR 0012 **ya existe y ya se usó** (bots 42/43 de
+  AUDCAD, `scripts/admit_incubator_candidate.py`, 2026-09-08/10): sigue disponible para
+  candidatas nuevas genuinas. ASSUMPTIONS G13-62.
 
 ## Estado activo G13 — operación separada
 
