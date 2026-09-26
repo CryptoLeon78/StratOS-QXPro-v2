@@ -322,7 +322,7 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   devuelven `ConnectionRefused`. Bloquea P2.3 (telemetría viva read-only en continuo), que
   necesita hablar con esos terminales. No es una capacidad ausente: es una conexión caída.
 
-- **[A35] Admisión contractual de las tres observaciones externas de Incubadora** — `external_ea_inventory` ya conserva las identidades verificadas de `SPH4L_1.26.31_4.2.29_MN24`, `USDJPYH1L_2.22.171_MN13` y `USDJPYH1L_5.15.110_MN8`, pero ninguna tiene `OperationalAsset` validado, baseline ni `PipelineCandidate`. Implementar la ruta sellada `incubator_admission` de ADR 0012 y evaluar evidencia reproducible, plaza y correlación antes de crear cualquier F5; jamás inferirla del adjunto manual ni del nombre del archivo.
+- **[A47] Admisión contractual de las tres observaciones externas de Incubadora** — `external_ea_inventory` ya conserva las identidades verificadas de `SPH4L_1.26.31_4.2.29_MN24`, `USDJPYH1L_2.22.171_MN13` y `USDJPYH1L_5.15.110_MN8`, pero ninguna tiene `OperationalAsset` validado, baseline ni `PipelineCandidate`. Implementar la ruta sellada `incubator_admission` de ADR 0012 y evaluar evidencia reproducible, plaza y correlación antes de crear cualquier F5; jamás inferirla del adjunto manual ni del nombre del archivo.
 
 ## Estado activo G13 — operación separada
 
