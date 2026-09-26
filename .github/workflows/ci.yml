@@ -431,7 +431,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: frontend/playwright-report/
+          # `test-results/` lleva el `-actual.png` y el `-diff.png` de cada
+          # screenshot que no cuadra. Sin ellos, un fallo de captura solo dice
+          # que difiere, y regenerar las baselines exige reproducir el entorno
+          # de CI en local -- que en Windows ni siquiera renderiza igual.
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          if-no-files-found: ignore
           retention-days: 7
 
   # Perfil `full` (5,5 anos de historia) para los criterios de PARTE 16
