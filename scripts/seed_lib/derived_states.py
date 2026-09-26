@@ -28,7 +28,11 @@ from datetime import datetime
 
 from core.db.models.pipeline import PipelineCandidate
 from core.services.audit import AuditConfig, run_audit_daily
-from core.services.correlations import CorrelationServiceConfig, run_correlation_job
+from core.services.correlations import (
+    CorrelationServiceConfig,
+    run_correlation_job,
+    run_mt5_real_correlation_snapshot,
+)
 from core.services.impulses import ImpulseServiceConfig, evaluate_pending_impulses
 from core.services.killswitch_sweep import KillSwitchSweepConfig, sweep_portfolio
 from core.services.semaphore_sweep import SemaphoreSweepConfig, sweep_all_bots
@@ -69,7 +73,15 @@ async def run_all_sweeps(session: AsyncSession, redis: Redis, now: datetime) -> 
     impulsos/gate -- ninguno depende del resultado de otro salvo que todos
     necesitan los datos crudos (trades/equity/escenarios) ya commiteados
     antes de llamar a esta funcion."""
+    # Dos escrituras a proposito. `run_correlation_job` alimenta la matriz
+    # legacy que aun consultan partes del dominio; el snapshot sellado es lo
+    # que leen hoy Portfolio y `compute_portfolio_contribution`, y es lo que
+    # hace el barrido real (`task_run_correlations`). Sembrando solo el
+    # primero, la pestana Portfolio salia sin matriz ni media.
     await run_correlation_job(session, redis, CorrelationServiceConfig(), now)
+    await session.commit()
+
+    await run_mt5_real_correlation_snapshot(session, CorrelationServiceConfig(), now)
     await session.commit()
 
     await sweep_all_bots(session, redis, SemaphoreConfig(), SemaphoreSweepConfig(), now)
