@@ -4,26 +4,31 @@ import { EMAIL, PASSWORD, headerMask, login } from "./helpers";
 
 test.skip(!EMAIL || !PASSWORD, "PLAYWRIGHT_TEST_EMAIL/PLAYWRIGHT_TEST_PASSWORD no configurados");
 
-test("pestana Pipeline: kanban F1-F7, Sigma GO, Estige HOLD, F4+ sin boton Promover", async ({
+test("pestana Pipeline: tres carriles de Incubadora y portfolios reales read-only", async ({
   page,
 }) => {
   await login(page);
   await page.goto("/pipeline");
 
-  await expect(page.getByText("F1 · Ideación y prototipado")).toBeVisible();
-  await expect(page.getByText("F5 · Incubación OOS")).toBeVisible();
+  // ADR 0012: el operador retira F1-F3 de la superficie Pipeline. El tablero
+  // ya no es el kanban F1-F7 -- gobierna la Incubadora demo y observa los dos
+  // portfolios reales registrados. Este spec valida esa decision, no la UI
+  // anterior.
+  await expect(page.getByText("Incubadora demo → propuesta para portfolios reales")).toBeVisible();
+  await expect(page.getByText("Orquestador de Incubadora")).toBeVisible();
 
-  // Cada candidato vive en su propio Card (.shadow-card, components/ui/card.tsx)
-  // -- filtrar por texto lo escopea sin depender de la posicion en el DOM.
-  const sigmaCard = page.locator(".shadow-card").filter({ hasText: "Sigma MeanRev SPX" });
-  await expect(sigmaCard.getByText("GO", { exact: true })).toBeVisible();
+  for (const carril of [
+    "Instalación demo",
+    "Observación contractual",
+    "Evaluación de cartera",
+  ]) {
+    await expect(page.getByText(carril, { exact: false }).first()).toBeVisible();
+  }
 
-  const estigeCard = page.locator(".shadow-card").filter({ hasText: "Estige Trend GBPUSD" });
-  await expect(estigeCard.getByText("HOLD", { exact: true })).toBeVisible();
-
-  // Criterio 10 (PARTE 16): F4+ nunca se promueve manualmente -- ni boton.
-  const cefiroCard = page.locator(".shadow-card").filter({ hasText: "Cefiro MeanRev XAU" });
-  await expect(cefiroCard.getByRole("button", { name: /Promover/ })).toHaveCount(0);
+  // "Las tarjetas permanecen read-only: no existe una ruta de comando, sizing
+  // o despliegue para BEPB/JJTI" (ADR 0012). Se comprueba la ausencia, que es
+  // justo lo que la decision promete.
+  await expect(page.getByRole("button", { name: /Promover|Desplegar|Instalar en real/ })).toHaveCount(0);
 
   await expect(page).toHaveScreenshot("pipeline.png", {
     maxDiffPixelRatio: 0.02,

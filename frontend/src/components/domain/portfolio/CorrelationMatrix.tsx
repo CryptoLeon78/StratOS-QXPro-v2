@@ -45,8 +45,15 @@ function SourceMatrix({ source }: { source: CorrelationSource }) {
 }
 
 export function CorrelationMatrix() {
-  return <section className="grid gap-4 xl:grid-cols-2" aria-label={uiStrings.portfolio.correlationsTitle}>
-    <SourceMatrix source="MT5_BACKTEST" />
-    <SourceMatrix source="MT5_REAL" />
+  // La captura contractual (`pestaña Portfolio.jpg`) muestra este titulo VISIBLE
+  // sobre la matriz. Separarla en una tarjeta por procedencia esta cubierto por
+  // el ADR de snapshots de correlacion, pero degradar el titulo a `aria-label`
+  // no lo esta: se lee con lector de pantalla y desaparece de la pantalla.
+  return <section className="space-y-3" aria-label={uiStrings.portfolio.correlationsTitle}>
+    <h2 className="text-sm font-semibold text-text-primary">{uiStrings.portfolio.correlationsTitle}</h2>
+    <div className="grid gap-4 xl:grid-cols-2">
+      <SourceMatrix source="MT5_BACKTEST" />
+      <SourceMatrix source="MT5_REAL" />
+    </div>
   </section>;
 }
