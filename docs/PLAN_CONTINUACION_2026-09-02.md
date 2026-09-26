@@ -405,7 +405,7 @@ Verificación ejecutada sobre el plan completo, punto por punto:
 | **P3 cola F7** | **PARCIAL** | cola regenerada: no cambió; falta cerrar el Darwinex |
 | P4.2 recorrido autenticado | pendiente | el panel queda abierto en `/login` para el operador |
 | P4.4 baselines Playwright | pendiente | el operador lo hará más tarde |
-| P2.3 telemetría viva | **BLOQUEADO** | los MCP de MT5 no conectan (`A23`) |
+| P2.3 telemetría viva | **HECHO** | ~~BLOQUEADO~~ — diagnóstico corregido 2026-09-26: nunca dependió de los MCP de este agente. El conector real (NSSM `StratOSMt5Readonly_*`) ingiere en continuo; verificado en vivo (`backlog A23`) |
 
 ### Lo que hace falta para cerrar los tres parciales
 
@@ -417,8 +417,9 @@ Verificación ejecutada sobre el plan completo, punto por punto:
    **adjunto demo por gráfico** y el **consumo de la cola FIFO** (`backlog A20`). Ninguna
    estrategia de Análisis es todavía `BACKTEST_VALIDATED`, así que no hay candidato que
    admitir aunque el mecanismo existiera.
-3. **P2.3** — `mt5_bepb`, `mt5_jjti` y `mt5-darwinex` devuelven `ConnectionRefused` en esta
-   sesión (`backlog A23`). No es una capacidad ausente, es una conexión caída.
+3. ~~**P2.3**~~ — ya no es un pendiente: era un diagnóstico erróneo que confundía la
+   telemetría del producto (el conector NSSM, en marcha desde A35/A40) con la conectividad
+   MCP de este agente a los terminales. Corregido en `backlog A23` el 2026-09-26.
 
 
 ## Addendum 2026-09-02 (tarde) — por qué la cola seguía siendo toda AUDCAD

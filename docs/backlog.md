@@ -320,9 +320,24 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   y `min_days=60`, que a 0,8/semana implican ~9 meses de historia. Aplicado en
   `PipelineGateConfig.min_freq_week` y en `thresholds.seed.json`. ASSUMPTIONS G13-33.
 
-- **[A23] Los MCP de MT5 no conectan en esta sesión** — `mt5_bepb`, `mt5_jjti` y `mt5-darwinex`
-  devuelven `ConnectionRefused`. Bloquea P2.3 (telemetría viva read-only en continuo), que
-  necesita hablar con esos terminales. No es una capacidad ausente: es una conexión caída.
+- ~~**[A23] Los MCP de MT5 no conectan en esta sesión**~~ **CORREGIDO EL DIAGNÓSTICO
+  2026-09-26**: esta entrada afirmaba que bloqueaba P2.3 (telemetría viva). **Era falso** —
+  mezclaba dos cosas distintas. Los `mt5_bepb`/`mt5_jjti`/`mt5-darwinex` son herramientas MCP
+  de **este agente** para inspeccionar los terminales a mano (compilar, lanzar backtests,
+  leer ficheros); P2.3 es el conector read-only del propio producto (servicios NSSM
+  `StratOSMt5Readonly_*` en el VPS), que es un proceso totalmente distinto y **lleva
+  funcionando de forma autónoma desde su arreglo en A35/A40**. Verificado en vivo: 313
+  `equity`, 156 `heartbeat` y 1.884 `positions` ingeridos en los últimos 5 minutos.
+  **P2.3 nunca estuvo bloqueado por esto.**
+
+  La causa real del `ConnectionRefused` de los MCP: los tres apuntan a `127.0.0.1:2234[678]`
+  y esos puertos sólo existen si hay un túnel SSH local reenviándolos al VPS — los servicios
+  (los propios `terminal64.exe` de BEPB/JJTI/Incubadora, que sirven el bridge in-process) sí
+  están vivos allí. Sin el túnel abierto en esta máquina, esos puertos locales no existen. Se
+  abrió el túnel (`ssh -L 22346:127.0.0.1:22346 -L 22347:... -L 22348:...`) y los tres
+  endpoints ya responden a través de él; falta que el operador escriba `/mcp` en la sesión de
+  Claude Code para que reconecte esos tres servidores (no son "conectores", así que el agente
+  no puede forzar la reconexión).
 
 - **[A47] Admisión contractual de las tres observaciones externas de Incubadora** — `external_ea_inventory` ya conserva las identidades verificadas de `SPH4L_1.26.31_4.2.29_MN24`, `USDJPYH1L_2.22.171_MN13` y `USDJPYH1L_5.15.110_MN8`, pero ninguna tiene `OperationalAsset` validado, baseline ni `PipelineCandidate`. Implementar la ruta sellada `incubator_admission` de ADR 0012 y evaluar evidencia reproducible, plaza y correlación antes de crear cualquier F5; jamás inferirla del adjunto manual ni del nombre del archivo.
 
