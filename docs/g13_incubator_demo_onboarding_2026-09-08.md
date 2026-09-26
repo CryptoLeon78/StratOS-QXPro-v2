@@ -1,6 +1,6 @@
 # G13 — Onboarding verificable de Incubadora demo
 
-Fecha: 2026-09-08. Alcance: una sola candidata demo; JJTI y BEPB permanecen fuera de alcance.
+Fecha: 2026-09-08. Corregido el 2026-09-10 tras lectura directa de `config/common.ini` del terminal: la cuenta efectiva de Incubadora es `3000108092` (`IvanDemo`, `Darwinex-Demo`), no el login histórico `5055093171`. Alcance: una sola candidata demo; JJTI y BEPB permanecen fuera de alcance.
 
 ## Candidata y contrato
 

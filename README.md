@@ -115,6 +115,7 @@ $mq5 = "C:\ruta\privada\Analisis\candidate.mq5"
 $terminal = "terminal_backtest configurado en SQX_vs_MT5"
 
 # Preflight sellado, sin compilar ni iniciar MT5.
+# El runner exporta automáticamente List of Trades desde el SQX local abierto.
 .venv\Scripts\python.exe scripts\run_operational_sqx_mt5_backtest.py `
   --panel-dir $panel --sqx $sqx --mq5 $mq5 `
   --output-root runtime\operational\backtests `
@@ -124,9 +125,20 @@ $terminal = "terminal_backtest configurado en SQX_vs_MT5"
 # Añada --launch al mismo comando para abrir el Strategy Tester.
 # Si la instancia objetivo quedó abierta, --manage-backtest-terminal solicita
 # únicamente su cierre limpio; no mata procesos ni toca otras instalaciones MT5.
+# Para otra URL de Remote Access, defina SQX_API_URL antes de ejecutar.
 ```
 
-JJTI y BEPB son observabilidad read-only. El exportador `mt5-connector\mql5\StratOSHistoryExport.mq5` sólo puede usarse para generar CSV de histórico con `HistorySelect`/`HistoryDealGet*`; no envía ni modifica órdenes. Ningún EA se adjunta a la Incubadora hasta que un candidato tenga resultado reproducible de `SQX_vs_MT5`, baseline importada y plaza libre dentro del límite de ocho.
+La exportación automática requiere que el `.sqx` pertenezca a un databank bajo
+`<raiz_sqx>\user\projects\<proyecto>\databanks\<databank>`. El CSV nativo
+se conserva en la carpeta de corrida. SQX exporta `Comm/Swap` combinado; el
+comparador puede usarlo para G13-59 cotejándolo por trade contra
+`commission + swap` de MT5. Exige emparejamiento completo, dirección y volumen
+iguales y delta no superior a 0,01 por operación: no acepta sólo igualdad de
+agregados. Este modo prueba el coste combinado, no el split de sus componentes.
+Puede pasar `--sqx-trades-csv` para una exportación preexistente cuando se
+necesite conservarla como fuente explícita.
+
+JJTI y BEPB son observabilidad read-only. El exportador `mt5-connector\mql5\StratOSHistoryExport.mq5` sólo puede usarse para generar CSV de histórico con `HistorySelect`/`HistoryDealGet*`; no envía ni modifica órdenes. StratOS nunca adjunta EAs a la Incubadora. Si el operador adjunta uno manualmente, sólo puede quedar como observación externa append-only hasta que una admisión sellada demuestre resultado reproducible de `SQX_vs_MT5`, baseline importada y plaza libre dentro del límite de ocho; el adjunto por sí solo no crea bot ni fase.
 
 Para cuentas reales externas, el alta de cuenta y la recuperación de evidencia
 están separadas del alta F7 del bot: no se infiere perfil, sizing o identidad

@@ -9,6 +9,7 @@ Cada desviación necesaria de la fidelidad visual 1:1 (P12) o de una decisión d
 - [0003](0003-bots-historial-semaforo-no-pipeline.md) — Bots: "Historial del pipeline" sustituido por "Historial de semáforo".
 - [0004](0004-pipeline-7-criterios-reales-vs-mockup.md) — Pipeline: "Detalle del gate" muestra los 7 criterios reales, no los del mockup.
 - [0005](0005-pipeline-mover-a-sustituido.md) — Pipeline: dropdown "Mover a…" sustituido por los botones reales.
+- [0012](0012-pipeline-operacional-incubadora-portfolios.md) — Pipeline operacional: Incubadora y portfolios reales.
 - [0006](0006-graveyard-sin-fecha-inicio.md) — Graveyard: solo se muestra la fecha de retiro, no el rango completo.
 - [0007](0007-gateway-sin-token-de-servicio.md) — api-gateway: proxy pass-through, sin "token de servicio" propio (desviación de la tabla de auth de PARTE 3, no de una captura).
 - [0009](0009-g12-demo-local-conector-solo-lectura.md) — G12: EAs sólo en demo local; el conector permanece read-only y el VPS queda excluido.

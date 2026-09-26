@@ -441,10 +441,7 @@ gate de P5.1. Lo que te afecta directamente:
 3. **La cola F7 regenerada con los retests actualizados no cambió**: mismos 13 `READY` y
    mismos hashes que la del 28-08. Los 2 `PREFLIGHT_OK` pendientes siguen siendo los mismos.
 
-**Estado de la Incubadora**: cuenta `account_id=3` (`5055093171`, `MetaQuotes-Demo`,
-`BROKER_DEMO`) registrada, con metadatos leídos del terminal. Faltan el adjunto demo por
-gráfico y el consumo de la cola FIFO (`backlog A20`). El operador autorizó a ti y a esta
-sesión **cualquier movimiento sobre esa cuenta demo** — no sobre las reales.
+**Estado de la Incubadora**: referencia histórica sustituida el 2026-09-10: el terminal de Incubadora observado reporta `3000108092` (`IvanDemo`, `Darwinex-Demo`) en `config/common.ini`; no usar `5055093171` para admisiones o adjuntos. La cuenta se debe registrar como `BROKER_DEMO` con los metadatos leídos del terminal. Faltan la declaración contractual del adjunto por gráfico y su telemetría posterior; el operador autorizó movimientos únicamente sobre esta cuenta demo, nunca sobre las reales.
 
 **Lo que sigue bloqueado y por qué**: el terminal **Darwinex** está abierto con JJTI/BEPB
 conectadas, así que la cola F7 no se puede lanzar sin que el operador lo cierre (`A22`); y los
