@@ -49,3 +49,23 @@ class TestSendBatch:
         async with httpx.AsyncClient(transport=transport, base_url="http://core.test") as client:
             with pytest.raises(httpx.ConnectError):
                 await send_batch(client, "/ingest/trades", "key-123", "{}")
+
+
+def test_no_desborda_con_muchos_intentos() -> None:
+    """El tope se aplicaba DESPUES de exponenciar, asi que no protegia de nada.
+
+    `base * multiplier**attempts` se evalua entero antes de llegar al `min()`:
+    con `attempts` por encima de ~1024 y multiplicador 2, la potencia supera el
+    rango del float y revienta con `OverflowError: (34, 'Result too large')`.
+
+    No es teorico. Es lo que tumbaba a los tres conectores del VPS el
+    2026-09-26: mientras el servidor no respondia, `attempts` crecia sin freno
+    hasta que el calculo del propio retardo empezo a lanzar la excepcion. El
+    conector ya no podia drenar su cola, y los buffers llegaron a 341 MB
+    (bepb), 287 MB (jjti) y 133 MB (incubadora), con 66 MB de traza repetida.
+
+    Un backoff que se rompe justo cuando mas se le necesita -- tras muchos
+    fallos seguidos -- deja de ser un backoff.
+    """
+    assert next_delay(5_000, CONFIG) == CONFIG.max_seconds
+    assert next_delay(1_000_000, CONFIG) == CONFIG.max_seconds
