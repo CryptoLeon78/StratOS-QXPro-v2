@@ -1,0 +1,42 @@
+# Copiar a la sesión Windows interactiva del VPS Contabo; no guardar en Git.
+# JJTI y BEPB figuran sólo como observación read-only y no son destinos de comando.
+core_url: https://stratos-core.example
+poll_interval_seconds: 5
+targets:
+  ANALYSIS:
+    mode: analysis_only
+    forja_cli: C:\path\to\forja\forja_cli.py
+    python: C:\path\to\python.exe
+    sqx_start_command: []
+    sqx_stop_command: []
+  SQX_VS_MT5_TESTER:
+    terminal: C:\path\to\sqx-vs-mt5\terminal64.exe
+    metaeditor: C:\path\to\sqx-vs-mt5\metaeditor64.exe
+    mode: tester_only
+    # Lista local fija que debe invocar run_operational_sqx_mt5_backtest.py;
+    # sólo se sustituyen {sqx} y {mq5}, ambos bajo allowed_source_roots.
+    backtest_command: []
+    # Debe invocar record_operational_backtest.py --manifest {manifest} --apply
+    # en un entorno con acceso únicamente a la base operacional.
+    record_backtest_command: []
+  CONTABO_INCUBATOR_DEMO:
+    terminal: C:\path\to\incubator-demo\terminal64.exe
+    metaeditor: C:\path\to\incubator-demo\metaeditor64.exe
+    data_root: C:\path\to\MetaQuotes\Terminal\incubator-demo
+    account_login: replace-me
+    mode: demo_only
+    # Único perfil que MT5 tiene activo. Los perfiles de recuperación pueden
+    # repetir magics y no se interpretan como adjuntos concurrentes.
+    active_profile: StratOS_Incubadora
+    # Lista obligatoria de magics ya adjuntos; no se infiere de nombres.
+    preserve_magics: []
+    # Helper local que crea un perfil nuevo y adjunta el EX5 indicado; sólo
+    # se sustituyen {expert}, {magic} y {profile}.
+    demo_attach_command: []
+  JJTI:
+    mode: read_only
+  BEPB:
+    mode: read_only
+allowed_source_roots:
+  - C:\path\to\sealed-analysis
+allowed_profile_prefix: StratOS_Incubator_

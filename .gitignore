@@ -74,3 +74,13 @@ docs/screenshots/*.diff.png
 .github/workflows/rcc.yaml
 .github/workflows/rcccache.yaml
 .github/workflows/*.lck
+
+# Notas de credenciales en claro dentro del arbol de trabajo. Aparecio
+# "contrasenas acceso produccion.txt" sin rastrear (7-sep, nunca commiteado).
+# El patron es amplio a proposito: un fichero asi no debe poder colarse por
+# llamarse de otra manera.
+*contrase*a*.txt
+*contrase*as*.md
+*password*.txt
+*credenciales*.txt
+*secrets*.txt

@@ -1,0 +1,16 @@
+{
+  "asset_id": 0,
+  "account_login": "REPLACE_WITH_REGISTERED_DEMO_LOGIN",
+  "magic_number": 0,
+  "symbol": "REPLACE_WITH_EXPLICIT_MT5_SYMBOL",
+  "timeframe": "REPLACE_WITH_TIMEFRAME",
+  "ea_version": "REPLACE_WITH_REQUIRED_EA_VERSION",
+  "mql5_sha256": "REPLACE_WITH_64_HEX_SOURCE_SHA256",
+  "compiled_ex5_sha256": "REPLACE_WITH_64_HEX_COMPILED_SHA256",
+  "comment_identity": "REPLACE_WITH_EXPLICIT_ORDER_COMMENT",
+  "expert_relative_path": "Experts\\StratOS_Operational\\REPLACE_WITH_EA.ex5",
+  "reporter_outbox": "REPLACE_WITH_REPORTER_OUTBOX.jsonl",
+  "required_mode": "REAL",
+  "required_autotrading": true,
+  "required_sizing_pct": "0.00"
+}
