@@ -138,17 +138,33 @@ async def _run(args: argparse.Namespace) -> int:
         if not connector_instance_id:
             raise ValueError("connector buffer has no connector_instance_id")
         candidates = select_latest_ea_states(
-            Path(args.outbox_dir), args.outbox_filename, args.account_login,
-            set(args.magic), connector_instance_id,
+            Path(args.outbox_dir),
+            args.outbox_filename,
+            args.account_login,
+            set(args.magic),
+            connector_instance_id,
         )
         row_ids = await enqueue_replays(buffer, candidates) if args.apply else None
     finally:
         await buffer.close()
-    append_audit_record(Path(args.audit_log), account_login=args.account_login, reason=args.reason,
-                        candidates=candidates, row_ids=row_ids)
-    print(json.dumps({"status": "enqueued" if args.apply else "dry_run",
-                      "magic_numbers": [item.magic_number for item in candidates],
-                      "buffer_row_ids": row_ids, "audit_log": args.audit_log}, sort_keys=True))
+    append_audit_record(
+        Path(args.audit_log),
+        account_login=args.account_login,
+        reason=args.reason,
+        candidates=candidates,
+        row_ids=row_ids,
+    )
+    print(
+        json.dumps(
+            {
+                "status": "enqueued" if args.apply else "dry_run",
+                "magic_numbers": [item.magic_number for item in candidates],
+                "buffer_row_ids": row_ids,
+                "audit_log": args.audit_log,
+            },
+            sort_keys=True,
+        )
+    )
     return 0
 
 

@@ -32,9 +32,7 @@ def next_delay(attempts: int, config: BackoffConfig) -> float:
     """
     if attempts <= 0 or config.multiplier <= 1 or config.base_seconds <= 0:
         return min(config.base_seconds, config.max_seconds)
-    intentos_hasta_el_techo = math.log(
-        config.max_seconds / config.base_seconds, config.multiplier
-    )
+    intentos_hasta_el_techo = math.log(config.max_seconds / config.base_seconds, config.multiplier)
     if attempts >= intentos_hasta_el_techo:
         return config.max_seconds
     return min(config.base_seconds * (config.multiplier**attempts), config.max_seconds)

@@ -12,10 +12,21 @@ from connector.replay_reporter_ea_state import (
 
 
 def _state(magic: int, version: str) -> dict[str, object]:
-    return {"batch_type": "ea_state", "account_login": "3000108092", "eas": [{
-        "magic": magic, "ea_version": version, "mode": "REAL", "autotrading": True,
-        "schedule_filter": {}, "news_windows": [], "sizing_pct": 0.2,
-    }]}
+    return {
+        "batch_type": "ea_state",
+        "account_login": "3000108092",
+        "eas": [
+            {
+                "magic": magic,
+                "ea_version": version,
+                "mode": "REAL",
+                "autotrading": True,
+                "schedule_filter": {},
+                "news_windows": [],
+                "sizing_pct": 0.2,
+            }
+        ],
+    }
 
 
 @pytest.mark.asyncio
