@@ -26,7 +26,7 @@ from core.ingest.schemas import TradeIn, TradesIngestRequest
 from core.ingest.services.trades import ingest_trades
 from core.services.admin_imports import _get_or_create_artifact
 from ingest_seal.sealing import compute_batch_sha256
-from magic_identity import build_legacy_magic_map
+from magic_identity import build_legacy_magic_map, entry_matches_account
 from sqlalchemy import select
 
 ENTRY_IN = "0"
@@ -118,16 +118,25 @@ async def run(args: argparse.Namespace) -> None:
             "importación de histórico permitida sólo en DEPLOYMENT_PROFILE=operational"
         )
     time_reference = load_time_reference(args.time_reference)
-    legacy_magic_map: dict[int, dict[str, object]] = {}
-    if args.identity_registry is not None:
-        legacy_magic_map = build_legacy_magic_map(args.identity_registry)
-    trades, withheld, traducciones = parse_closed_positions(
-        args.csv, ZoneInfo(time_reference["iana_timezone"]), legacy_magic_map
-    )
     async with async_session_factory() as session:
         account = await session.scalar(select(Account).where(Account.login == args.account_login))
         if account is None:
             raise SystemExit("cuenta no registrada; alta F7 antes de importar histórico")
+
+        legacy_magic_map: dict[int, dict[str, object]] = {}
+        if args.identity_registry is not None:
+            # Incidente A16 (2026-09-26): el registro es GLOBAL, pero cada
+            # entrada aplica solo a las cuentas que declara `accounts`. Sin
+            # este filtro se traduciría el magic de una cuenta al importar
+            # el histórico de la otra.
+            legacy_magic_map = {
+                legacy: entry
+                for legacy, entry in build_legacy_magic_map(args.identity_registry).items()
+                if entry_matches_account(entry, account.name)
+            }
+        trades, withheld, traducciones = parse_closed_positions(
+            args.csv, ZoneInfo(time_reference["iana_timezone"]), legacy_magic_map
+        )
         artifact = await _get_or_create_artifact(
             session,
             kind="MT5_HISTORY_CSV",

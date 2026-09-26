@@ -18,8 +18,8 @@ Gestión de Capital (Money Management):
 --------------------------------------------------
 
 ESTRATEGIA 2: XAUUSD H1 (Compra)
-Identificadores: XAUH1D1L__3.12.88_MN7508
-MagicNumber: 7508
+Identificadores: XAUH1D1L__3.12.88_MN12
+MagicNumber: 12
 Configuración de Indicadores:
 - Schaff Cycle: 100, 101, 126
 - Bollinger Bands: 54
@@ -30,8 +30,8 @@ Gestión de Capital (Money Management):
 --------------------------------------------------
 
 ESTRATEGIA 3: EURJPY M15 (Compra)
-Identificadores: EURJPYM15L_1.29.59_MN2084
-MagicNumber: 2084
+Identificadores: EURJPYM15L_1.29.59_MN9
+MagicNumber: 9
 Configuración de Indicadores:
 - QQERSI: 44
 - QQEsF: 11
@@ -131,8 +131,8 @@ Gestión de Capital (Money Management):
 --------------------------------------------------
 
 ESTRATEGIA 11: EURGBP H1 (Compra)
-Identificadores: EURGBPH1L_5.12.175_MN150726
-MagicNumber: 150726
+Identificadores: EURGBPH1L_5.12.175_MN30
+MagicNumber: 30
 Configuración de Indicadores/Coeficientes:
 - ExitAfterBars1: 40
 - ProfitTargetCoef1: 3.7
@@ -144,8 +144,8 @@ Gestión de Capital (Money Management):
 --------------------------------------------------
 
 ESTRATEGIA 12: EURGBP H1 (Compra)
-Identificadores: EURGBPH1L_4.8.196_MN200727
-MagicNumber: 200727
+Identificadores: EURGBPH1L_4.8.196_MN33
+MagicNumber: 33
 Configuración de Indicadores/Coeficientes:
 - ExitAfterBars1: 30
 - ProfitTargetCoef1: 4.6
@@ -171,8 +171,8 @@ Gestión de Capital (Money Management):
 --------------------------------------------------
 
 ESTRATEGIA 14: SP500 H4 (Compra)
-Identificadores: SPH4L_5.3.20_MN200737
-MagicNumber: 200737
+Identificadores: SPH4L_5.3.20_MN19
+MagicNumber: 19
 Configuración de Indicadores/Coeficientes:
 - BollingerBandsPrd1: 20
 - ExitAfterBars1: 46
@@ -185,8 +185,8 @@ Gestión de Capital (Money Management):
 --------------------------------------------------
 
 ESTRATEGIA 15: USDJPY H1 (Compra)
-Identificadores: USDJPYH1L_5.15.110_MN200729
-MagicNumber: 200729
+Identificadores: USDJPYH1L_5.15.110_MN8
+MagicNumber: 8
 Configuración de Indicadores/Salidas:
 - ExitAfterBars1: 46
 Gestión de Capital (Money Management):
@@ -196,8 +196,8 @@ Gestión de Capital (Money Management):
 --------------------------------------------------
 
 ESTRATEGIA 16: USDJPY H1 (Compra)
-Identificadores: USDJPYH1L_3.16.113_MN200732
-MagicNumber: 200732
+Identificadores: USDJPYH1L_3.16.113_MN3
+MagicNumber: 3
 Configuración de Indicadores/Coeficientes:
 - BollingerBandsPrd1: 20
 - IchimokuTnkKjnCrsBshTnkPrd1: 155
@@ -211,8 +211,8 @@ Gestión de Capital (Money Management):
 --------------------------------------------------
 
 ESTRATEGIA 17: USDJPY H1 (Compra)
-Identificadores: USDJPYH1L_2.22.171_MN200730
-MagicNumber: 200730
+Identificadores: USDJPYH1L_2.22.171_MN13
+MagicNumber: 13
 Configuración de Indicadores:
 - LinearRegressionPrd1: 40
 - ExitAfterBars1: 42
@@ -269,8 +269,8 @@ Gestión de Capital (Money Management):
 --------------------------------------------------
 
 ESTRATEGIA 21: DAX DAX40 H1
-Identificadores: DAX40H1_5.27.28_MN10827
-MagicNumber: 10827
+Identificadores: DAX40H1_5.27.28_MN10
+MagicNumber: 10
 Configuración de Indicadores/Coeficientes:
 - ProfitTargetCoef1: 5.4
 - StopLossCoef1: 8.1
@@ -296,8 +296,8 @@ Gestión de Capital (Money Management):
 --------------------------------------------------
 
 ESTRATEGIA 23: DAX DAX40 M30
-Identificadores: DAX40M30_4.15.28_MN10828
-MagicNumber: 10828
+Identificadores: DAX40M30_4.15.28_MN17
+MagicNumber: 17
 Configuración de Indicadores/Coeficientes:
 - StopLossCoef1: 5.8
 Gestión de Capital (Money Management):
@@ -307,8 +307,8 @@ Gestión de Capital (Money Management):
 --------------------------------------------------
 
 ESTRATEGIA 24: USDJPY H1 (Compra)
-Identificadores: USDJPYH1L_3.40.187_MN200735
-MagicNumber: 200735
+Identificadores: USDJPYH1L_3.40.187_MN25
+MagicNumber: 25
 Configuración de Indicadores:
 - LinearRegressionPrd1: 30
 Gestión de Capital (Money Management):

@@ -8,7 +8,7 @@ Por qué hace falta un script aparte (no basta con re-ejecutar
 --- un reenvío de un trade YA CERRADO no toca nada (`ON CONFLICT ...
 WHERE close_time IS NULL`), para que un resend nunca pueda mutar en
 silencio una atribución ya asentada. Los dos CSV de histórico
-(`docs/history_deals_BEPB.csv`, `docs/history_deals_JJTI.csv`) se
+(`runtime/operational/history/history_deals_BEPB.csv`, `runtime/operational/history/history_deals_JJTI.csv`) se
 importaron el 2026-09-01 SIN `--identity-registry`: sus 2.486/2.041
 posiciones quedaron cerradas con el magic legacy tal cual. Repetir esa
 importación con el registro no cambia nada: las filas siguen cerradas, la
@@ -54,7 +54,7 @@ from core.ingest.services.trades import _resolve_bot_id
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from magic_identity import build_legacy_magic_map
+from magic_identity import build_legacy_magic_map, entry_matches_account
 
 
 @dataclass
@@ -145,11 +145,19 @@ async def backfill_legacy_magic_attribution(
 async def run(args: argparse.Namespace) -> None:
     if get_settings().deployment_profile != "operational":
         raise SystemExit("backfill de histórico permitido sólo en DEPLOYMENT_PROFILE=operational")
-    legacy_magic_map = build_legacy_magic_map(args.identity_registry)
+    legacy_magic_map_global = build_legacy_magic_map(args.identity_registry)
     async with async_session_factory() as session:
         account = await session.scalar(select(Account).where(Account.login == args.account_login))
         if account is None:
             raise SystemExit(f"cuenta no registrada: {args.account_login}")
+        # Incidente A16 (2026-09-26): el mapa es GLOBAL, pero cada entrada
+        # aplica solo a las cuentas que declara `accounts`. Sin este filtro
+        # se escribe el magic de una cuenta en los trades de la otra.
+        legacy_magic_map = {
+            legacy: entry
+            for legacy, entry in legacy_magic_map_global.items()
+            if entry_matches_account(entry, account.name)
+        }
         report = await backfill_legacy_magic_attribution(
             session, account_id=account.id, legacy_magic_map=legacy_magic_map, apply=args.apply
         )

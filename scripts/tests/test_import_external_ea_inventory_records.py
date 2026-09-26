@@ -24,16 +24,21 @@ PRE_MIGRATION_COLLIDING_MAGIC = 10827
 
 
 def test_parses_operator_bepb_magic_records() -> None:
+    """Tras el A13/A16 (2026-09-26, `scripts/regenerate_mn_registry_docs.py`), el primer
+    registro carga el magic *vigente* 28 -- traducido desde el legacy 7507 -- porque el
+    documento ya no se mantiene a mano con el magic anterior a la migracion."""
     records = parse_records(ROOT / "docs" / "registro_BEPB_MN_bots_real_mt5_vps.md", "BEPB")
     assert len(records) == 32
-    assert records[0].magic_number == 7507
+    assert records[0].magic_number == 28
 
 
 def test_parses_operator_jjti_magic_records() -> None:
+    """Ver nota de `test_parses_operator_bepb_magic_records`: el ultimo registro carga el
+    magic vigente 25, traducido desde el legacy 200735."""
     records = parse_records(ROOT / "docs" / "registro_JJTI_MN_bots_real_mt5_vps.md", "JJTI")
     assert len(records) == 24
     assert records[0].comment_identity == "EURUSDM15S_3.76.81_MN301"
-    assert records[-1].magic_number == 200735
+    assert records[-1].magic_number == 25
 
 
 def test_post_migration_registries_have_unique_magics() -> None:

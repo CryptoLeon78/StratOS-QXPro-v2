@@ -19,7 +19,7 @@ Las categorías son excluyentes:
 
 Uso:
     python scripts/report_history_attribution.py \\
-        --csv docs/history_deals_BEPB.csv \\
+        --csv runtime/operational/history/history_deals_BEPB.csv \\
         --identity-registry runtime/operational/magic_identity/magic_identity_registry.jsonl
 """
 

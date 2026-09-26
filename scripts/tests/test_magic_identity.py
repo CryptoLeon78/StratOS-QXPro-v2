@@ -7,6 +7,7 @@ from magic_identity import (
     IdentityValidationError,
     build_comment_identity,
     build_legacy_magic_map,
+    entry_matches_account,
     load_policy,
     next_free_magic,
     normalize_short_label,
@@ -125,3 +126,19 @@ def test_legacy_map_skips_a_magic_that_did_not_change(tmp_path) -> None:
     mapa = build_legacy_magic_map(ruta)
 
     assert mapa == {}
+
+
+def test_entry_matches_account_solo_para_la_cuenta_declarada() -> None:
+    """Incidente A16 (2026-09-26): un magic 1:1 en el mapa global aplicaba
+    en las DOS cuentas reales aunque su evento solo declarase una. Este es
+    el filtro que todo consumidor por-cuenta debe aplicar."""
+    entrada = {"magic_number": 10, "accounts": ["JJTI"]}
+
+    assert entry_matches_account(entrada, "JJTI-Real-Darwinex") is True
+    assert entry_matches_account(entrada, "BEPB-Real-Darwinex") is False
+
+
+def test_entry_matches_account_sin_accounts_no_esta_restringida() -> None:
+    entrada = {"magic_number": 10, "accounts": []}
+
+    assert entry_matches_account(entrada, "cualquier-cuenta") is True

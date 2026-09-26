@@ -194,3 +194,24 @@ def build_legacy_magic_map(registry_path: Path) -> dict[int, dict[str, Any]]:
             "proposal_payload_sha256": event.get("proposal_payload_sha256"),
         }
     return mapa
+
+
+def entry_matches_account(entry: Mapping[str, Any], account_name: str) -> bool:
+    """¿Esta entrada de `build_legacy_magic_map()` aplica a `account_name`?
+
+    Cada evento `ASSIGNED` declara a qué cuenta pertenece (`accounts`, p.ej.
+    `["JJTI"]`); dos cuentas reales pueden reutilizar el mismo magic legacy
+    con destinos distintos, así que un consumidor que ignore este campo
+    aplica traducciones de una cuenta a la otra (incidente A16,
+    2026-09-26: `Trade.magic_number` de BEPB y JJTI escrito con el valor de
+    la cuenta contraria). Toda función que traduzca magics de UNA cuenta
+    concreta debe filtrar `legacy_magic_map` con esto antes de usarlo --
+    nunca aplicar el mapa global tal cual.
+
+    Sin `accounts` declarado, la traducción no está restringida (mismo
+    criterio que ya usaba `sync_bot_magics_to_migration.py`).
+    """
+    etiquetas = [str(label) for label in entry.get("accounts") or []]
+    if not etiquetas:
+        return True
+    return any(etiqueta.upper() in account_name.upper() for etiqueta in etiquetas)
