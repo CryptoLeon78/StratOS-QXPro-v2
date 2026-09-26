@@ -41,12 +41,6 @@ backups/
 runtime/
 dist/
 
-# Historico de deals de cuentas Darwinex REALES exportado por StratOSHistoryExport.mq5.
-# Es evidencia operativa voluminosa (9.082 deals con precio, volumen y profit), no
-# documentacion: su sitio es runtime/operational/history/, ignorado como el resto de
-# la evidencia. Se ignora tambien en docs/ mientras la ingesta los lea de ahi.
-docs/history_deals_*.csv
-
 # Editors / OS
 .vscode/
 .idea/
