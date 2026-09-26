@@ -31,6 +31,12 @@ async def bootstrap() -> str:
     password_hash = settings.operator_password_hash.strip()
     if not email or "@" not in email or not password_hash:
         raise SystemExit("faltan OPERATOR_EMAIL u OPERATOR_PASSWORD_HASH locales válidos")
+    if password_hash.startswith("$" + ARGON2_PREFIX):
+        raise SystemExit(
+            "OPERATOR_PASSWORD_HASH tiene los dolares duplicados ($$argon2...). El hash es\n"
+            "correcto pero esta escapado para docker compose, y la aplicacion lo recibe\n"
+            "literal: dejalo con un solo $ por separador."
+        )
     if not password_hash.startswith(ARGON2_PREFIX):
         raise SystemExit(
             "OPERATOR_PASSWORD_HASH no es un hash Argon2. Genéralo con:\n"
