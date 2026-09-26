@@ -22,15 +22,25 @@ síntoma era siempre el mismo: la pantalla de login no hacía nada.
   el valor que recibe la aplicación. `bootstrap_operational_operator.py` ahora nombra el caso en
   vez de mandar a regenerar un hash que ya era bueno. **El login lee de la base, no del env**,
   así que esto sólo muerde en el próximo bootstrap.
-- **[A35] La ingesta se serializa sobre las mismas filas y no avanza** — *abierto*. `post_trades`
-  hace el upsert (`ON CONFLICT ... DO UPDATE`, correctamente idempotente) y **después** evalúa
-  F5 y F6, todo antes del commit: los locks de esas filas se retienen durante toda la evaluación
-  del pipeline. Con el conector reintentando lotes solapados, cada intento espera al anterior.
-  Medido tras subir el pool: **35 conexiones activas, 34 en `Lock/tuple`**, `trade` clavado en
-  13.450 filas y el último `close_time` en **2026-09-07** — 19 días sin ingerir, y el panel lo
-  dice en cabecera (`DATOS STALE`). Subir el pool no lo arregla: sólo deja de robarle conexiones
-  al resto. El arreglo es sacar la evaluación del pipeline de la transacción de escritura (o
-  confirmar el upsert antes de evaluar), y es una decisión de diseño que no se toma de pasada.
+- ~~**[A35] La ingesta se serializaba sobre las mismas filas y no avanzaba**~~ **RESUELTO
+  2026-09-26**, en dos movimientos:
+  1. `post_trades` y `post_equity` hacían el upsert y **después** evaluaban F4/F5/F6, todo en la
+     misma transacción, reteniendo los locks de las filas de `trade` durante todo el pipeline.
+     Ahora confirman antes de evaluar, por el mismo criterio que ya seguía `post_positions`.
+  2. El conector reenviaba su histórico completo en cada ciclo: **141 lotes y 317.670 registros
+     en 20 minutos para cero filas nuevas**, con 102.034 lotes acumulados. Un sello SHA-256
+     repetido es el mismo lote byte a byte, así que no hay nada que ingerir: se sella igual —la
+     traza append-only no se toca, y es lo que deja ver que un conector reenvía— pero no se
+     reprocesan sus registros.
+
+  Medido de punta a punta: conexiones activas **35 → 1**, login **31,8 s/500 → 0,3-1,7 s/200**,
+  y el bucle de reenvío se cortó solo (al recibir respuesta a tiempo el conector dejó de
+  reintentar). El panel pasó de `DATOS STALE (hace 21431 min)` a `hace 0 min`.
+
+  **Queda una causa aguas arriba**: el conector del repo lleva watermark correcto
+  (`poll_deals_incremental_once` persiste `last_deal_ts` en `buffer.meta`), así que el del VPS
+  debe correr una versión anterior o perder su buffer al arrancar. Conviene comprobarlo allí.
+
 - **[A38] El worker compite con el scheduler por los jobs de cron** — *corregido el
   diagnóstico 2026-09-26*. **Lo que escribí primero era falso**: dije que el kill-switch, el
   barrido de semáforos y el watchdog llevaban sin ejecutarse, leyendo sólo los logs del worker
