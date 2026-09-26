@@ -421,3 +421,56 @@ Fase nueva, fuera del plan original G0-G9 (proyecto ya completo tras G9) — ini
   apuntaba a uno — eso sí se retiene sin tocar y se declara). El primer diseño trataba
   cualquier `bot_id` no nulo bajo un magic legacy como sospechoso y lo retenía entero; el
   dry-run contra datos reales demostró que era demasiado conservador.
+
+- **[G13-64] `build_legacy_magic_map()` es GLOBAL; todo consumidor por-cuenta debe filtrar por
+  `accounts` antes de usarlo — nunca aplicar el mapa tal cual:** incidente real 2026-09-26,
+  ver detalle completo en `docs/backlog.md` (A13/A16). Cada evento `ASSIGNED` del registro
+  declara a qué cuenta pertenece (`accounts`, p.ej. `["JJTI"]`) porque BEPB y JJTI pueden
+  reutilizar el mismo magic legacy con destinos distintos; `sync_bot_magics_to_migration.py`
+  ya filtraba correctamente desde su escritura original, pero
+  `backfill_legacy_magic_attribution.py` (aplicado a producción) y
+  `regenerate_mn_registry_docs.py` (detectado en dry-run antes de aplicarse, A13) no lo
+  hacían, y escribieron/habrían escrito el `magic_number` de una cuenta real en los trades del
+  otra. Un script de corrección posterior, mal acotado (`WHERE magic_number=X AND bot_id IS
+  NULL` sin filtrar por ticket), introdujo un segundo daño real revirtiendo 15 trades
+  genuinamente nativos de JJTI — corregido en la misma sesión, por `ticket_mt5` explícito.
+  Corrección de fondo: `magic_identity.py::entry_matches_account(entry, account_name)`
+  (mismo criterio ya usado por `sync_bot_magics_to_migration.py`: sin `accounts` declarado la
+  entrada no está restringida; con `accounts`, sólo aplica si la etiqueta aparece en el nombre
+  de cuenta). Los tres consumidores por-cuenta (`backfill_legacy_magic_attribution.py`,
+  `regenerate_mn_registry_docs.py`, `import_mt5_history_export.py` — este último con el mismo
+  bug latente, nunca disparado en producción porque ningún import posterior a la migración
+  necesitó traducir un magic compartido) ahora filtran el mapa por la cuenta que están
+  procesando antes de usarlo. `record_operational_backtest.py` y
+  `report_history_attribution.py` no se tocaron: son herramientas de reporte/lectura, no
+  escriben `Trade`, y quedan anotadas en `docs/backlog.md` para revisión si en algún momento
+  operan sobre un magic compartido entre cuentas.
+
+- **[G13-65] Recuperación de contraseña "no llegaba" porque `TELEGRAM_RECOVERY_CHAT_ID` en
+  `.env.operational` apuntaba a un grupo de alertas, no al chat privado del operador:**
+  reportado por el operador 2026-09-26 ("me da la sensación que no funciona"). Verificado
+  contra el contenedor real `stratos_operational-core-engine-1`: el valor configurado tenía
+  formato de ID de grupo/canal (`-100...`) y coincidía exactamente con uno de los destinos de
+  `TELEGRAM_CHAT_IDS` (alertas normales) — el bot probablemente SÍ entregaba el mensaje, pero
+  al grupo, no al DM del operador, que es donde lo buscaba. Logs del contenedor mostraron
+  `POST /auth/recovery/request` → `202` real ese mismo día, sin ningún `POST
+  /auth/recovery/confirm` posterior — coherente con que el código nunca llegó a donde el
+  operador miraba. No es editable por Claude: `.env.operational` es un secreto real (regla
+  "nunca leer/editar `.env` real", `.claude/rules/comportamiento.md` §7); el operador debe
+  fijar `TELEGRAM_RECOVERY_CHAT_ID` al ID numérico de su chat privado con el bot
+  (`@Ivan_9978` es un username, no sirve como `chat_id` de Telegram para DM — hace falta el
+  ID numérico, obtenible tras escribirle al bot al menos una vez) y reiniciar
+  `core-engine`/`worker`/`scheduler` para recogerlo.
+
+  Corregido en código, verificado con tests en esta sesión: (1)
+  `notifications/telegram.py::send_telegram_message`/`send_telegram_direct_message` no
+  registraban NINGÚN fallo de entrega (HTTP error o status≠200) — ahora ambas loguean un
+  `warning` estructurado con `chat_id`/intento/causa, nunca el texto del mensaje (puede llevar
+  el código en claro); 5 tests nuevos en `test_telegram.py` cubren éxito, fallo con log y
+  ausencia de fuga del texto. (2) `request_recovery_code` no tenía ningún test que ejercitara
+  el envío real vía Telegram — 3 tests nuevos en `test_recovery.py` (entrega OK conserva el
+  código en Redis, fallo de entrega lo descarta, email no registrado nunca intenta enviar).
+  (3) `.env.operational.example` no documentaba ninguna variable de Telegram/recuperación —
+  el hueco de plantilla que probablemente permitió pegar el ID equivocado sin ningún aviso;
+  ahora incluye el bloque completo con el mismo comentario de advertencia que
+  `.env.example` ("nunca usar grupos") más una nota explícita de este incidente.

@@ -4,6 +4,37 @@
 
 ## Fase activa: G13 — Stack operacional real/incubadora/análisis — FUNDACIÓN IMPLEMENTADA; GATES EXTERNOS ABIERTOS
 
+**A14/A30 cerrados, 2026-09-27:** A14 (mover `docs/history_deals_*.csv` a
+`runtime/operational/history/`) resuelto y verificado (264/264 tests). A30 (RETEST OOS/WFM en
+5 proyectos) cerrado **sin ejecutar**: 2 de 5 proyectos ya no existían (mismo cierre XAUUSD
+reemplazo del 2026-08-20, confirmado por el operador incluye también el XAUUSD H4 no
+localizado), y los 3 reales tienen `Results` vacío en vivo y en disco (intencional, confirmado
+por el operador) — sin estrategias retenidas no hay nada que retestear. El operador lo hará
+él mismo manualmente en la UI de SQX cuando decida reminar. Detalle en `docs/backlog.md`.
+
+**G13-65 — Recuperación de contraseña diagnosticada y corregida en código, 2026-09-26:**
+`TELEGRAM_RECOVERY_CHAT_ID` real apuntaba a un grupo de alertas, no al chat privado del
+operador — por eso "no llegaba" (probablemente sí se entregaba, pero al sitio equivocado).
+Corregido en código: logging estructurado de fallos de entrega en
+`notifications/telegram.py` (antes silenciosos), 3 tests nuevos de `request_recovery_code`
+en `test_recovery.py`, 5 tests nuevos en `test_telegram.py`, `.env.operational.example`
+sincronizado con el bloque de Telegram/recuperación que faltaba. **Pendiente del operador**
+(no editable por Claude, `.env` real): fijar `TELEGRAM_RECOVERY_CHAT_ID` al ID numérico del
+chat privado con el bot (no el username `@Ivan_9978`) y reiniciar `core-engine`. Detalle en
+`ASSUMPTIONS.md` G13-65.
+
+**G13-64 — Incidente A16/A13 de account-scoping, cerrado y verificado 2026-09-26:**
+`build_legacy_magic_map()` es global; `backfill_legacy_magic_attribution.py` (ya aplicado a
+`stratos_operational`) y `regenerate_mn_registry_docs.py` (detectado antes de aplicarse) lo
+usaban sin filtrar por `accounts`, escribiendo el magic de una cuenta real (BEPB/JJTI) en la
+otra. Un script de corrección posterior mal acotado dañó además 15 trades nativos de JJTI.
+Todo corregido y verificado contra la BD real en esta sesión (recuento final sin residuo en
+ningún magic intermedio erróneo). Causa raíz cerrada con `entry_matches_account()` en
+`magic_identity.py`, aplicada en los tres consumidores por-cuenta; A13 cerrado (docs MN
+regenerados sin contaminación cruzada). Detalle completo en `docs/backlog.md` (A16/A13/A48) y
+`ASSUMPTIONS.md` G13-64. Pendiente: A48 (dos consumidores de solo-lectura sin el mismo
+filtro, riesgo bajo, no tocan `Trade`), commitear los 6 ficheros tocados/creados.
+
 **G13-48 — Agente Contabo y helper F4:** el agente vive en `C:\StratOS\pipeline-agent` y sondea por tarea interactiva. El core se alcanza sólo por el canal autenticado configurado localmente. El helper consume un plan canónico SHA-256 antes de cualquier copia, compilación o adjunto, preserva los magics 243/295 y falla cerrado si el destino no es la Incubadora demo. Su configuración y rutas reales quedan fuera de Git.
 
 **G13-49 — Importación de evidencia archivada y admisión F4:** `scripts/import_archived_sqx_mt5_evidence.py` valida todos los hashes, CSV MT5 y TXT con `VEREDICTO: VALIDADA`, genera un manifiesto derivado con `provenance=archived_evidence_import` y persiste `BACKTEST_VALIDATED` junto con sus artefactos en una transacción. La asociación exige `candidate_id` F3 y hashes SQX/MQL5 exactos; nunca resuelve por nombre. Los expedientes 42/3.33.81 (`asset_id=958`, `baseline_id=2`, magic 295) y 43/3.4.65 (`asset_id=479`, `baseline_id=3`, magic 243) disponen de adjuntos sellados a la cuenta demo de Incubadora. La ingesta autenticada de `ea_state` posterior al adjunto verificó versión `incubadora-reporter-v1.3`, modo `REAL`, AutoTrading y sizing `0.20`; el core registró automáticamente `F3→F4` con razón `DEMO_ATTACHMENT_AND_REPORTER_VERIFIED` el 2026-09-10. Un intento inicial con sello dependiente de ruta dejó un segundo evento append-only para asset 958; no se borra, y la idempotencia queda anclada al hash del manifiesto archivado original más candidata.

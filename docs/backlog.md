@@ -210,6 +210,39 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   quedó correctamente huérfano y declarado (34 trades BEPB bajo magic 12,
   `XAUH1D1L__3.12.88_MN12`): ese bot existe para JJTI pero no está registrado para BEPB — no
   se inventó una atribución.
+
+  **INCIDENTE POSTERIOR, mismo día 2026-09-26, corregido en la misma sesión**: lo anterior se
+  dio por cerrado sin ver un segundo bug. `build_legacy_magic_map()` (`magic_identity.py`)
+  devuelve un mapa **global** de magic legacy → identidad vigente; cada entrada declara
+  `accounts` (a qué cuenta real pertenece la traducción), pero `backfill_legacy_magic_attribution.py`
+  lo aplicaba tal cual, sin filtrar. Como BEPB y JJTI reutilizan magics legacy con destinos
+  distintos, esto escribió el `magic_number` de una cuenta en trades de la otra: BEPB
+  magic=12 (destino real 7508, aprobado solo para JJTI) y JJTI magics=28/38/40 (destinos
+  reales 7507/120726/333335, aprobados solo para BEPB).
+
+  Al corregirlo con un script puntual (`fix_a16_cross_account_magic_bug.py`, `WHERE
+  magic_number=X AND bot_id IS NULL` por cuenta), ese mismo script introdujo un **tercer
+  bug**: la selección no distinguía por ticket, así que en JJTI capturó también 15 trades
+  **genuinamente nativos** en magic=40 (nunca tocados por el bug original) y los revirtió a
+  333335 por error. Se detectó por un bug en el propio script de auditoría
+  (`json.dump`/`json.load` convierte claves int a string; el lookup hacía
+  `mapa.get(int(ticket))` contra un dict con claves string, así que siempre daba `None` y
+  ocultaba las filas nativas entre las "seguras").
+
+  Corregido y verificado en la misma sesión, contra `stratos_operational` real:
+  - Los 15 tickets nativos JJTI revertidos a mano por `ticket_mt5` explícito (nunca por
+    magic) con `fix_own_overreach_native_jjti_40.py`, dry-run + `--apply`.
+  - Recuento final por cuenta/magic confirmado sin residuo en ningún valor intermedio erróneo:
+    `BEPB {7508:35, 40:27, 28:23, 38:11}` (0 en 12/120726/333335) y
+    `JJTI {333335:6, 40:30, 120726:10, 7507:10, 12:101}` (0 en 38/28).
+  - Causa raíz corregida de fondo: `magic_identity.py` gana `entry_matches_account()`
+    (mismo criterio que ya usaba `sync_bot_magics_to_migration.py`, el único consumidor que
+    lo hacía bien desde el principio); `backfill_legacy_magic_attribution.py`,
+    `regenerate_mn_registry_docs.py` (A13) e `import_mt5_history_export.py` (mismo bug
+    latente, nunca disparado) ahora filtran el mapa por cuenta antes de usarlo. Tests de
+    regresión en `scripts/tests/test_magic_identity.py` y
+    `scripts/tests/test_regenerate_mn_registry_docs.py` reproduciendo el caso real
+    (10827→10, aprobado solo para JJTI). Ver `ASSUMPTIONS.md` G13-64.
 - ~~**[A17] El 87-90 % del histórico es de EAs ya retirados**~~ **RESUELTO 2026-09-02**: decisión del operador — los retirados no se inventarían ni se presentan. Las métricas por bot ya lo cumplían; los agregados ahora declaran la cobertura vía `trade_attribution` en `/data-provenance` (377 de 8.831). ASSUMPTIONS G13-31. Antes: — medido con
   `report_history_attribution.py`: 4.355 deals BEPB y 3.694 JJTI con un magic que no está en
   el registro de identidad. No es un fallo: es la rotación real del portfolio. Decidir si las
@@ -234,15 +267,39 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   correcta. **La migración MN se da por cerrada.** Los magics fuera del lote corresponden a
   EAs desplegados que no entraron en la propuesta y a operaciones sin EA (`magic=0`), no a un
   fallo de la migración.
-- **[A13] Los `docs/registro_*_MN_*.md` se mantienen a mano y divergen del despliegue** —
-  ninguno de sus 56 `comment_identity` coincide con los 40 `ASSIGNED` aprobados, porque
-  registran el comment con el magic *legacy* mientras la propuesta asigna magics cortos. Los
-  deals reales demuestran que lo desplegado usa los magics **nuevos**, así que son esos
-  documentos los que están desactualizados. Regenerarlos desde el post-scan en vez de
-  mantenerlos a mano.
-- **[A14] `docs/history_deals_*.csv` viven en `docs/`** — son evidencia operativa, no
-  documentación. Moverlos a `runtime/operational/history/` cuando la ingesta deje de leerlos
-  de ahí; hoy están ignorados por Git en su ubicación actual.
+- ~~**[A13] Los `docs/registro_*_MN_*.md` se mantienen a mano y divergen del despliegue**~~
+  **RESUELTO 2026-09-26**: ninguno de sus 56 `comment_identity` coincidía con los 40
+  `ASSIGNED` aprobados, porque registraban el comment con el magic *legacy* mientras la
+  propuesta asigna magics cortos. Los deals reales demuestran que lo desplegado usa los
+  magics **nuevos**, así que eran esos documentos los que estaban desactualizados. Se escribió
+  `scripts/regenerate_mn_registry_docs.py` (con tests, `scripts/tests/test_regenerate_mn_registry_docs.py`)
+  para regenerarlos desde el registro append-only en vez de mantenerlos a mano. Su primer
+  dry-run, antes de aplicarse, disparó una regresión real en
+  `test_import_external_ea_inventory_records.py` que llevó a descubrir el bug de
+  account-scoping documentado en el incidente de A16 — se corrigió ahí primero. Aplicado y
+  verificado: BEPB 23/32 entradas traducidas, JJTI 11/24, cero contaminación cruzada
+  (confirmado contra el dry-run: BEPB no toca 7508/10827/10828 propios de JJTI, JJTI no toca
+  120726/333335/333336/333337 propios de BEPB).
+- ~~**[A14] `docs/history_deals_*.csv` viven en `docs/`**~~ **RESUELTO 2026-09-26**: eran
+  evidencia operativa (9.082 deals de cuentas Darwinex reales), no documentación. Movidos a
+  `runtime/operational/history/history_deals_{BEPB,JJTI}.csv` (mismo directorio donde ya
+  vivían sus copias selladas `history_deals.csv.<sha>.raw` de `ImportArtifact` 49/47, junto a
+  las carpetas `BEPB/`/`JJTI/`); ya no hace falta ningún comando funcional que lea de
+  `docs/` — `--csv` siempre fue un argumento explícito en `import_mt5_history_export.py`,
+  `report_history_attribution.py` y los scripts del incidente A16, nunca un default
+  hardcodeado. Se retiró la regla `docs/history_deals_*.csv` de `.gitignore` (ya cubierta por
+  `runtime/`, línea 41) y se actualizaron las 4 menciones de ruta en docstrings/ejemplos de
+  uso de esos scripts. Las referencias históricas en `docs/AUDITORIA_2026-09-02.md`,
+  `docs/PLAN_CONTINUACION_2026-09-02.md` y las entradas ya cerradas de este mismo backlog no
+  se tocan: describen un estado real de esa fecha, no la ubicación actual.
+- **[A48] `record_operational_backtest.py` y `report_history_attribution.py` usan
+  `build_legacy_magic_map()` sin el filtro de `entry_matches_account()`** añadido en el
+  incidente A16 (ver ASSUMPTIONS G13-64). No se corrigieron en esa sesión porque son
+  herramientas de reporte/lectura (no escriben `Trade` ni ninguna tabla), así que un magic
+  compartido entre BEPB/JJTI solo produciría un informe o una propuesta de backtest con la
+  traducción de la cuenta equivocada — molesto, no una corrupción de datos. Revisar si alguna
+  vez procesan un magic legacy que el registro declare `accounts`-scoped para OTRA cuenta
+  antes de confiar en su salida sin contrastar a mano.
 - ~~**[A10] `SQX_Edge_Suite_v1` sin versionar ni indexar**~~ **RETIRADO DEL BACKLOG G13
   2026-09-02**: Edge Suite es una aplicación independiente, con método, documentación y plan
   propios. No existe trabajo de integración ni dependencia de StratOS que mantener en este backlog.
@@ -311,12 +368,13 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   se retenían con `Forward: artefacto no resuelto` teniendo la evidencia delante. Se compara en
   casefold el nombre completo, nunca por prefijo: `RETEST OOS Darwinex` sigue siendo otro
   databank.
-- **[A30] Falta correr RETEST OOS y Walk-Forward Matrix en cinco proyectos** —
+- ~~**[A30] Falta correr RETEST OOS y Walk-Forward Matrix en varios proyectos**~~ **CERRADO
+  2026-09-27, sin ejecutar**: —
   *reformulado 2026-09-02 tras cerrar A32/A33*: con los dos bugs de emparejamiento fuera, el
   bloqueo restante es hueco de datos real en SQX, no código. **Un databank `WFM` con `.sqx`
   dentro no prueba que la matriz se corriera**: el `.sqx` de AUDCAD que sí funciona lleva 30
   corridas `Results/WF: N runs : X % OOS`; los de XAUUSD H1 y DAX40 SesionTarde sólo llevan
-  `Results/Main`. Estado verificado por proyecto:
+  `Results/Main`. Estado original (2026-09-02):
 
   | proyecto | retenidas | falta |
   | --- | --- | --- |
@@ -327,9 +385,41 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   | `Project_NASDAQ_H1_BS_Volumen_v7_L_Capa2` | 1 | WFM (0 `.sqx`) |
   | `XAUUSD_H1_Reemplazo1_ATR_LinReg Copia de Trabajo` | 1 | WFM (13 `.sqx`, **0 con matriz**) |
 
-  Retener sin evidencia de robustez es lo correcto; no es un fallo del prefiltro. Hasta que se
-  corran, la cola de validación la llena `AUDCAD/H4`, que es el único grupo con evidencia
-  completa (232 de 397).
+  **Reverificado 2026-09-26** (solo lectura contra disco; SQX estaba abierto y volcando
+  databanks en ese momento, `seguro_para_escribir=false`, así que no se lanzó nada):
+  - **`XAUUSD_H1_Reemplazo1/2`, RETIRADAS de esta tabla por decisión del operador**: ya no
+    existen en `user/projects/` (solo sobreviven sus blocksettings en
+    `user/BlockSettings_propios/`). Coherente con el cierre 2026-08-20 del mining de
+    reemplazo XAUUSD sin candidata viable (previo a esta misma entrada A30) — no hay proyecto
+    sobre el que correr nada.
+  - **`Project_XAUUSD_H4_..._DiaEntero ( copia... )` no se localizó** con ese nombre exacto
+    (existen `Project_XAUUSD_H4_BreakoutStop_{EOF_,}v7_L_DiaEntero{,_CapaMixta}`, ninguna
+    "copia"); a diferencia de las dos Reemplazo, esto NO está confirmado por el operador como
+    cierre — pendiente de aclarar si es la misma limpieza o un proyecto realmente perdido.
+  - **`DAX40_M30_..._ORB_L_SesionManana`**: sigue en 0 `.sqx` en RETEST OOS, sin cambio.
+  - **`DAX40_M30_..._v7_L_SesionTarde`**: la carpeta WFM pasó de 14 `.sqx` (sin matriz) a
+    **0 `.sqx`**, tocada 2026-09-18. El operador confirma que conoce la causa (no requiere
+    investigación); no se relanza sin que él lo pida.
+  - **`NASDAQ_H1_BS_Volumen_v7_L_Capa2`**: sigue en 0 `.sqx` en WFM, sin cambio.
+
+  Quedan 3 proyectos reales con el hueco abierto (2 RETEST OOS, 2 WFM — SesionManana solo
+  RETEST OOS, SesionTarde y NASDAQ solo WFM) más 1 sin localizar. Retener sin evidencia de
+  robustez sigue siendo lo correcto; no es un fallo del prefiltro. Mientras no se corran, la
+  cola de validación la llena `AUDCAD/H4`, el único grupo con evidencia completa (232 de 397
+  a fecha 2026-09-02).
+
+  **Verificación final 2026-09-27, antes de intentar ejecutar**: el operador confirmó que el
+  proyecto XAUUSD H4 no localizado es la misma limpieza que las dos Reemplazo (todo XAUUSD
+  del mining de reemplazo cerrado 2026-08-20 queda fuera de esta entrada). Al comprobar los 3
+  proyectos reales restantes vía `mcp__sqx__list_databanks` (motor SQX vivo, no solo disco),
+  la databank `Results` — donde vivían las 28/14/1 estrategias retenidas que A30 daba por
+  supervivientes — está **vacía en los tres, en vivo y en disco** (el operador confirma que
+  fue intencional, mismo criterio que el WFM de SesionTarde). Sin estrategias retenidas no
+  hay nada sobre lo que correr RETEST OOS/WFM: la única acción posible sería reminar la
+  cadena completa desde `Build` en los 3 proyectos, que el operador decide hacer **él mismo,
+  manualmente, en la UI de SQX** (retest sobre el databank afectado, cambiando el databank
+  source para que las estrategias nuevas sustituyan a las viejas) — no vía este agente ni
+  vía MCP. Se cierra sin ejecutar: no queda ninguna acción pendiente de Claude en A30.
 - ~~**[A31] 22 XAUUSD H4 sin `.mq5`**~~ **RESUELTO 2026-09-02**: el operador exportó las 22
   parejas. Inventario de 375 a **397 STATIC_VALIDATED** (424 candidatas, 27 retenidas). Quedan
   13 sin símbolo (`None/H1`, `None/H4`) y 8 que fallan el parseo SQX144, sin cambio.
