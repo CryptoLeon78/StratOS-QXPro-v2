@@ -1,5 +1,49 @@
 # Backlog — StratOS-QXPro
 
+- **[G13-49] Cierre de F3 a F4 para las dos candidatas AUDCAD:** ya tienen `BACKTEST_VALIDATED` archivado y baseline enlazada; queda registrar por candidata el adjunto existente con su hash EX5, identidad de comentario y ruta reporter, y esperar un `ea_state` posterior al registro. No se reinstalan ni sustituyen los gráficos/magics 243 y 295 durante esta reconciliación.
+
+## Hallazgos 2026-09-26 — el panel no se podía usar
+
+El operador pidió "un solo acceso, el definitivo". Al cablearlo apareció que **nadie había
+entrado nunca al panel**, y por tres causas encadenadas. Las tres estaban ocultas porque el
+síntoma era siempre el mismo: la pantalla de login no hacía nada.
+
+- ~~**[A36] El pool de conexiones usaba el default implícito de SQLAlchemy**~~ **RESUELTO
+  2026-09-26**: `create_async_engine` no declaraba tamaño, así que heredaba 5 + 10. La ingesta
+  de las dos cuentas reales agotaba las 15 conexiones y `/auth/token` tardaba **31,8 s** en
+  devolver un 500 —sin que nada dijera por qué—. Medido: 14 conexiones activas, la más antigua
+  de 3m33s. Ahora vive en `Settings` (`DB_POOL_SIZE`/`DB_MAX_OVERFLOW`, 20 + 20). Verificado
+  contra el stack real: **0,39 s y 200**, y login completo por la UI.
+- ~~**[A37] El hash del operador llevaba los `$` duplicados**~~ **RESUELTO 2026-09-26** (la
+  detección; el valor lo arregla el operador): `.env.operational` guarda
+  `$$argon2id$$v=...` —102 caracteres, 10 `$`—. Es un hash correcto **escapado para docker
+  compose**: el mismo fichero se pasa como `--env-file` (donde compose interpola `$`) y como
+  `env_file:` del servicio (donde llega literal), así que silenciar el warning de compose rompe
+  el valor que recibe la aplicación. `bootstrap_operational_operator.py` ahora nombra el caso en
+  vez de mandar a regenerar un hash que ya era bueno. **El login lee de la base, no del env**,
+  así que esto sólo muerde en el próximo bootstrap.
+- **[A35] La ingesta se serializa sobre las mismas filas y no avanza** — *abierto*. `post_trades`
+  hace el upsert (`ON CONFLICT ... DO UPDATE`, correctamente idempotente) y **después** evalúa
+  F5 y F6, todo antes del commit: los locks de esas filas se retienen durante toda la evaluación
+  del pipeline. Con el conector reintentando lotes solapados, cada intento espera al anterior.
+  Medido tras subir el pool: **35 conexiones activas, 34 en `Lock/tuple`**, `trade` clavado en
+  13.450 filas y el último `close_time` en **2026-09-07** — 19 días sin ingerir, y el panel lo
+  dice en cabecera (`DATOS STALE`). Subir el pool no lo arregla: sólo deja de robarle conexiones
+  al resto. El arreglo es sacar la evaluación del pipeline de la transacción de escritura (o
+  confirmar el upsert antes de evaluar), y es una decisión de diseño que no se toma de pasada.
+- **[A38] El worker no encuentra ninguna de sus funciones cron** — *abierto*. En sus logs,
+  cada minuto: `function 'cron:task_run_killswitch_sweep' not found`, y lo mismo con
+  `task_run_semaphore_sweep` y `task_run_watchdog`. Es decir, **el barrido de kill-switch, el de
+  semáforos y el watchdog llevan sin ejecutarse desde que arrancó el stack**. Para un sistema
+  cuya función es vigilar riesgo, es el hallazgo más serio de los cuatro.
+- ~~**[A39] Tres accesos distintos y ninguno abría la aplicación**~~ **RESUELTO 2026-09-26**:
+  `StratOS_Operacional.bat` (refresca admisión), `StratOS_Backtests.bat` (comparaciones) y
+  `StratOS_Stack_Operacional.bat` (abría **Swagger**, `8300/docs`, que es herramienta de
+  desarrollo). La aplicación real —el panel React con sus 11 pestañas— es **`localhost:5473`**, y
+  no tenía acceso. Ahora `StratOS.bat` es el único: si el panel ya responde entra directo, y si
+  no levanta el stack, espera a que sirva de verdad y lo abre. Los otros dos siguen en disco y
+  sus accesos directos están recogidos en *"StratOS - otras herramientas"* del escritorio.
+
 ## Deuda de garantía — abierta desde la auditoría 2026-09-02
 
 Detalle y comandos en [`AUDITORIA_2026-09-02.md`](AUDITORIA_2026-09-02.md). Nada de esto es un hueco
@@ -100,6 +144,9 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
 
 ## Pendiente tras el cierre de A15-A19 — 2026-09-02
 
+- ~~**[G13 pipeline-agent] Helper F4 sellado**~~ **RESUELTO 2026-09-10**: el helper de Contabo consume el plan SHA-256 antes de modificar el perfil demo y preserva 243/295. Los dos adjuntos existentes se declararon mediante manifiestos sellados y su `ea_state` autenticado promovió los candidatos 42/43 de F3 a F4. La recuperación excepcional del reporter está acotada al replay auditado de `ea_state` de Incubadora; no toca MT5, JSONL, JJTI ni BEPB.
+- ~~**[G13 F5/F6] Observación contractual y decisión de Incubadora**~~ **IMPLEMENTADO 2026-09-10**: la lectura F5 incluye baseline Tester separado, trades demo posteriores a la entrada F5, estado del reporter, heartbeat y equity. Un día sólo cuenta con ambos streams demo. El Kanban no tiene controles de ascenso. `f6_evaluation` conserva cada decisión con hash de evidencia/configuración: `POSTPONE` mantiene F5 mientras falten muestra, días o telemetría; sólo `APPROVE` 7/7 promueve F5→F6 automáticamente; `REJECT` queda auditado y requiere autopsia antes de Cementerio. No modifica MT5. Pendiente: implementar la evaluación challenger/champion del mismo slot y el escalado F6 contractual, manteniendo F7 como decisión humana.
+
 - ~~**[A24] El ejecutor de cola F7 no conoce las corridas lanzadas a mano**~~ **RESUELTO
   2026-09-02**: `sealed_identities()` deriva lo ya comparado de los **manifiestos sellados**
   de `backtests_live/`, no sólo del log de la cola, cruzando por `sqx_sha256` —la identidad
@@ -192,11 +239,17 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   devuelven `ConnectionRefused`. Bloquea P2.3 (telemetría viva read-only en continuo), que
   necesita hablar con esos terminales. No es una capacidad ausente: es una conexión caída.
 
+- **[A35] Admisión contractual de las tres observaciones externas de Incubadora** — `external_ea_inventory` ya conserva las identidades verificadas de `SPH4L_1.26.31_4.2.29_MN24`, `USDJPYH1L_2.22.171_MN13` y `USDJPYH1L_5.15.110_MN8`, pero ninguna tiene `OperationalAsset` validado, baseline ni `PipelineCandidate`. Implementar la ruta sellada `incubator_admission` de ADR 0012 y evaluar evidencia reproducible, plaza y correlación antes de crear cualquier F5; jamás inferirla del adjunto manual ni del nombre del archivo.
+
 ## Estado activo G13 — operación separada
+
+- **G13 F6 challenger/champion y staging:** implementado y desplegado como ledger y endpoint de lectura `GET /api/v1/pipeline-orchestrator/f6/staging-evaluations`; migración `b7c8d9e0f1a2` aplicada y salud HTTP 200. Falta observar una F6 real. Las candidatas 42/43 siguen F5, por lo que no se ha generado un plan ni se ha modificado Contabo. Próxima dependencia de datos: declarar un slot explícito y disponer de un champion único con matriz de correlación y R-multiples comparables. F7 queda exclusivamente humano.
+
+- **G13 correlación de Portfolio:** migración `c8d9e0f1a2b3` aplicada; Portfolio y F6 ya no consumen `correlation_matrix` legacy. Los snapshots `MT5_BACKTEST` id=1 (candidatas 42/43, `Europe/Helsinki`, 3.178 días) y `MT5_REAL` id=2 (trades atribuidos de BEPB/JJTI, 1.240 días) están sellados y ambos tienen un par. Repeticiones idempotentes verificadas. Si una próxima ejecución carece de cobertura, la UI mostrará `WITHHELD`; no se debe usar la matriz legacy como sustituto. Pendiente de diseño posterior: sustituir el gate de admisión que actualmente hace una comparación cross-source por una comparación contractual homogénea o una comparación explícitamente emparejada, sin mezclar snapshots.
 
 - **G13 bootstrap local:** falta materializar `.env.operational` con secretos propios y crear el usuario operador de la base nueva; queda prohibido copiar o leer los secretos de G12.
 - **G13 histórico real — cerrado para la exportación disponible:** los HTML MT5 sellados importaron 4.304 posiciones cerradas reconciliadas (JJTI 1.945, BEPB 2.359) y retuvieron 205 ambiguas; el magic no expuesto queda huérfano auditable. El exportador read-only ya produjo/importó CSV sellados: JJTI 2.041 trades completos + 5 retenidos (`cedc0cb8174c…`) y BEPB 2.486 + 15 (`3804c3ea5ff6…`), ambos idempotentes al reimportar. La ventana efectiva observada empieza en 2025, pese a solicitar 2018: no se afirma cobertura anterior inexistente. Magics grandes se preservan como histórico `BIGINT` sin mapearlos al rango compacto de bots.
-- **G13 cola de candidatas:** `StratOS_Operational` ya crea la vista FIFO sellada `runtime/operational/operational-tester-queue.json` y el diario append-only `operational-tester-queue-events.jsonl`; Pipeline sólo puede leer la vista. Cada apertura del Tester requiere confirmación individual en el ejecutable. El siguiente paso funcional es convertir resultados `VALIDADA` de Análisis en `BACKTEST_VALIDATED` y habilitar la cola de Incubadora, no abrir testers desde la UI.
+- **G13 cola de candidatas:** `StratOS_Operational` ya crea la vista FIFO sellada `runtime/operational/operational-tester-queue.json` y el diario append-only `operational-tester-queue-events.jsonl`; Pipeline sólo puede leer la vista. Cada apertura del Tester requiere confirmación individual en el ejecutable. El contrato de manifiesto/telemetría para adjunto demo ya está implementado; el próximo dato funcional es un paquete `VALIDADA` y un adjunto humano realmente observado por reporter, no abrir testers desde la UI.
 - **G13 evidencia manual de Análisis — importador operativo:** `scripts/import_manual_sqx_mt5_run.py` y `Importar_corrida_manual_G13.bat` sellan de forma idempotente informe MT5, gráficas asociadas, configuración/CSV opcionales y fuentes verificadas contra inventario. `SQX_vs_MT5` v1.3.4 ya archiva automáticamente el CSV MT5, HTML nativo y sidecars, `.ini` efectivo y comparación TXT/HTML con hashes para que una corrida futura pueda pasar al importador sin relanzar el Tester. Los dos AUDCAD históricos permanecen `REPORT_ONLY`, porque sus CSV ya no existen y no se fabrica evidencia retrospectiva. Próximo dato necesario para ellos: una comparación voluntaria que genere/entregue CSV y TXT con `VEREDICTO`; no se registra `BACKTEST_VALIDATED` desde un HTML nativo.
 - **G13 alpha decay real:** el inventario de gráfico, magic y fuente EA de JJTI/BEPB ya ancla las 40 altas F7 externas. El preflight de 35 pares dejó 8 aptos, 25 `WITHHELD_TICKS` y 2 `WITHHELD_SOURCE`; una sola corrida apta está iniciada en el Tester Darwinex aislado. Tras cada resultado sellado se compararán baseline/backtest, OOS real sellado y ventana forward creciente. El histórico HTML sin magic permanece huérfano, y ningún resultado implica promoción ni altera cuentas reales.
 - **G13 reconstrucción AlgoWizard de retenidos:** `OROLONGLIMITSPPSTRH1D1 4.7.77` (BEPB/JJTI), `SP500LONGD1 REVERSION SL 2.86.54` y `SPA35LONGD1 REVERSION SL 1.31.56` tienen fuente `.mq5` y un plan de reconstrucción semántica sellada; los nuevos `.sqx` llevarán procedencia `RECONSTRUCTED_FROM_MQL5` y exigirán comparación fuente-vs-reconstruido antes del OOS real. `EURUSD_SELL_STOP_H4_LC_3.8.141` sólo conserva `.ex5`: queda bloqueada hasta recuperar un `.mq5` verificable, sin ingeniería inversa ni aproximación. Ver `docs/g13_algowizard_reconstruction_plan.md`.
@@ -205,9 +258,16 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
 - **G13 post-scan de migración — COMPLETADO EN LECTURA:** la lectura SSH/SFTP tras la persistencia manual observa los 40 pares aprobados cuenta+magic como `MIGRATION_OBSERVED`. JJTI conserva dos pares de ficheros `.chr` que serializan respectivamente el mismo gráfico interno: `chart17`/`chart19` (magic `30`) y `chart18`/`chart20` (magic `19`); EA, magic, comment y símbolo son idénticos y sólo cambia información visual. El escáner los deduplica por ID raíz MT5, mantiene todas las rutas como evidencia y falla cerradamente si un mismo ID declara otra identidad. El NQ de JJTI magic `38` queda sellado como `OPERATOR_RETAINED_OUT_OF_PROPOSAL`, sin reasignar ese magic ni alterar el lote aprobado. El comparador acepta sólo las formas exactas `.`/`_` de `CustomComment` y conserva el alias explícito Darwinex `DAX|DAX40` → `GDAXI`, manteniendo ambos símbolos. Hash EX5 y timeframe se heredan del F7 sellado bajo la confirmación del operador de que sólo variaron archivo/magic/comment; cuenta, gráfico, archivo, magic, comment y símbolo se vuelven a observar. Referencias: `docs/g13_magic_identity_migration_plan.md`, `docs/g13_magic_identity_operator_review.md` e informe local `runtime/operational/magic_identity/post_migration_scan_report.json`.
 - **G13 análisis/backtest:** 227 parejas mantienen la admisión de inventario `STATIC_VALIDATED` y además su fuente WFM queda registrada como `STATIC_VALIDATED_WFM`, con criterios extraídos del `project.cfx` sellado. Esto no es `BACKTEST_VALIDATED`: falta ejecutar `SQX_vs_MT5` secuencialmente desde 2018 hasta la fecha de cada corrida, sellar report/trades/comparación y aplicar el veredicto propio de la herramienta. La razón WFM OOS/IS es `DERIVED_UNMAPPED` hasta validar su equivalencia con F2 o disponer de evidencia forward/MT5.
 - **G13 terminal de backtest:** el operador autorizó el terminal Darwinex seleccionado en `SQX_vs_MT5` para Strategy Tester exclusivamente. El lanzador exige manifiesto F7, preflight `PREFLIGHT_OK`, `--max-runs` positivo, AutoTrading desactivado, identidad exacta de terminal y ticks completos; no usa ni cambia `terminal_despliegue`. El primer arranque fue rechazado antes del Tester porque la instancia configurada no aceptó cierre limpio; hay que liberar o corregir sólo ese terminal, nunca forzar el cierre de JJTI/BEPB.
-- **G13 incubadora:** la cuenta `BROKER_DEMO` ya existe, pero no hay eventos `BACKTEST_VALIDATED`, baseline ni gráficos adjuntados; los F7 externos son observabilidad y no cuentan para incubación. La cola FIFO y el límite de 8 sólo pueden actuar después del gate de backtest/baseline y del manifest explícito de inputs por EA; el contrato demo será 10 % de capital, 0,2 % por trade y DD contractual 5 % durante la gracia explícita. Ver `docs/g13_closure_gate_matrix.md`.
+- **G13 costes SQX↔Tester:** contrato G13-59 revisado con autorización del operador (2026-09-24): el `Comm/Swap` combinado nativo de SQX puede satisfacer la equivalencia del total sólo con conciliación 1:1 del set completo contra comisión+swap MT5, dirección/volumen iguales y diferencia ≤ 0,01 en cada trade. La igualdad agregada con divergencias individuales bloquea. La corrida excepcional única de `AUDCADH4L_ForexMinorLateral_Strategy 2.92.87` dio rendimiento `VALIDADA`, costes `BLOCKED`, sin `BACKTEST_VALIDATED` ni admisión a Incubadora. Los CSV originales están sellados en `runtime/operational/backtests_diagnostic/20260924T063537Z_28e633a9a3f7/`. El emparejador estricto ya exige ambos extremos y correspondencia unívoca: 177 pares de 204/198; los 177 discrepan, delta +435,75 USD. Revisión del `.sqx` exacto confirma `SizeBased=5` y swap long en dinero −0,5, mientras los deals MT5 acumulan +324,73 USD de swap y 173 créditos; la tarifa pública actual de Darwinex también lista swap long AUDCAD positivo y comisión 2,50 AUD por orden/contrato. La configuración SQX de swap no equivale a la evidencia MT5. El requisito de paridad histórica de G13-59 se mantiene cuando se afirme equivalencia SQX↔MT5; G13-61 autoriza una vía de sensibilidad independiente para la decisión bajo tarifas vigentes.
+- **G13 incubadora:** la cuenta `BROKER_DEMO` ya existe. Tres EAs manualmente adjuntados (`SPH4L_1.26.31_4.2.29_MN24`, `USDJPYH1L_2.22.171_MN13`, `USDJPYH1L_5.15.110_MN8`) quedaron registrados como observaciones externas append-only, con ruta y SHA-256 `.ex5` contrastados en lectura y `bot_id=NULL`; no son `BACKTEST_VALIDATED`, baseline, bot ni F5. Ver `docs/g13_incubator_external_observations_2026-09-14.md`. La cola FIFO y el límite de 8 sólo pueden actuar después del gate de backtest/baseline y de la admisión sellada explícita por EA; el contrato demo será 10 % de capital, 0,2 % por trade y DD contractual 5 % durante la gracia explícita. Ver `docs/g13_closure_gate_matrix.md`.
 - **G13 UI:** Bots, Pipeline y Cuentas/EA exponen procedencia y filtros de API. Faltan selectores/etiquetas consistentes para Portfolio, Salud, Riesgo, Auditoría y Dominical, más el recorrido autenticado/WebSocket que diferencie `BROKER_REAL`, `BROKER_DEMO`, `FIXTURE`, `DERIVED` y `ABSENT`.
+- **G13 Pipeline, fidelidad de estructura:** superado por ADR 0012. Ya no se preserva el Kanban F1--F7 como objetivo de producto; la superficie de operación se limita a Incubadora y portfolios reales.
+- **G13 Pipeline operacional (ADR 0012):** el operador ha retirado F1--F3 del producto visible. Sustituir la tarea anterior de fidelidad F1--F7 por un E2E de Incubadora → evaluación → propuesta humana de cartera, más telemetría read-only separada de BEPB/JJTI. Implementar `incubator_admission` como ledger sellado que acepte sólo identidad, perfil y evidencia explícita; no reutilizar las acciones F1/F2/F3 ni inferir admisiones desde HTML, nombres o carpetas.
 - **G13 ejecución segura del histórico:** el terminal remoto JJTI tiene EAs reales en funcionamiento. No se debe usar `terminal64.exe /config` para lanzar un script de exportación sobre esa instancia hasta contar con un procedimiento que no abra/cierre ni cambie el perfil de la terminal activa; el CSV legado no se importa porque no cumple el contrato de deduplicación sellada.
+
+- **G13-59 costes — autorización posterior y bloqueo probatorio:** el operador autorizó el 2026-09-24 una segunda corrida diagnóstica excepcional en copia aislada de `AUDCADH4L_ForexMinorLateral_Strategy 2.92.87`, fuera de cola/Incubadora. No se ejecutó porque no existe proyecto/databank duplicado recalculable para reexportar la List of Trades con ajustes y no se dispone de costes históricos Darwinex para el rango completo. No editar sólo `lastSettings.xml` ni calibrar contra el CSV del Tester: eso mezcla costes de una configuración con resultados de otra o introduce circularidad. Reanudar cuando haya copia reproducible y fuente histórica de comisiones/swaps; entonces una única corrida, veredicto de costes independiente, y sello sólo si el gate queda `PROVEN`.
+
+- **[G13-61] Sensibilidad de tarifa vigente como gate alternativo — gate implementado; persistencia pendiente:** el operador autorizó aceptar el escenario tarifario vigente para `BACKTEST_VALIDATED`, pues refleja mejor las condiciones actuales. Implementado en `scripts/build_current_tariff_sensitivity.py` y `scripts/record_operational_backtest.py`: paquete derivado y sellado que enlaza corrida padre inmutable, snapshot oficial fechado, export real de deals y `REAL_TICKS`, sin reclamar equivalencia histórica SQX↔MT5. Paquete generado y dry-run `VALIDADA`: `runtime/operational/backtests_diagnostic/current_tariff_sensitivity_20260924_077d74f1cd98/run-manifest.json`; 245 tests scripts pasan. La escritura del evento no se completó: `stratos_operational` no existe en Postgres local; no se creó base, inventario, F3 ni admisión a Incubadora. Reanudar sólo cuando esté disponible el Postgres operacional y verificar el activo por hashes exactos.
 
 ## Estado activo G12
 
