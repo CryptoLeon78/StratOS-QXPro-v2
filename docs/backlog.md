@@ -1,16 +1,27 @@
 # Backlog — StratOS-QXPro
 
-- **[G13-73] Cola de prefiltro en 0 tras rebuild del exe (2026-09-27, sin investigar):**
-  `dist/StratOS_Operational.exe --refresh-only`, recién regenerado (29 commits al día),
-  reportó `inventory=1419`, `source_resolution resolved=230 withheld=108`,
-  `validation evidence extracted=0 withheld=338` y **`prefilter queue=0 eligible=0`**.
-  Sesiones anteriores documentaban 217-232 elegibles y una cola de 24. No se ha
-  investigado la causa — candidatas: (a) el patrón ya conocido de SQX re-hasheando los
-  `.sqx` Forward al reabrir (memoria: "SQX rehashes Forward on reopen"), invalidando el
-  hash sellado que `resolve_operational_validation_sources.py` exige; (b) un cambio real
-  en los proyectos de `user/projects`. Primera tarea antes de tocar el pipeline de
-  minado: diffear `analysis-validation-sources.json`/`analysis-prefilter.json` contra la
-  versión anterior a este refresco para aislar cuál de las dos es.
+- ~~**[G13-73] Cola de prefiltro en 0 tras rebuild del exe**~~ **CERRADO 2026-09-28 — no es
+  bug, es hueco real de datos en SQX (mismo patrón ya documentado para otros proyectos,
+  ver A30 arriba).** Diagnóstico completo: de las 230 fuentes "resueltas" (hash de
+  `Forward` coincide con un proyecto real), **227 apuntan a un único proyecto**,
+  `Project_AUDCAD_H4_S_BS_ForexMinorLateral_capa2`. Ese proyecto tiene en disco
+  `databanks/RETEST OOS/` con **0 ficheros** — de ahí el `EXTRACTION_FAILED:RETEST OOS:
+  artefacto no resuelto` uniforme en las 230. No es fallo del extractor ni de la
+  resolución de fuentes (ambos funcionan correctamente; `source_selection:
+  UNIQUE_HISTORY_SIGNATURE` es una coincidencia de hash real, no una mala ruta).
+  **Mecanismo encontrado por timestamps de disco**: `MC`, `MC2`, `OPTIMIZED`, `RETEST
+  OOS`, `TICK`, `TICK OPT` y `Results` de ese proyecto se vaciaron TODOS a la vez el
+  **2026-09-18 ~15:10** (operación en bloque — la firma típica de SQX invalidando etapas
+  posteriores de la cadena al re-ejecutar una etapa anterior). Después, `WFM` (27
+  ficheros) y `SPP` (7 ficheros) se repoblaron el **2026-09-22**, pero `RETEST OOS` no se
+  ha vuelto a correr desde entonces — el proyecto está a mitad de cadena de validación,
+  no roto. Esto es exactamente la regresión de los 232 candidatos que `backlog.md` (A30,
+  entrada de arriba) documentaba como el ÚNICO grupo con evidencia completa a fecha
+  2026-09-02 — ya no lo es, porque el proyecto avanzó de fase desde entonces sin
+  completar RETEST OOS todavía. **No se toca SQX ni se relanza nada desde aquí** (mismo
+  criterio que el resto de huecos de esta lista): si el operador quiere que esas 227
+  candidatas vuelvan a la cola, tiene que correr RETEST OOS sobre
+  `Project_AUDCAD_H4_S_BS_ForexMinorLateral_capa2` él mismo en la UI de SQX.
 - ~~**[G13-49] Cierre de F3 a F4 para las dos candidatas AUDCAD**~~ **DESACTUALIZADO, verificado
   contra la BD real 2026-09-27**: esta entrada quedó obsoleta — el registro del adjunto y el
   `ea_state` posterior ya ocurrieron (ver `phase_status.md` G13-49, 2026-09-10,

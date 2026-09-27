@@ -351,15 +351,10 @@ No es obligatorio seguir este orden exacto, pero minimiza dependencias cruzadas:
 1. **Repo anidado**: convertir a submódulo git. **Ejecución pendiente** (§4.3.2 actualizado)
    — es cirugía de git no trivial (`git rm -r --cached` + `git submodule add` en el repo
    padre `SQX_144_Full2`), se hace como unidad propia después de esta ronda de docs.
-2. **Rebuild del exe**: automatizar (CI o hook). **Implementado, sin verificar en Actions
-   real**: job nuevo `build-desktop-exe` en `.github/workflows/ci.yml` (`windows-latest`,
-   solo en push a `main`, no en PR). El launcher solo importa stdlib, así que el job no
-   necesita instalar `core-engine`/`api-gateway`, solo PyInstaller. No commitea el binario
-   (`dist/` sigue en `.gitignore`, correcto) — lo sube como artifact descargable de la
-   corrida, con smoke test `--help` antes de subirlo. YAML validado localmente
-   (`yaml.safe_load`) y el mismo comando PyInstaller ya se probó a mano en esta sesión con
-   éxito, pero **no se ha visto correr en GitHub Actions real** — primera cosa a confirmar
-   la próxima vez que se abra este repo.
+2. ~~**Rebuild del exe**~~ **CONFIRMADO 2026-09-28**: job `build-desktop-exe` corrió en
+   GitHub Actions real (run `36353698543`) — `conclusion: success`, smoke test `--help`
+   pasó, artifact `StratOS_Operational-exe` (8.6MB) publicado sin expirar. Los 11 jobs del
+   run, incluido `e2e-acceptance-full`, en verde.
 3. ~~**Criterio 9 e2e (Lyra×Phoenix)**~~ **CERRADO 2026-09-28**: el diagnóstico del
    2026-09-27 (unificaba 6/7/8/9 bajo una sola causa de deriva de calendario) estaba
    sobreestimado. Verificado empíricamente: el Postgres local llevaba 32 días sin

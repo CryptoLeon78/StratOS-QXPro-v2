@@ -4,6 +4,21 @@
 
 ## Fase activa: G13 — Stack operacional real/incubadora/análisis — FUNDACIÓN IMPLEMENTADA; GATES EXTERNOS ABIERTOS
 
+**Continuación 2026-09-28 — G13-73 cerrado (hueco real de datos en SQX, no bug):**
+`build-desktop-exe` confirmado corriendo con éxito en GitHub Actions (run `36353698543`,
+11/11 jobs verdes, artifact `StratOS_Operational-exe` publicado). El hallazgo de
+`prefilter queue=0 eligible=0` de ayer se rastreó hasta `Project_AUDCAD_H4_S_
+BS_ForexMinorLateral_capa2`: 227 de 230 fuentes resueltas apuntan a ese proyecto, cuyo
+`databanks/RETEST OOS/` tiene 0 ficheros. Por timestamps de disco: `MC`/`MC2`/`OPTIMIZED`/
+`RETEST OOS`/`TICK`/`TICK OPT`/`Results` se vaciaron todos a la vez el 2026-09-18 ~15:10
+(SQX invalidando etapas posteriores al re-ejecutar una anterior); `WFM`/`SPP` se
+repoblaron el 2026-09-22, pero RETEST OOS no. Es exactamente el proyecto que
+`docs/backlog.md` (A30) documentaba como el único grupo con evidencia completa a
+2026-09-02 (232 candidatas) — ya no lo es, avanzó de fase sin completar RETEST OOS
+todavía. No es bug de código ni del prefiltro (fail-closed correcto); requiere que el
+operador corra RETEST OOS sobre ese proyecto en la UI de SQX si quiere esas 227
+candidatas de vuelta en la cola. Detalle completo en `docs/backlog.md` G13-73.
+
 **Continuación 2026-09-28 — G13-74 cerrado, diagnóstico de ayer corregido con evidencia
 empírica (ver detalle completo en `docs/backlog.md`):** el análisis de código del
 2026-09-27 sobre `test_g8_acceptance_criteria.py` mezclaba dos mecanismos distintos en una
