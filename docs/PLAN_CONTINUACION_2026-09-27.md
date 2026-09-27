@@ -205,13 +205,11 @@ de mercado:
    con el magic legacy en vez de los magics cortos ya desplegados. Regenerarlos desde el
    post-scan en vez de mantenerlos a mano. **Acotado, bajo riesgo, buena tarea de
    arranque para una sesión nueva.**
-2. **Desincronización backlog.md vs phase_status.md sobre G13-49** (encontrada en esta
-   auditoría): `backlog.md` línea 1-3 dice que el cierre F3→F4 de las 2 candidatas AUDCAD
-   sigue pendiente ("Cierre de F3 a F4 para las dos candidatas AUDCAD"), pero
-   `phase_status.md` L128 dice que ya se completó. **Primera tarea de cualquier sesión
-   nueva que toque esto: verificar el estado real contra la BD (`PipelineCandidate`,
-   fase actual de 42/43) y corregir el documento que esté desactualizado — no asumir
-   cuál de los dos tiene razón.**
+2. ~~**Desincronización backlog.md vs phase_status.md sobre G13-49**~~ **RESUELTO
+   2026-09-27**: verificado contra `stratos_operational` real (no la BD de test/seed que
+   usa pytest — esa no tiene las candidatas AUDCAD). `pipeline_candidate.current_phase='F5'`
+   para bot 42 (magic 295) y bot 43 (magic 243), `entered_phase_at=2026-09-10`. Tenía razón
+   `phase_status.md`; `backlog.md` estaba desactualizado y ya se corrigió.
 3. **Selectores/etiquetas de procedencia** para Portfolio, Salud, Riesgo, Auditoría y
    Dominical (backlog L515) — mismo patrón ya aplicado a Bots/Pipeline/Cuentas-EA,
    extenderlo al resto de pestañas.

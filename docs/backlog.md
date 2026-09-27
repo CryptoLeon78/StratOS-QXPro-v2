@@ -1,6 +1,14 @@
 # Backlog — StratOS-QXPro
 
-- **[G13-49] Cierre de F3 a F4 para las dos candidatas AUDCAD:** ya tienen `BACKTEST_VALIDATED` archivado y baseline enlazada; queda registrar por candidata el adjunto existente con su hash EX5, identidad de comentario y ruta reporter, y esperar un `ea_state` posterior al registro. No se reinstalan ni sustituyen los gráficos/magics 243 y 295 durante esta reconciliación.
+- ~~**[G13-49] Cierre de F3 a F4 para las dos candidatas AUDCAD**~~ **DESACTUALIZADO, verificado
+  contra la BD real 2026-09-27**: esta entrada quedó obsoleta — el registro del adjunto y el
+  `ea_state` posterior ya ocurrieron (ver `phase_status.md` G13-49, 2026-09-10,
+  `DEMO_ATTACHMENT_AND_REPORTER_VERIFIED`). Consulta read-only a `stratos_operational` (no la
+  base de test que usa pytest, que solo contiene un seed `ANALYSIS` sin estas dos candidatas)
+  confirma `bot.id` 42 (magic 295) y 43 (magic 243) en `pipeline_candidate.current_phase='F5'`
+  desde `entered_phase_at=2026-09-10T05:26`, `incubation_days=14`, `oos_trades=0` — coincide
+  con G13-51 (F5, 0 trades demo). No hay nada pendiente de F3→F4; lo que sigue abierto es
+  F5→F6 por evidencia de mercado (ver `docs/PLAN_CONTINUACION_2026-09-27.md` §4.1.2).
 
 ## 2026-09-26 (tarde) — CI verde por primera vez, y el trabajo de Codex adoptado
 
