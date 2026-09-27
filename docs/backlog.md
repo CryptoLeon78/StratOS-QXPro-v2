@@ -543,7 +543,20 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   **`PROVEN`, cobertura real 92,09 %** (163/177). Detalle completo en `ASSUMPTIONS.md`
   G13-67.
 - **G13 incubadora:** la cuenta `BROKER_DEMO` ya existe. Tres EAs manualmente adjuntados (`SPH4L_1.26.31_4.2.29_MN24`, `USDJPYH1L_2.22.171_MN13`, `USDJPYH1L_5.15.110_MN8`) quedaron registrados como observaciones externas append-only, con ruta y SHA-256 `.ex5` contrastados en lectura y `bot_id=NULL`; no son `BACKTEST_VALIDATED`, baseline, bot ni F5. Ver `docs/g13_incubator_external_observations_2026-09-14.md`. La cola FIFO y el límite de 8 sólo pueden actuar después del gate de backtest/baseline y de la admisión sellada explícita por EA; el contrato demo será 10 % de capital, 0,2 % por trade y DD contractual 5 % durante la gracia explícita. Ver `docs/g13_closure_gate_matrix.md`.
-- **G13 UI:** Bots, Pipeline y Cuentas/EA exponen procedencia y filtros de API. Faltan selectores/etiquetas consistentes para Portfolio, Salud, Riesgo, Auditoría y Dominical, más el recorrido autenticado/WebSocket que diferencie `BROKER_REAL`, `BROKER_DEMO`, `FIXTURE`, `DERIVED` y `ABSENT`.
+- ~~**G13 UI:** Faltan selectores/etiquetas de procedencia para Portfolio, Salud, Riesgo,
+  Auditoría y Dominical.~~ **YA ESTABA HECHO desde G10, verificado 2026-09-28**: `git log`
+  confirma `0d877b0 feat: procedencia declarada en las 5 vistas agregadas que faltaban` +
+  `0a47edc feat: los agregados declaran que parte pertenece a un bot vivo`. `<ProvenanceBadge
+  />` (`frontend/src/components/domain/ProvenanceBadge.tsx`) está montado en las 5 páginas
+  exactas (`PortfolioPage.tsx`, `SaludPage.tsx`, `RiesgoPage.tsx`, `AuditoriaPage.tsx`,
+  `DominicalPage.tsx`, y también en `PipelinePage.tsx`), consume `GET /data-provenance`
+  (`header.py`) y distingue `BROKER_REAL`/`BROKER_DEMO`/`FIXTURE` + `is_mixed` +
+  atribución a bot vivo. 7/7 tests de `ProvenanceBadge.test.tsx` y 58/58 de la suite
+  completa de frontend, ambos verdes en esta sesión. Nadie tachó esta entrada cuando se
+  cerró en G10 — puro desfase documental, no trabajo pendiente. **Sigue sin hacer**: el
+  recorrido autenticado/WebSocket end-to-end contra sesión real (P4.2 del plan de
+  continuación) y los estados `DERIVED`/`ABSENT` explícitos (hoy la badge solo cubre
+  `BROKER_REAL`/`BROKER_DEMO`/`FIXTURE` + mixto, no un cuarto/quinto estado).
 - **G13 Pipeline, fidelidad de estructura:** superado por ADR 0012. Ya no se preserva el Kanban F1--F7 como objetivo de producto; la superficie de operación se limita a Incubadora y portfolios reales.
 - **G13 Pipeline operacional (ADR 0012):** el operador ha retirado F1--F3 del producto visible. Sustituir la tarea anterior de fidelidad F1--F7 por un E2E de Incubadora → evaluación → propuesta humana de cartera, más telemetría read-only separada de BEPB/JJTI. Implementar `incubator_admission` como ledger sellado que acepte sólo identidad, perfil y evidencia explícita; no reutilizar las acciones F1/F2/F3 ni inferir admisiones desde HTML, nombres o carpetas.
 - **G13 ejecución segura del histórico:** el terminal remoto JJTI tiene EAs reales en funcionamiento. No se debe usar `terminal64.exe /config` para lanzar un script de exportación sobre esa instancia hasta contar con un procedimiento que no abra/cierre ni cambie el perfil de la terminal activa; el CSV legado no se importa porque no cumple el contrato de deduplicación sellada.
@@ -558,7 +571,16 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
 ### Defectos a corregir
 
 - ~~G12 Cuentas/EA: modo operativo, permiso por gráfico, sizing y panel de deriva.~~ **RESUELTO Y REPETIDO EN G12-02**: 11/11 `PAPER`/OFF/50 %, alerta de deriva de tres campos y cobertura de contrato documentadas.
-- G12 procedencia de pestañas: Pipeline, Bots, Portfolio, Salud, Riesgo, Auditoría y Dominical mezclan fixture `full`, derivadas y telemetría demo sin una etiqueta/contrato de procedencia visible. Ver `docs/g12_tabs_provenance_validation.md`.
+- ~~G12 procedencia de pestañas~~ **SUPERADO, verificado 2026-09-28**: el recorrido de
+  `docs/g12_tabs_provenance_validation.md` (2026-08-29) era contra el stack `stratos_g12`,
+  formalmente retirado. De sus 5 gates: (1) procedencia explícita — hecha vía
+  `ProvenanceBadge` en las 5 vistas agregadas (ver entrada de arriba, G10); (2) desfase
+  `USDJPYH1Lcity_5.15.110` — ya no aplica, el bot/candidato no existe en `stratos_operational`;
+  (3) benchmark `FileNotFoundError` — ya marcado RESUELTO 2026-09-02 más abajo en este mismo
+  fichero; (4) aislar por cuenta Portfolio/Salud/Riesgo/Auditoría — cubierto por el mismo
+  `ProvenanceBadge` (declara mezcla vía `is_mixed`, no aísla series completas, pero declara
+  la procedencia); (5) repetir con sesión autenticada — sigue sin hacer (mismo P4.2 ya
+  anotado). No queda ningún gate de este documento bloqueando activamente.
 - ~~G12 Pipeline: `USDJPYH1Lcity_5.15.110` tiene candidato F4 y bot F3.~~ **YA NO APLICA,
   verificado 2026-09-28** (no "resuelto" — obsoleto por retirada arquitectónica, no por una
   transición append-only): consulta read-only a `stratos_operational` (la BD real, no

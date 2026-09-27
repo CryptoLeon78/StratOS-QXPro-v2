@@ -4,6 +4,16 @@
 
 ## Fase activa: G13 — Stack operacional real/incubadora/análisis — FUNDACIÓN IMPLEMENTADA; GATES EXTERNOS ABIERTOS
 
+**Continuación 2026-09-28 — últimos 2 pendientes del plan cerrados, ambos por desfase
+documental (no trabajo real pendiente):** (1) Selectores de procedencia
+(Portfolio/Salud/Riesgo/Auditoría/Dominical) ya estaban hechos desde G10
+(`0d877b0`/`0a47edc`): `<ProvenanceBadge />` montado en las 5 páginas, consumiendo
+`GET /data-provenance`. 7/7 tests de `ProvenanceBadge.test.tsx` + 58/58 de la suite
+completa de frontend, verdes hoy. (2) `USDJPYH1Lcity_5.15.110` F3/F4 ya no aplica:
+verificado contra `stratos_operational` real, cero bots en F3, ningún bot con ese
+nombre — la inconsistencia vivía en el fixture del incubador G12, retirado formalmente,
+y no sobrevivió a la transición a G13. Detalle completo en `docs/backlog.md`.
+
 **Continuación 2026-09-28 — G13-73 cerrado (hueco real de datos en SQX, no bug):**
 `build-desktop-exe` confirmado corriendo con éxito en GitHub Actions (run `36353698543`,
 11/11 jobs verdes, artifact `StratOS_Operational-exe` publicado). El hallazgo de

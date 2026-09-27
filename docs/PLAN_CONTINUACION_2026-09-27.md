@@ -211,17 +211,16 @@ de mercado:
    usa pytest — esa no tiene las candidatas AUDCAD). `pipeline_candidate.current_phase='F5'`
    para bot 42 (magic 295) y bot 43 (magic 243), `entered_phase_at=2026-09-10`. Tenía razón
    `phase_status.md`; `backlog.md` estaba desactualizado y ya se corrigió.
-3. **Selectores/etiquetas de procedencia** para Portfolio, Salud, Riesgo, Auditoría y
-   Dominical (backlog L515) — mismo patrón ya aplicado a Bots/Pipeline/Cuentas-EA,
-   extenderlo al resto de pestañas.
+3. ~~**Selectores/etiquetas de procedencia**~~ **YA ESTABA HECHO desde G10, verificado
+   2026-09-28** — puro desfase documental (nadie tachó el backlog al cerrarlo). Ver
+   `docs/backlog.md`, entrada "G13 UI".
 4. **G13-61 persistencia pendiente** (backlog L523): el evento de sensibilidad de tarifa
    vigente se generó y validó en dry-run, pero la escritura real no se completó porque
    `stratos_operational` no existía en el Postgres local de esa sesión. Verificar si
    sigue así y completar la escritura si el Postgres ya está disponible.
-5. **`USDJPYH1Lcity_5.15.110` con candidato F4 y bot F3 simultáneamente** (backlog L531,
-   G12): requiere una transición append-only auditada para corregir la inconsistencia —
-   **nunca editar directamente**, seguir el mismo patrón append-only usado en el resto
-   del proyecto.
+5. ~~**`USDJPYH1Lcity_5.15.110` con candidato F4 y bot F3 simultáneamente**~~ **YA NO
+   APLICA, verificado 2026-09-28**: obsoleto por retirada del stack G12, no hay filas que
+   corregir en `stratos_operational`. Ver `docs/backlog.md`.
 6. **`e2e-acceptance-full` criterio 9 (Lyra×Phoenix)** (backlog L538): roto, no
    determinista, decisión explícita de NO investigarlo por ahora. Dejar así salvo que el
    operador pida retomarlo.
@@ -335,11 +334,11 @@ No es obligatorio seguir este orden exacto, pero minimiza dependencias cruzadas:
    cambio (no relacionado con el trabajo de `close_target_terminal`). Tabla `Baseline`
    resuelta (2 filas reales, ver §4.2.8). `incubator_admission` implementado desde
    G13-30/G13-62 (`core/services/incubator_admission.py`), no era una pregunta abierta.
-5. **Deuda de código acotada, sin dependencia de tiempo de mercado**: §4.2.3
-   (selectores de procedencia en el resto de pestañas), §4.2.5 (transición append-only
-   para `USDJPYH1Lcity_5.15.110`).
-6. **Decisiones de arquitectura pendientes del operador** (§7): repo anidado, si
-   automatizar el rebuild del exe, si retomar el criterio 9 de e2e-acceptance-full.
+5. ~~**Deuda de código acotada**~~ **CERRADA 2026-09-28**: §4.2.3 (selectores de
+   procedencia) resultó ya hecha desde G10 — puro desfase documental. §4.2.5
+   (`USDJPYH1Lcity_5.15.110`) ya no aplica — obsoleto por retirada de G12.
+6. ~~**Decisiones de arquitectura pendientes del operador**~~ **RESPONDIDAS 2026-09-27**:
+   ver §7.
 7. **Gates de tiempo/evidencia externa** (§4.1): esto avanza solo, no por trabajo de
    código — cada sesión futura solo necesita comprobar si ya hay suficiente evidencia
    real (trades demo, días de incubación) para que F5→F6 avance, y actuar cuando la haya.
