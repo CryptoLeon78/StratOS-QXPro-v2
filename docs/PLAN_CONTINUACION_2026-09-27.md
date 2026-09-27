@@ -354,8 +354,14 @@ No es obligatorio seguir este orden exacto, pero minimiza dependencias cruzadas:
 2. **Rebuild del exe**: automatizar (CI o hook). **Pendiente de implementar** — añadir un
    step al workflow de CI de `StratOS-QXPro-v2` que regenere `dist/StratOS_Operational.exe`
    en cada push a `main`, o un hook local equivalente.
-3. **Criterio 9 e2e (Lyra×Phoenix)**: retomarlo ahora. **Investigación en curso** en esta
-   misma sesión — ver entrada nueva en `docs/backlog.md` cuando se cierre.
+3. **Criterio 9 e2e (Lyra×Phoenix)**: retomarlo ahora. **Investigado y causa raíz
+   confirmada en código, sin arreglar (ver `docs/backlog.md` G13-74)**: no es solo el
+   criterio 9 — es un mecanismo de deriva de calendario compartido con los criterios 6/7/8,
+   por `scripts/seed.py:88` usando reloj real (`datetime.now(UTC)`) para sweeps/escenarios
+   mientras el perfil `full` fija su historia en `FULL_HISTORY_END=2026-06-30`. Arreglarlo
+   bien exige tocar `seed.py`/`derived_states.py`/`scenarios.py` de forma coherente sin
+   romper el `now` fresco deliberado de los heartbeats (comentario en `seed.py:154-167`) —
+   se deja como unidad propia con plan mode, no un parche de una línea.
 4. **Docs de 2026-09-02**: archivar en `docs/historico/`. **HECHO** — `git mv` de los 3
    ficheros + 11 referencias cruzadas corregidas en esta sesión.
 5. **Segunda corrida diagnóstica de costes (G13-59/61)**: sin responder todavía — no se

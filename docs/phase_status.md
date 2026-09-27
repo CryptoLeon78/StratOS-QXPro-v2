@@ -21,14 +21,17 @@ bajo riesgo y entorno local al día (sigue `docs/PLAN_CONTINUACION_2026-09-27.md
   sesión denegó el `rm -rf`; comando entregado al operador para ejecutar él mismo.
 - **`alembic upgrade head` aplicado al Postgres local** de `core-engine`
   (`3960d7d19b0d` → `c8d9e0f1a2b3`). Los fallos de `test_g8_acceptance_criteria.py` bajan
-  de 8 a **3** (criterios 6, 7 y 8), pero la causa ya no es drift de esquema: es **estado
-  sucio preexistente en la base local** — una fila `Alert(module="audit",
-  resolved=False)` de una ejecución manual anterior que el criterio 6 espera encontrar en
-  cero. No se ha tocado la base para limpiarla (fuera de alcance de esta unidad, y borrar
-  filas de una BD aunque sea local no se hace sin confirmación separada). Suite completa:
-  685 passed / 3 failed en 111s. **No verificado todavía**: si los criterios 7 y 8 fallan
-  por la misma causa (estado compartido/orden de ejecución) o por otra distinta — pendiente
-  de próxima sesión antes de dar el entorno local por limpio.
+  de 8 a **3** (criterios 6, 7 y 8), causa ya no es drift de esquema. **Causa raíz real
+  identificada más tarde en esta misma sesión (ver G13-74 en `docs/backlog.md`)**:
+  `scripts/seed.py` usa reloj real (`datetime.now(UTC)`) para los sweeps (correlación,
+  watchdog, auditoría) mientras el perfil `full` fija su historia en
+  `FULL_HISTORY_END=2026-06-30` — cuanto más tiempo real pasa desde el último reseed local,
+  más se desalinean. Afecta también al criterio 9 (Lyra×Phoenix), que hoy pasa pero es
+  igual de frágil. No es bug de CI (que siembra `--profile ci` con `history_end=now`,
+  inmune por diseño). No se ha tocado la base ni el código para arreglarlo — requiere una
+  unidad propia con plan mode (toca `seed.py`/`derived_states.py`/`scenarios.py` de forma
+  coherente sin romper el `now` fresco deliberado de los heartbeats). Suite completa:
+  685 passed / 3 failed en 111s.
 - **`G13-49` reconciliado contra la BD real de `stratos_operational`** (no la de test):
   bots 42/43 (magics 295/243) en `pipeline_candidate.current_phase='F5'` desde
   2026-09-10, `oos_trades=0`. `phase_status.md` tenía razón; `backlog.md` decía que el

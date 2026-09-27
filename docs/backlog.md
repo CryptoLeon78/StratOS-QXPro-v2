@@ -592,7 +592,37 @@ Las entradas siguientes preservan el detalle de hallazgos y decisiones previas. 
 - ~~**"Vista dominical" (PARTE 14/16 criterio 14) sin construir**~~ **RESUELTO en G10 (grupo n)**: ruta `/dominical` nueva, de nivel superior (NO anidada bajo `RootLayout`, NO en la `TabBar` — enlace discreto en `AppHeader` junto al badge de rol). Errores de EA (`GET /alerts`, nuevo — gap real: `Alert(module="config_drift")` ya se poblaba desde G5 pero ningún router lo listaba), desconexiones (reusa `HeartbeatCard`/`WatchdogTable` de Ejecución) y noticias de la semana entrante (reusa `NewsShieldPanel` con `hours=168`, ahora prop configurable). "Órdenes rechazadas" documentado como pendiente de la v1.1 del EA reporter (mismo estado que TCA). Criterio de salida verificado con test de contenido real (`vista_dominical.spec.ts`): confirma que EQUITY/P&L DÍA/DRAWDOWN nunca aparecen — la página nunca importa `AppHeader`/`StatCard`/`formatAmount`.
 - **Screenshot-diff de G8 sensible a re-siembras y a paralelismo alto**: los 10 specs nuevos de pestañas pasan 12/12 en serial (`--workers=1`) contra un seed fijo, pero regenerar el seed (datos aleatorios + contenido relativo a `now`, PARTE 13) o correr con muchos workers en paralelo bajo contención de CPU puede desviar 1-2 pestañas por encima del umbral del 2% en regiones no enmascaradas (fechas de heartbeat, ventana de News Shield, tablas de correlación/watchdog). Las aserciones de CONTENIDO (la parte que prueba corrección funcional) son 100% estables — no es un bug de la app. Mitigado en CI con `--workers=1` + `retries: 2` (ya en `playwright.config.ts`); si en el futuro se quiere paralelismo real, habría que enmascarar más regiones por pestaña o fijar el seed con una fecha `now` congelada en vez de `datetime.now(UTC)`.
   - ~~**Mecanismo exacto identificado en G9**~~ **RESUELTO en G9-07** (ver `ASSUMPTIONS.md`): 2 elementos condicionados a la hora REAL de ejecución (no al seed) que ninguna máscara podía cubrir sin antes arreglar esto — el badge "DATOS STALE" de `AppHeader.tsx` y el bloque heartbeat/latencia/uptime de `AccountCard.tsx` se montaban/desmontaban según el estado en vivo, desplazando la página entera. Fix de raíz: los 2 componentes ahora reservan SIEMPRE su altura (`invisible` en vez de ausentes) — determinismo verificado con tiempo real transcurrido (130+s cruzando el umbral de staleness, mismo baseline sigue pasando). Coste aceptado: un hueco reservado, invisible, cuando el badge/detalle no aplica.
-- **`e2e-acceptance-full` roto: criterio 9 (Lyra×Phoenix redundante) — encontrado en G10-14, no resuelto**: `test_criterion_9_lyra_phoenix_redundante` falla de forma reproducible (`is_redundant_pair` da `False` en vez de `True`) desde después del checkpoint de pausa de G10 (backend), confirmado que el mismo job pasaba en el run de ese checkpoint (`53b5bef`, run `33121230739`) y que ningún commit del frontend de Salud/font-fix (G10-14) toca `services/correlations.py` ni `scripts/seed_lib/`. Ver `ASSUMPTIONS.md` G10-14 para el detalle y la hipótesis no verificada (ventana de fechas del perfil `full` relativa a `now`, el par está diseñado a propósito para quedar cerca del umbral). Decisión explícita del operador: documentar y seguir con el frontend, no investigar ahora.
+- **[G13-74] `e2e-acceptance-full` inestable en local (criterios 6/7/8/9): causa raíz unificada
+  encontrada y confirmada en código 2026-09-27, sin arreglar todavía (requiere plan
+  propio)**: los cuatro no son bugs independientes — comparten el mismo mecanismo de deriva
+  de calendario. `scripts/seed.py:88` calcula `now = datetime.now(UTC)` (reloj real en el
+  momento de sembrar) y lo pasa a `run_all_sweeps()` (correlación, watchdog, auditoría) y a
+  casi todos los generadores de escenarios (`apply_watchdog_scenarios`, impulsos, huérfanos,
+  etc.). Pero el perfil `full` fija su historia de trades en `FULL_HISTORY_END = 2026-06-30`
+  (`seed_lib/config.py:14`), con un comentario explícito: "el perfil de aceptación debe ser
+  independiente del reloj real". Cuanto más tiempo real pasa desde la última vez que alguien
+  sembró localmente con `--profile full`, más se separan "cuándo termina la historia
+  fabricada" de "qué `now` usaron los sweeps al evaluarla" — la ventana de correlación
+  (`window_start = now - 1240 días`, `services/correlations.py:32`) se desliza hacia
+  adelante y dentro/fuera de umbral según el día exacto en que se sembró, y lo mismo aplica
+  al umbral de staleness del watchdog (RUNAWAY→DEAD) y al estado de auditoría. **Verificado
+  hoy** (2026-09-27, 89 días después de `FULL_HISTORY_END`): sesión aislada de
+  `test_criterion_9` → PASA; sesión completa del fichero → **6/7/8 fallan, 9 pasa** —
+  consistente con que cada criterio tiene su propio margen de tolerancia al desfase, no con
+  que estén "rotos" en sentido estricto de bug de lógica.
+  **Por qué no se arregla aquí**: la corrección correcta no es cambiar una línea — hay un
+  comentario deliberado en `seed.py:154-167` que documenta que los heartbeats usan a
+  propósito un `now` FRESCO distinto (inserción tardía, no el de inicio de script) para no
+  quedar stale durante los ~minutos que tarda Playwright; y `apply_watchdog_scenarios()`
+  necesita conocer el MISMO `now` que después usará el sweep para que RUNAWAY/DEAD se sitúen
+  donde el test espera. Fijar el `now` de los sweeps a algo anclado a `FULL_HISTORY_END`
+  sin tocar coherentemente `scenarios.py`/`derived_states.py` podría cambiar qué falla, no
+  arreglarlo. **Nota importante**: esto es un problema del entorno de desarrollo LOCAL
+  reseedeado a mano, no de CI (que siempre siembra `--profile ci`, con `history_end=now`,
+  inmune a esta deriva por diseño). Próxima sesión que lo retome: entrar en plan mode,
+  decidir un `now` de referencia único y consistente para el perfil `full` que cubra sweeps
+  + generadores de escenario sin tocar el caso ya resuelto de heartbeats, con test de
+  regresión que fije la fecha de siembra y verifique los 4 criterios de forma determinista.
 - **Precios de seed no realistas en GDAXI/NDX/SPX500/US30** (encontrado en G10 al correr `backfill_r_multiple.py` contra Postgres real): varios trades sembrados de estos 4 índices tienen `open_price`/`sl` en una escala que no corresponde al price level real del instrumento (p.ej. `open_price=1.00000`/`sl=0.99000` para `US30`, que en realidad cotiza en el orden de 30.000-40.000) — probablemente `scripts/seed_lib/trades_history.py` generó el rango de SL sin tener en cuenta la escala de precio real de cada símbolo. Consecuencia real: `r_multiple` calculado sobre esos trades da magnitudes absurdas (hasta ~6,8x10⁴ en `US30`, miles en `GDAXI`/`NDX`/`SPX500`), lo que ya obligó a ampliar `RMultiple` de `NUMERIC(8,4)` a `NUMERIC(12,4)` (ver `column_types.py`) solo para poder escribirlo sin overflow — el valor en sí sigue sin ser interpretable como un R real hasta que el seed use precios realistas por símbolo. No se corrige aquí (fuera de alcance de G10, que no toca `scripts/seed.py`).
 
 ## G7 — huecos de negocio por pestaña (backend no calcula el dato, no es solo falta de exponerlo)
