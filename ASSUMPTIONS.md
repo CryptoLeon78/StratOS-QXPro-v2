@@ -776,3 +776,31 @@ Fase nueva, fuera del plan original G0-G9 (proyecto ya completo tras G9) — ini
   explicitamente en el manifiesto sellado (`swap_live_check_skipped=true`), nunca en
   silencio -- un manifiesto con esa marca no debe leerse como "swap confirmado en esta
   corrida", sino "confirmado aparte, ver la corrida/nota donde se hizo".
+
+  **Addendum, mismo dia -- auditado el resto del proyecto y corregida la causa
+  arquitectonica (no solo el sintoma):** el operador pregunto si este bug afecta a otras
+  apps. Investigado: **no**. `close_target_terminal`/el cross-check en vivo eran el UNICO
+  sitio de todo el proyecto que intenta cerrar una ventana de MT5 por automatizacion.
+  `compare_sqx_vs_mt5.py::lanzar_backtest()` (el lanzador real via `/config`, usado tambien
+  por `sqx_mt5_panel.py`) lo dice explicitamente en el propio codigo ("nunca se cierra
+  ningun proceso desde aqui"): confia en que MT5 se autocierra solo tras un Tester
+  lanzado con `/config` (mecanismo propio de MT5, no automatizacion externa), y si el
+  terminal ya esta abierto, aborta pidiendole al operador que lo cierre el mismo.
+  `mt5-connector` (JJTI/BEPB, real, solo lectura) y `mt5_bridge` solo llaman a
+  `mt5.shutdown()` (cierra la sesion de la API Python, nunca la ventana). El patron
+  fragil de `CloseMainWindow()` lo introduje yo mismo en esta sesion (G13-67/68/69),
+  nuevo, y contradecia el patron ya probado del resto del proyecto.
+
+  Corregido alineando el cross-check con ese mismo patron en vez de solo con el flag de
+  escape: el bloque en `run_operational_sqx_mt5_backtest.py::main()` que decide si hacer
+  el chequeo se movio a ANTES del cierre obligatorio pre-Tester, y ahora **solo consulta
+  si el terminal YA estaba abierto** (por el operador, por otra razon) -- nunca lo abre
+  ni intenta cerrarlo por su cuenta. Si esta cerrado, se degrada a `state=unavailable`
+  con un motivo explicito pidiendo abrirlo a mano o usar `--skip-swap-live-check`, en vez
+  de abrir uno nuevo que despues no se puede cerrar de forma fiable. El cierre obligatorio
+  antes del Tester real (`--manage-backtest-terminal`) sigue exactamente igual y ahora
+  cubre los dos casos (ya estaba abierto de antes, o sigue abierto tras la consulta
+  oportunista) con el mismo bloque de siempre. `ensure_target_terminal_open` (la hipotesis
+  de `Start-Process` ya descartada mas arriba) se elimina del codigo por quedar muerta,
+  junto a sus 2 tests. Suite completa `scripts` verificada: 268/268 (con los tests
+  eliminados, mismo recuento que antes de introducir esa funcion).

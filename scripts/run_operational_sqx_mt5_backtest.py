@@ -120,44 +120,6 @@ def close_target_terminal(compare: Any, terminal_exe: str) -> bool:
     return False
 
 
-OPEN_WAIT_TIMEOUT_S = 30
-
-
-def ensure_target_terminal_open(compare: Any, terminal_exe: str) -> None:
-    """Launches the target terminal via ``Start-Process`` if it isn't running yet.
-
-    G13-72 (ver ASSUMPTIONS.md): un terminal que ``MetaTrader5.initialize()``
-    auto-lanza internamente no responde a un cierre posterior desde esta
-    automatización -- ni ``CloseMainWindow()`` por PowerShell, ni una
-    pulsación sintética real de Alt+F4 o un clic en su botón de cierre (los
-    tres probados en la corrida diagnóstica de AUDCAD del 2026-09-27), aunque
-    un cierre manual del operador siempre funciona al instante. La
-    explicación más verosímil es una frontera de sesión/integridad entre el
-    proceso que la librería lanza internamente y el resto de esta
-    automatización, no una cuestión de tiempos de espera.
-
-    Lanzarlo aquí explícitamente con ``Start-Process`` -- la misma vía con la
-    que un cierre por automatización sí funcionó en pruebas anteriores de esa
-    misma sesión -- hace que ``MetaTrader5.initialize()`` se limite a
-    *conectarse* (attach) a una instancia ya abierta en vez de lanzar una
-    nueva por su cuenta, para que ``close_target_terminal`` pueda cerrarla
-    después con normalidad.
-    """
-    if compare.terminal_abierto(terminal_exe):
-        return
-    subprocess.run(
-        ["powershell", "-NoProfile", "-NonInteractive", "-Command",
-         "Start-Process -FilePath $args[0]", terminal_exe],
-        capture_output=True,
-        text=True,
-        timeout=15,
-        check=False,
-    )
-    deadline = time.monotonic() + OPEN_WAIT_TIMEOUT_S
-    while not compare.terminal_abierto(terminal_exe) and time.monotonic() < deadline:
-        time.sleep(0.25)
-
-
 def sqx_databank_identity(sqx_path: Path, sqx_root: Path) -> tuple[str, str, str]:
     """Resolve a candidate's SQX project/databank from its actual path."""
     try:
@@ -347,23 +309,31 @@ def main() -> None:
         )
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
-    if args.launch and compare.terminal_abierto(terminal["exe"]):
-        if not args.manage_backtest_terminal:
-            raise SystemExit("el terminal MT5 de backtest está abierto; use --manage-backtest-terminal autorizado")
-        if not close_target_terminal(compare, terminal["exe"]):
-            raise SystemExit("MT5 no aceptó el cierre limpio de la instancia de backtest")
-
     # G13-67 costo la corrida real de AUDCAD: el swap horneado en el .sqx llevaba
     # meses invertido de signo y ~8x infravalorado en data.db sin que nada lo
     # detectara antes de gastar horas en el Tester real. Validarlo en vivo contra
-    # MT5 + la web publica de Darwinex (economia.py/darwinex.py, ver ASSUMPTIONS
-    # G13-67/G13-68/G13-72) solo tiene sentido para un lanzamiento real -- el
-    # preflight nunca debe tocar el terminal (comentario de `aplicar_config` mas
-    # abajo). Se lanza aqui explicitamente con Start-Process (ensure_target_
-    # terminal_open) antes de que MetaTrader5.initialize() lo haga por su cuenta;
-    # no es la causa raiz de G13-72 (probado sin efecto en la corrida real del
-    # 2026-09-27) pero tampoco hace dano. --skip-swap-live-check evita abrir el
-    # terminal aqui si ya se verifico aparte en la misma sesion operativa.
+    # MT5 + la web publica de Darwinex (economia.py/darwinex.py) solo tiene
+    # sentido para un lanzamiento real -- el preflight nunca debe tocar el
+    # terminal (comentario de `aplicar_config` mas abajo).
+    #
+    # G13-72: abrir un terminal solo para esta consulta y despues cerrarlo por
+    # automatizacion resulto no ser fiable -- ni CloseMainWindow() por
+    # PowerShell (con reintentos, G13-68), ni una pulsacion sintetica real de
+    # Alt+F4 ni un clic real en su boton de cierre (Windows-MCP) cerraron una
+    # instancia ya conectada del todo a la cuenta real, probado varias veces en
+    # la corrida real del 2026-09-27; solo un cierre manual del operador
+    # funciono. Ningun otro modulo del proyecto intenta cerrar un terminal MT5
+    # por automatizacion -- compare_sqx_vs_mt5.py lo dice explicitamente
+    # ("nunca se cierra ningun proceso desde aqui") y confia en el autocierre
+    # de MT5 tras un Tester por /config, o exige que el operador lo cierre a
+    # mano si esta abierto; mt5-connector solo llama a mt5.shutdown() (la
+    # sesion de la API, nunca la ventana). Este bloque sigue ese mismo patron:
+    # solo hace la consulta si el terminal YA estaba abierto por el operador
+    # (por otra razon), y nunca lo abre ni lo cierra por su cuenta. El cierre
+    # obligatorio antes del Tester real (bloque de --manage-backtest-terminal,
+    # justo debajo) se aplica DESPUES de esta consulta oportunista y cubre
+    # tanto el caso "ya estaba abierto de antes" como "sigue abierto tras la
+    # consulta".
     swap_live_check = None
     if args.launch and not args.skip_swap_live_check:
         try:
@@ -371,18 +341,31 @@ def main() -> None:
         except (OSError, ValueError) as exc:
             raise SystemExit(f"no se pudo leer el swap SQX para la validación en vivo; queda WITHHELD: {exc}") from exc
         live_symbol = resolve_symbol_for_ticks(config, cfg, sqx_swap_setup["symbol"])
-        if live_symbol:
-            ensure_target_terminal_open(compare, terminal["exe"])
-            swap_live_check = cross_validate_swap_against_live_sources(
-                live_symbol, sqx_swap_setup["swap"], terminal=terminal,
-            )
-        else:
+        if not live_symbol:
             swap_live_check = {
                 "state": "unavailable",
                 "reason": "no se pudo resolver el símbolo MT5 para la validación en vivo",
             }
-        if compare.terminal_abierto(terminal["exe"]) and not close_target_terminal(compare, terminal["exe"]):
-            raise SystemExit("MT5 no aceptó el cierre limpio tras la validación en vivo del swap")
+        elif not compare.terminal_abierto(terminal["exe"]):
+            swap_live_check = {
+                "state": "unavailable",
+                "reason": (
+                    "el terminal MT5 de backtest está cerrado; el cross-check en vivo solo se "
+                    "realiza sobre una instancia ya abierta (G13-72), nunca abre ni cierra una "
+                    "por su cuenta. Ábralo manualmente antes de lanzar, o use "
+                    "--skip-swap-live-check si ya se verificó aparte."
+                ),
+            }
+        else:
+            swap_live_check = cross_validate_swap_against_live_sources(
+                live_symbol, sqx_swap_setup["swap"], terminal=terminal,
+            )
+
+    if args.launch and compare.terminal_abierto(terminal["exe"]):
+        if not args.manage_backtest_terminal:
+            raise SystemExit("el terminal MT5 de backtest está abierto; use --manage-backtest-terminal autorizado")
+        if not close_target_terminal(compare, terminal["exe"]):
+            raise SystemExit("MT5 no aceptó el cierre limpio de la instancia de backtest")
 
     # The official Results > List of Trades export carries cost evidence absent
     # from many .sqx orders.bin files. Keep it beside the run for a reproducible seal.
