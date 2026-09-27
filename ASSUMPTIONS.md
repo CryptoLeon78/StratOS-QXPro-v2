@@ -738,3 +738,41 @@ Fase nueva, fuera del plan original G0-G9 (proyecto ya completo tras G9) — ini
   (inmutable); este es un recalculo en memoria, no una re-firma de esa evidencia. Para un
   sello oficial `PROVEN` habria que re-ejecutar el lanzador de punta a punta con el codigo
   ya corregido -- pendiente de que el operador lo autorice si lo quiere formalizado.
+
+- **[G13-72] El terminal que abre el cross-check en vivo no se puede cerrar por
+  automatizacion una vez conectado del todo a la cuenta real:** al autorizar el operador
+  la re-ejecucion de punta a punta (2026-09-27), el terminal que `cross_validate_swap_
+  against_live_sources` (G13-69) abre para consultar `symbol_info` quedo repetidas veces
+  sin poder cerrarse -- ni `CloseMainWindow()` por PowerShell (con los reintentos de
+  G13-68), ni una pulsacion sintetica real de Alt+F4, ni un clic real en su boton de
+  cierre via automatizacion de UI (Windows-MCP), los tres probados sobre la misma
+  instancia y ninguno funciono ni siquiera dandole varios minutos reales. Un cierre
+  manual del operador si funciono siempre, en segundos.
+
+  Hipotesis inicial descartada por prueba directa: lanzar el terminal explicitamente con
+  `Start-Process` antes de `MetaTrader5.initialize()` (`ensure_target_terminal_open`,
+  para que `initialize()` solo se conecte en vez de auto-lanzar) no cambio nada -- se
+  probo sobre una instancia lanzada asi y tampoco se pudo cerrar por automatizacion.
+
+  Hipotesis mas verosimil, sin verificar todavia: la diferencia no es *quien* lanza el
+  terminal sino *cuanto tarda en cerrarse el intento tras abrirlo*. Una prueba manual
+  anterior de esta misma sesion (abrir con `Start-Process` y cerrar con
+  `CloseMainWindow()` a los ~8s, antes de que la cuenta real terminara de conectar)
+  cerro sin problema y se quedo cerrado 90s de quietud vigilada. En cambio, el cross-check
+  real hace `specs()` + `shutdown()` + la consulta HTTP a la web de Darwinex (hasta 15s de
+  timeout) + `cargar_politica()` antes del primer intento de cierre -- tiempo de sobra
+  para que el terminal termine de conectar del todo a la cuenta real (posiciones
+  abiertas, Navegador cargado, etc.), y podria ser que MT5 deje de aceptar un cierre
+  automatico una vez en ese estado completamente conectado. No verificado: reordenar el
+  cross-check para intentar el cierre lo antes posible tras `mt5.initialize()` (antes de
+  la consulta HTTP a Darwinex) podria confirmarlo o descartarlo, pero no se ha probado
+  para no gastar otro ciclo de varios minutos en la maquina real del operador.
+
+  Resuelto operativamente sin arreglar la causa: `--skip-swap-live-check`
+  (`run_operational_sqx_mt5_backtest.py`) permite omitir el chequeo para una corrida
+  concreta cuando ya se ha verificado aparte en la misma sesion (como aqui: el swap de
+  AUDCAD ya se habia confirmado en vivo minutos antes, ver G13-71), evitando abrir y
+  cerrar el terminal en un ciclo que ya se sabe problemático. Queda registrado
+  explicitamente en el manifiesto sellado (`swap_live_check_skipped=true`), nunca en
+  silencio -- un manifiesto con esa marca no debe leerse como "swap confirmado en esta
+  corrida", sino "confirmado aparte, ver la corrida/nota donde se hizo".
