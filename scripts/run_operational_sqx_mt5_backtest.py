@@ -68,11 +68,30 @@ def resolve_symbol_for_ticks(config: Any, cfg: dict[str, Any], symbol: str) -> s
     return next((names[candidate.casefold()] for candidate in candidates if candidate.casefold() in names), None)
 
 
+CLOSE_ATTEMPT_TIMEOUT_S = 30
+CLOSE_SETTLE_CHECK_S = 3
+CLOSE_MAX_ATTEMPTS = 3
+
+
 def close_target_terminal(compare: Any, terminal_exe: str) -> bool:
     """Solicita cierre limpio de la instancia de Tester y espera su salida.
 
     No usa ``Stop-Process``: si MT5 no acepta el cierre de ventana, el caller
     falla cerrado y conserva el control humano en vez de matar una sesión.
+
+    Reintenta hasta ``CLOSE_MAX_ATTEMPTS`` veces con una confirmación de
+    ``CLOSE_SETTLE_CHECK_S`` tras cada cierre aparente. G13-67 (ver
+    ASSUMPTIONS.md) documentó relanzamientos del terminal objetivo (PID nuevo)
+    justo en esta ventana sin que este script ni ``compare_sqx_vs_mt5.py``
+    tocaran la API de MetaTrader5 antes de aquí; la causa confirmada más
+    probable es una consulta ``MetaTrader5.initialize()`` ajena (propia
+    verificación ad hoc, ``mt5_bridge``, etc.) coincidiendo con el cierre —
+    esa llamada lanza el terminal si no encuentra ninguno abierto, efecto
+    secundario no documentado de la librería. Se descartó empíricamente un
+    servicio Windows o tarea programada como origen (ninguno registrado;
+    90s de quietud sin relanzamiento en un entorno limpio). En vez de asumir
+    conocido el disparador exacto, el cierre se vuelve auto-reparable ante
+    cualquier reaparición transitoria.
     """
     command = (
         "$target = $args[0]; "
@@ -80,17 +99,25 @@ def close_target_terminal(compare: Any, terminal_exe: str) -> bool:
         "Where-Object { $_.Path -eq $target } | "
         "ForEach-Object { $_.CloseMainWindow() | Out-Null }"
     )
-    subprocess.run(
-        ["powershell", "-NoProfile", "-NonInteractive", "-Command", command, terminal_exe],
-        capture_output=True,
-        text=True,
-        timeout=30,
-        check=False,
-    )
-    deadline = time.monotonic() + 30
-    while compare.terminal_abierto(terminal_exe) and time.monotonic() < deadline:
-        time.sleep(0.25)
-    return not compare.terminal_abierto(terminal_exe)
+    for _attempt in range(CLOSE_MAX_ATTEMPTS):
+        subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", command, terminal_exe],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        deadline = time.monotonic() + CLOSE_ATTEMPT_TIMEOUT_S
+        still_open = compare.terminal_abierto(terminal_exe)
+        while still_open and time.monotonic() < deadline:
+            time.sleep(0.25)
+            still_open = compare.terminal_abierto(terminal_exe)
+        if still_open:
+            continue
+        time.sleep(CLOSE_SETTLE_CHECK_S)
+        if not compare.terminal_abierto(terminal_exe):
+            return True
+    return False
 
 
 def sqx_databank_identity(sqx_path: Path, sqx_root: Path) -> tuple[str, str, str]:

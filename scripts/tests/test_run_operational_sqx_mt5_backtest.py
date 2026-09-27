@@ -169,7 +169,52 @@ def test_target_terminal_management_requests_a_clean_close_without_force(monkeyp
         calls.append(command)
 
     monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(runner.time, "sleep", lambda _seconds: None)
 
     assert runner.close_target_terminal(ClosedTarget(), r"C:\MT5\terminal64.exe")
+    assert len(calls) == 1
     assert "CloseMainWindow" in calls[0][4]
     assert "Stop-Process" not in calls[0][4]
+
+
+def test_target_terminal_management_retries_after_a_transient_reappearance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # G13-67: el terminal puede reaparecer (PID nuevo) justo durante la
+    # confirmación tras un cierre aparente. La primera vez "se cierra" pero
+    # reaparece en la confirmación; la segunda vez se cierra de verdad.
+    sequence = iter([False, True, False, False])
+    calls: list[list[str]] = []
+
+    class ReappearingTarget:
+        def terminal_abierto(self, _terminal: str) -> bool:
+            return next(sequence)
+
+    def fake_run(command: list[str], **_kwargs: object) -> None:
+        calls.append(command)
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(runner.time, "sleep", lambda _seconds: None)
+
+    assert runner.close_target_terminal(ReappearingTarget(), r"C:\MT5\terminal64.exe")
+    assert len(calls) == 2
+
+
+def test_target_terminal_management_gives_up_after_max_attempts_if_it_never_settles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+
+    class AlwaysOpenTarget:
+        def terminal_abierto(self, _terminal: str) -> bool:
+            return True
+
+    def fake_run(command: list[str], **_kwargs: object) -> None:
+        calls.append(command)
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(runner.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(runner, "CLOSE_ATTEMPT_TIMEOUT_S", 0)
+
+    assert not runner.close_target_terminal(AlwaysOpenTarget(), r"C:\MT5\terminal64.exe")
+    assert len(calls) == runner.CLOSE_MAX_ATTEMPTS

@@ -584,3 +584,36 @@ Fase nueva, fuera del plan original G0-G9 (proyecto ya completo tras G9) — ini
   sello oficial `PROVEN`/`BACKTEST_VALIDATED` haría falta re-ejecutar el pipeline completo
   con el código ya corregido, que ahora lo produciría de forma nativa — pendiente de que
   el operador decida si formalizarlo.
+
+- **[G13-68] Relanzamiento del terminal MT5 con `--manage-backtest-terminal`: causa de
+  sistema descartada, `close_target_terminal` hecho auto-reparable:** el tercer addendum
+  de G13-67 dejó sin identificar el disparador exacto del PID nuevo de `terminal64.exe`
+  en cada intento. Se investigó de nuevo: `Get-CimInstance Win32_Service` y
+  `Get-ScheduledTask` filtrados por mt5/metatrader/connector/darwinex no devuelven nada en
+  esta máquina — ni `mt5-connector` (StratOS) ni ningún servicio NSSM están instalados
+  como tal (su propio `main.py` ya lo admite: "NO VERIFICADO... ni como servicio NSSM
+  real"). Prueba empírica en vivo: se lanzó el terminal Darwinex real
+  (`C:\Program Files\Darwinex MetaTrader 5\terminal64.exe`), se cerró con el mismo
+  `CloseMainWindow()` que usa `close_target_terminal`, y se vigiló 90 s sin ejecutar
+  ninguna otra consulta MT5 en paralelo — no reapareció. Con servicio y tarea programada
+  descartados y el entorno limpio estable, la causa más verosímil sigue siendo la ya
+  documentada en el segundo addendum de G13-67: una llamada `MetaTrader5.initialize()`
+  ajena a este script (verificación ad hoc del operador/agente, o `mt5_bridge`) coincidiendo
+  con la ventana de cierre, que relanza el terminal si no encuentra ninguno abierto — no
+  se puede demostrar cuál en concreto ocurrió aquel día porque no quedó registro de esas
+  consultas puntuales.
+
+  En vez de perseguir cada posible disparador externo, `close_target_terminal`
+  (`scripts/run_operational_sqx_mt5_backtest.py`) se hizo auto-reparable: reintenta hasta
+  `CLOSE_MAX_ATTEMPTS=3` veces, y tras cada cierre aparente espera
+  `CLOSE_SETTLE_CHECK_S=3s` de confirmación antes de darlo por bueno; si reaparece en esa
+  ventana, vuelve a pedir el cierre. Sigue sin usar `Stop-Process` (fail-closed: si tres
+  intentos no bastan, se rinde y exige intervención humana, nunca termina el proceso a la
+  fuerza). 3 tests en `scripts/tests/test_run_operational_sqx_mt5_backtest.py`: cierre
+  limpio a la primera (ya existente, ahora con `time.sleep` mockeado para no ralentizar la
+  suite), reintento tras una reaparición transitoria, y rendición tras agotar los
+  intentos. Suite completa `scripts/tests` verificada en verde (14/14 en el fichero
+  afectado). Pendiente para quien retome esto: si vuelve a ocurrir, capturar en el momento
+  qué proceso concreto llamó a `initialize()` (p. ej. con `Process Monitor` sobre
+  `terminal64.exe` filtrando por línea de comandos del padre) en vez de reconstruirlo a
+  posteriori.
