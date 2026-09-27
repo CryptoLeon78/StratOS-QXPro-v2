@@ -559,7 +559,15 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
 
 - ~~G12 Cuentas/EA: modo operativo, permiso por gráfico, sizing y panel de deriva.~~ **RESUELTO Y REPETIDO EN G12-02**: 11/11 `PAPER`/OFF/50 %, alerta de deriva de tres campos y cobertura de contrato documentadas.
 - G12 procedencia de pestañas: Pipeline, Bots, Portfolio, Salud, Riesgo, Auditoría y Dominical mezclan fixture `full`, derivadas y telemetría demo sin una etiqueta/contrato de procedencia visible. Ver `docs/g12_tabs_provenance_validation.md`.
-- G12 Pipeline: `USDJPYH1Lcity_5.15.110` tiene candidato F4 y bot F3. Requiere una transición append-only auditada; queda prohibida una edición directa.
+- ~~G12 Pipeline: `USDJPYH1Lcity_5.15.110` tiene candidato F4 y bot F3.~~ **YA NO APLICA,
+  verificado 2026-09-28** (no "resuelto" — obsoleto por retirada arquitectónica, no por una
+  transición append-only): consulta read-only a `stratos_operational` (la BD real, no
+  `stratos_g12`, ya retirado) confirma cero bots en fase F3 y ningún bot con ese nombre;
+  las únicas combinaciones `origin_kind`/`pipeline_phase` que existen hoy son
+  `EXTERNAL_PRODUCTION`/F7 (40 bots) e `INCUBATION`/F5 (2, las AUDCAD). La inconsistencia
+  vivía en el fixture del incubador G12, retirado formalmente
+  (`runtime/operational/g12-incubator-retirement.json`) — no sobrevivió a la transición a
+  G13. Ninguna transición append-only que aplicar: no hay filas que corregir.
 - ~~G12 Portfolio: el benchmark devuelve `FileNotFoundError` dentro del contenedor en vez de
   un estado de ausencia controlada.~~ **RESUELTO 2026-09-02**, encontrado por el recorrido
   autenticado: el CSV no viajaba en la imagen (`_DEFAULT_CSV_PATH` usa `parents[4]`, que en
