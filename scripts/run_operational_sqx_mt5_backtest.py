@@ -278,7 +278,9 @@ def main() -> None:
     sys.path.insert(0, str(cost_gate_dir))
     from cost_gate import (  # noqa: PLC0415
         build_audit as build_cost_audit,
+        cross_validate_swap_against_live_sources,
         finalize_with_empirical_observation,
+        sqx_cost_setup,
     )
 
     cfg = config.cargar(forzar=True)
@@ -300,6 +302,34 @@ def main() -> None:
             raise SystemExit("el terminal MT5 de backtest está abierto; use --manage-backtest-terminal autorizado")
         if not close_target_terminal(compare, terminal["exe"]):
             raise SystemExit("MT5 no aceptó el cierre limpio de la instancia de backtest")
+
+    # G13-67 costo la corrida real de AUDCAD: el swap horneado en el .sqx llevaba
+    # meses invertido de signo y ~8x infravalorado en data.db sin que nada lo
+    # detectara antes de gastar horas en el Tester real. Validarlo en vivo contra
+    # MT5 + la web publica de Darwinex (economia.py/darwinex.py, ver ASSUMPTIONS
+    # G13-67/G13-68) solo tiene sentido para un lanzamiento real -- el preflight
+    # nunca debe tocar el terminal (comentario de `aplicar_config` mas abajo).
+    # Como esta consulta puede relanzar el terminal si no encuentra ninguno
+    # abierto (mismo efecto documentado en G13-68), se cierra de nuevo con el
+    # mismo close_target_terminal ya endurecido antes de proceder.
+    swap_live_check = None
+    if args.launch:
+        try:
+            sqx_swap_setup = sqx_cost_setup(sqx_path)
+        except (OSError, ValueError) as exc:
+            raise SystemExit(f"no se pudo leer el swap SQX para la validación en vivo; queda WITHHELD: {exc}") from exc
+        live_symbol = resolve_symbol_for_ticks(config, cfg, sqx_swap_setup["symbol"])
+        if live_symbol:
+            swap_live_check = cross_validate_swap_against_live_sources(
+                live_symbol, sqx_swap_setup["swap"], terminal=terminal,
+            )
+        else:
+            swap_live_check = {
+                "state": "unavailable",
+                "reason": "no se pudo resolver el símbolo MT5 para la validación en vivo",
+            }
+        if compare.terminal_abierto(terminal["exe"]) and not close_target_terminal(compare, terminal["exe"]):
+            raise SystemExit("MT5 no aceptó el cierre limpio tras la validación en vivo del swap")
 
     # The official Results > List of Trades export carries cost evidence absent
     # from many .sqx orders.bin files. Keep it beside the run for a reproducible seal.
@@ -324,7 +354,7 @@ def main() -> None:
     compare.aplicar_config(cfg)
     sqx = compare.cargar_lado_sqx(sqx_path, sqx_trades_csv)
     try:
-        cost_audit = build_cost_audit(sqx_path, mt5_spread_model="REAL_TICKS")
+        cost_audit = build_cost_audit(sqx_path, mt5_spread_model="REAL_TICKS", swap_live_check=swap_live_check)
     except (OSError, ValueError) as exc:
         raise SystemExit(f"no se pudo auditar comparabilidad de costes; queda WITHHELD: {exc}") from exc
     sqx_symbol, timeframe = sqx["simbolo"], sqx["timeframe"]

@@ -617,3 +617,40 @@ Fase nueva, fuera del plan original G0-G9 (proyecto ya completo tras G9) — ini
   qué proceso concreto llamó a `initialize()` (p. ej. con `Process Monitor` sobre
   `terminal64.exe` filtrando por línea de comandos del padre) en vez de reconstruirlo a
   posteriori.
+
+- **[G13-69] Cableado de `economia.py`/`darwinex.py` en el gate de costes Capa2:** backlog
+  pendiente desde G13-67 (el operador lo pospuso el 2026-09-27 para no mezclarlo con la
+  corrida diagnóstica en curso), retomado el mismo día a petición explícita. `cost_gate.py`
+  añade `cross_validate_swap_against_live_sources(symbol, sqx_swap, *, terminal=None,
+  economia_module=None, darwinex_module=None, mt5_spread_module=None)`: reconstruye el
+  swap ya parseado por `sqx_cost_setup` (ahora también captura `tripleSwapOn`/
+  `rolloutHour`, antes descartados) de vuelta a XML y llama a
+  `spread_sqx.economia.diagnostico()`/`spread_sqx.darwinex.activo()` sin reimplementar su
+  tolerancia (0,02 relativo) ni su lógica de moneda — import por ruta relativa entre apps
+  hermanas (`capa2_candidate_selector` y `spread_sqx` no son paquetes instalados, ambos
+  viven bajo `Apps_entorno_SQX/`). Fail-closed explícito en el docstring: MT5 inalcanzable
+  o la web de Darwinex caída cuentan como no-`"ok"`, igual que un mismatch real — nunca se
+  interpreta un fallo de origen como via libre.
+
+  `build_audit()` recibe `swap_live_check` como **resultado ya calculado**, no una
+  función que decida cuándo llamarla: el preflight (`run_operational_sqx_mt5_backtest.py`
+  sin `--launch`) debe seguir sin tocar MT5 nunca (invariante ya documentado en el propio
+  script — "El preflight replica las precondiciones... sin compilar ni abrir MT5"), así
+  que solo el lanzador, y solo en modo `--launch` real, ejecuta la validación en vivo y
+  pasa su resultado. Como esa consulta puede relanzar el terminal si lo encuentra cerrado
+  (mismo efecto secundario de `MetaTrader5.initialize()` que motivó G13-68), el lanzador
+  invoca `close_target_terminal` (ya endurecido con reintentos) justo después, antes de
+  proceder al Tester real. Un estado distinto de `"ok"` añade
+  `SQX_SWAP_NOT_CONFIRMED_AGAINST_LIVE_MT5_AND_DARWINEX` a los `reasons` del gate y fuerza
+  `BLOCKED`/`seal_allowed=False`, sin tocar la lógica de tolerancia por trade de V4
+  (ortogonal: una revisa el swap *configurado* antes del Tester, la otra los costes
+  *realizados* después).
+
+  8 tests nuevos en `capa2_candidate_selector/test_cost_gate.py` con dobles inyectables de
+  `economia`/`darwinex`/`mt5_spread` (sin red ni MT5 real: ok, mismatch, MT5 inalcanzable,
+  web caída degradando con gracia, swap no interpretable, y el bloqueo/no-bloqueo de
+  `build_audit` en sus tres variantes). Documentado en `docs/backlog.md` como
+  implementado. Suites completas verificadas: 49/49 (`capa2_candidate_selector`), 268/268
+  (`StratOS-QXPro-v2/scripts`). No verificado todavía contra un swap real en vivo dentro
+  del flujo completo del lanzador (`--launch` real) — la próxima corrida operacional real
+  de AUDCAD (pendiente, ver G13-67) ejercitará esta ruta por primera vez de punta a punta.
