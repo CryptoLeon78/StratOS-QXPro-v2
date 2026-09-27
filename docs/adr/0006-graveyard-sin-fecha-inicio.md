@@ -20,3 +20,22 @@ Se revisó el código real de `routers/pipeline.py::promote_candidate` esperando
 `Bot.created_at` se descartó como sustituto: no todos los bots pasan por F1-F7 (los de producción pueden sembrarse directamente), así que usarlo como "fecha de inicio" sería incorrecto para ese subconjunto — mismo criterio de "no inventar" que rige el resto del proyecto.
 
 Esta ADR sigue vigente: solo se muestra `retired_at`. Resolverlo de verdad exigiría una tabla nueva de histórico de fases (migración + lógica de escritura en cada transición, sin datos históricos que backfillear) — fuera de alcance de un endpoint aditivo, candidato a fase futura si el operador lo prioriza.
+
+## Actualización 2026-09-27 (parcialmente resuelto)
+
+Esa tabla nueva ya existía sin que este ADR lo reflejara: `PipelinePhaseTransition`
+(`core/db/models/pipeline.py`, creada en G11) registra append-only cada transición de
+fase, incluida el alta a F1 (`from_phase IS NULL`, escrita una única vez en
+`create_candidate`). `GET /api/v1/cemetery` (`routers/cemetery.py`) ahora cruza
+`CemeteryEntry.bot_id` → `PipelineCandidate.id` → esa transición de alta, y expone
+`entered_pipeline_at` en `CemeteryEntryResponse`. `CemeteryCard.tsx` muestra el rango
+completo (`entered_pipeline_at → retired_at`) cuando existe.
+
+**Sigue siendo `None` (ausencia declarada, nunca inventada) para dos casos reales**: un
+bot admitido antes de G11 (sin ese rastro histórico) y un bot sembrado directo en
+producción sin pasar nunca por F1-F7 (sin fila `PipelineCandidate`). Ninguno de los dos
+se sustituye por `Bot.created_at` — mismo criterio que la versión original de este ADR.
+El seed de demo actual (`scripts/seed_lib/graveyard.py`) no crea `PipelineCandidate`
+para sus 9 lápidas, así que la captura de referencia sigue mostrando solo `retired_at`
+sin ningún cambio visual — el hueco está cerrado para datos reales, no retroactivamente
+para el fixture de demo.

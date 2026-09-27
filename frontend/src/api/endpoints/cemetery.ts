@@ -1,8 +1,11 @@
 import { apiFetch } from "@/api/client";
 import { ApiError } from "@/api/client";
 
-// Espejo 1:1 de core/routers/cemetery.py. Fecha de inicio del rango NO esta
-// en el schema, solo `retired_at` (docs/backlog.md).
+// Espejo 1:1 de core/routers/cemetery.py. `entered_pipeline_at` sale del
+// rastro append-only PipelinePhaseTransition (existe desde G11, docs/adr/0006):
+// null para un bot retirado sin ese rastro (admitido antes de G11, o sembrado
+// directo en produccion sin pasar por F1-F7) -- ausencia declarada, nunca se
+// sustituye por otra fecha.
 export interface CemeteryEntry {
   id: number;
   bot_id: number;
@@ -12,6 +15,7 @@ export interface CemeteryEntry {
   lesson: string;
   revalidation_from_phase: string;
   reactivation_blocked: boolean;
+  entered_pipeline_at: string | null;
 }
 
 export function getCemetery(): Promise<CemeteryEntry[]> {

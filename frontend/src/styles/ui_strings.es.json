@@ -506,6 +506,7 @@
   },
   "graveyard": {
     "banner": "Un bot retirado nunca se reactiva sin re-validación completa (pipeline desde Fase 3).",
+    "dateRange": "{from} → {to}",
     "filterAllProfiles": "Todos los perfiles",
     "filterAllCauses": "Todos los motivos",
     "reactivate": "Reactivar",
