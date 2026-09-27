@@ -29,6 +29,16 @@ bajo riesgo y entorno local al día (sigue `docs/PLAN_CONTINUACION_2026-09-27.md
   685 passed / 3 failed en 111s. **No verificado todavía**: si los criterios 7 y 8 fallan
   por la misma causa (estado compartido/orden de ejecución) o por otra distinta — pendiente
   de próxima sesión antes de dar el entorno local por limpio.
+- **`G13-49` reconciliado contra la BD real de `stratos_operational`** (no la de test):
+  bots 42/43 (magics 295/243) en `pipeline_candidate.current_phase='F5'` desde
+  2026-09-10, `oos_trades=0`. `phase_status.md` tenía razón; `backlog.md` decía que el
+  F3→F4 seguía pendiente y estaba desactualizado — corregido.
+- **`dist/StratOS_Operational.exe` regenerado** con `scripts/build_stratos_operational_exe.ps1`
+  (PyInstaller 6.22.2 en el `.venv` propio): ya no va 29 commits atrasado. Verificado con
+  `--refresh-only` de punta a punta sin abrir MT5 ("Stack operacional saludable."). Hallazgo
+  nuevo sin investigar en esta sesión: el prefiltro reportó `queue=0 eligible=0`
+  (`extracted=0 withheld=338` de evidencia de validación), muy por debajo de los 217-232
+  elegibles que documentaban sesiones anteriores — ver `docs/backlog.md` G13-73.
 
 **G13-68 a G13-72 — Gate de costes AUDCAD sellado `PROVEN` de punta a punta con código
 corregido; bug real de resellado encontrado y corregido; política de web-desactualizada;

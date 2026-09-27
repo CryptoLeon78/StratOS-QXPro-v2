@@ -1,5 +1,16 @@
 # Backlog — StratOS-QXPro
 
+- **[G13-73] Cola de prefiltro en 0 tras rebuild del exe (2026-09-27, sin investigar):**
+  `dist/StratOS_Operational.exe --refresh-only`, recién regenerado (29 commits al día),
+  reportó `inventory=1419`, `source_resolution resolved=230 withheld=108`,
+  `validation evidence extracted=0 withheld=338` y **`prefilter queue=0 eligible=0`**.
+  Sesiones anteriores documentaban 217-232 elegibles y una cola de 24. No se ha
+  investigado la causa — candidatas: (a) el patrón ya conocido de SQX re-hasheando los
+  `.sqx` Forward al reabrir (memoria: "SQX rehashes Forward on reopen"), invalidando el
+  hash sellado que `resolve_operational_validation_sources.py` exige; (b) un cambio real
+  en los proyectos de `user/projects`. Primera tarea antes de tocar el pipeline de
+  minado: diffear `analysis-validation-sources.json`/`analysis-prefilter.json` contra la
+  versión anterior a este refresco para aislar cuál de las dos es.
 - ~~**[G13-49] Cierre de F3 a F4 para las dos candidatas AUDCAD**~~ **DESACTUALIZADO, verificado
   contra la BD real 2026-09-27**: esta entrada quedó obsoleta — el registro del adjunto y el
   `ea_state` posterior ya ocurrieron (ver `phase_status.md` G13-49, 2026-09-10,
