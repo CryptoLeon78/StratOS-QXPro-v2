@@ -260,8 +260,12 @@ de mercado:
 
 ### 4.4 Entorno local desincronizado
 
-1. **Postgres local sin migrar al head** (§2.1): `alembic upgrade head` contra el
-   Postgres local de `core-engine` antes de fiarse de los 8 tests que fallan hoy.
+1. ~~**Postgres local sin migrar al head**~~ **HECHO 2026-09-27 (tarde)**: `alembic
+   upgrade head` aplicado (`3960d7d19b0d` → `c8d9e0f1a2b3`). Los 8 fallos bajan a 3
+   (criterios 6/7/8 de `test_g8_acceptance_criteria.py`), pero por una causa distinta a
+   la esperada: estado sucio preexistente en la base local (`Alert` de auditoría sin
+   resolver), no drift de esquema. Ver `docs/phase_status.md`, entrada de hoy. Queda
+   pendiente decidir si se limpia la base o se investiga por qué persiste ese estado.
 2. **`dist/StratOS_Operational.exe` 29 commits por detrás**: regenerar el build
    (`build_desktop.ps1` o el proceso equivalente ya documentado en el propio repo) para
    que incorpore G13-4x a G13-72. Mismo patrón de deuda que ya se cerró una vez el
@@ -281,9 +285,9 @@ confirmación explícita en ese mismo mensaje".
 
 | Candidato | Evidencia | Acción sugerida |
 |---|---|---|
-| `Apps_entorno_SQX/SQX_vs_MT5_Panel/build_g13/` a `build_g13_v6/` (6 carpetas, 14MB c/u, 84MB total) | Builds PyInstaller iterativos intermedios, todas fechadas 2026-09-02, superadas por `dist/` (mismo día, más reciente). **Untracked en git** (no hay que hacer `git rm`, solo borrar del disco). | `rm -r` de las 6 carpetas tras confirmar que `dist/` sigue siendo el build vigente. |
-| `Apps_entorno_SQX/SQX_vs_MT5_Panel/dist_legacy/` (git status pendiente) | Ya no existe en disco; solo falta commitear su eliminación (2 ficheros `D` en `git status`). | `git add` de esos 2 borrados + commit. Cero riesgo, es limpieza de índice, no de disco. |
-| `Apps_entorno_SQX/SQX_vs_MT5_Panel/__pycache__/*.pyc` trackeados | 8 ficheros de bytecode compilado versionados por error histórico. | `git rm --cached` de los 8 (ver §4.3.3). |
+| `Apps_entorno_SQX/SQX_vs_MT5_Panel/build_g13/` a `build_g13_v6/` (6 carpetas, 14MB c/u, 84MB total) | Builds PyInstaller iterativos intermedios, todas fechadas 2026-09-02, superadas por `dist/` (mismo día, más reciente). **Untracked en git** (no hay que hacer `git rm`, solo borrar del disco). | **Confirmado por el operador 2026-09-27, PENDIENTE DE EJECUCIÓN**: el `rm -rf` fue denegado por el sistema de permisos de la sesión de Claude. Comando exacto entregado al operador; ejecutar manualmente. |
+| ~~`Apps_entorno_SQX/SQX_vs_MT5_Panel/dist_legacy/`~~ | **HECHO 2026-09-27**. | Commiteado. |
+| ~~`Apps_entorno_SQX/SQX_vs_MT5_Panel/__pycache__/*.pyc` trackeados~~ | **HECHO 2026-09-27**: eran 15, no 8 (conteo del plan desactualizado). | `git rm --cached` aplicado y commiteado. |
 | `runtime/operational/backtests_diagnostic/` — verificar antigüedad | 9 subcarpetas (2 del 2026-09-24, 7 del 2026-09-27). Cada una es evidencia sellada inmutable (nunca se borran manifiestos sellados por principio de auditoría), pero podría valer la pena mover las más antiguas a un almacenamiento frío si el directorio crece sin control. **No es limpieza en el sentido de "basura"** — es evidencia contractual, tratarla con el mismo cuidado que cualquier `run-manifest.json` sellado. |
 
 ### 5.2 Limpieza que requiere decisión del operador antes de tocar

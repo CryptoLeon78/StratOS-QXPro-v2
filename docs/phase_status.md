@@ -4,6 +4,32 @@
 
 ## Fase activa: G13 — Stack operacional real/incubadora/análisis — FUNDACIÓN IMPLEMENTADA; GATES EXTERNOS ABIERTOS
 
+**Continuación 2026-09-27 (tarde) — trabajo recuperado en SQX_vs_MT5_Panel, limpieza de
+bajo riesgo y entorno local al día (sigue `docs/PLAN_CONTINUACION_2026-09-27.md` §6):**
+- **Hallazgo real, no asumido:** el resumen de continuidad de la sesión anterior afirmaba
+  "todo commiteado y pusheado en ambos repos". Falso para el repo padre `SQX_144_Full2`:
+  426 líneas de código (`sqx_mt5_panel.py`/`sqx_mt5_panel_html.py`/config/CHANGELOG) del
+  trabajo G13-35/G13-36 (fuente explícita "Análisis/cola G13", staging aislado por hash,
+  archivo completo con CSV+evidence-manifest, veto de `api_desplegar`) llevaban commiteado
+  desde 2026-09-02, 25 días sin llegar a git. El repo propio `StratOS-QXPro-v2` sí estaba
+  limpio. Revisado diff completo, verificado 41/41 tests en esta sesión, commiteado
+  (`cfcfb857`, `13ba845a`) y pusheado a `origin/main` con confirmación del operador.
+- **Limpieza de bajo riesgo (plan §5.1) ejecutada:** `dist_legacy/` commiteado como
+  eliminado, 15 (no 8, el plan estaba desactualizado en el conteo) `.pyc` de
+  `SQX_vs_MT5_Panel/__pycache__/` destrackeados. Las 6 carpetas `build_g13*` (84MB) quedan
+  pendientes de borrar: el operador confirmó el borrado pero el sistema de permisos de la
+  sesión denegó el `rm -rf`; comando entregado al operador para ejecutar él mismo.
+- **`alembic upgrade head` aplicado al Postgres local** de `core-engine`
+  (`3960d7d19b0d` → `c8d9e0f1a2b3`). Los fallos de `test_g8_acceptance_criteria.py` bajan
+  de 8 a **3** (criterios 6, 7 y 8), pero la causa ya no es drift de esquema: es **estado
+  sucio preexistente en la base local** — una fila `Alert(module="audit",
+  resolved=False)` de una ejecución manual anterior que el criterio 6 espera encontrar en
+  cero. No se ha tocado la base para limpiarla (fuera de alcance de esta unidad, y borrar
+  filas de una BD aunque sea local no se hace sin confirmación separada). Suite completa:
+  685 passed / 3 failed en 111s. **No verificado todavía**: si los criterios 7 y 8 fallan
+  por la misma causa (estado compartido/orden de ejecución) o por otra distinta — pendiente
+  de próxima sesión antes de dar el entorno local por limpio.
+
 **G13-68 a G13-72 — Gate de costes AUDCAD sellado `PROVEN` de punta a punta con código
 corregido; bug real de resellado encontrado y corregido; política de web-desactualizada;
 causa raíz del cierre de terminal auditada en todo el proyecto, 2026-09-27 (mismo día que
