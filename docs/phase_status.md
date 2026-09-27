@@ -4,6 +4,22 @@
 
 ## Fase activa: G13 — Stack operacional real/incubadora/análisis — FUNDACIÓN IMPLEMENTADA; GATES EXTERNOS ABIERTOS
 
+**Continuación 2026-09-28 — G13-74 cerrado, diagnóstico de ayer corregido con evidencia
+empírica (ver detalle completo en `docs/backlog.md`):** el análisis de código del
+2026-09-27 sobre `test_g8_acceptance_criteria.py` mezclaba dos mecanismos distintos en una
+sola entrada. Verificado hoy: el Postgres local llevaba `seeded_at=2026-08-27` (**32 días**
+sin resembrar, vía `system_config.key='seed_profile'`). `python scripts/seed.py --profile
+full --reset` fresco + la suite inmediatamente después → **9/9 passed**, sin tocar una
+línea de código. Los criterios 6/7/8 **no eran un bug** — son tests que evalúan en vivo
+(`datetime.now(UTC)` dentro del propio test) contra un seed que llevaba más de un mes sin
+refrescarse; el contrato (documentado en el propio docstring del fichero) es sembrar y
+testear en el mismo momento, como ya hace CI. Solo el criterio 9 (correlación, que sí lee
+un valor persistido al sembrar) conserva un riesgo estructural real pero de plazo largo
+(años, no días) — no se toca, no es urgente. **No se hizo ningún cambio en `seed.py`,
+`derived_states.py` ni `scenarios.py`**: el plan de refactor que se dejó anotado ayer para
+"una sesión con plan mode" ya no aplica, era innecesario. Lección para el futuro:
+comprobar `seeded_at` antes de investigar cualquier fallo de este fichero en local.
+
 **Continuación 2026-09-27 (tarde) — trabajo recuperado en SQX_vs_MT5_Panel, limpieza de
 bajo riesgo y entorno local al día (sigue `docs/PLAN_CONTINUACION_2026-09-27.md` §6):**
 - **Hallazgo real, no asumido:** el resumen de continuidad de la sesión anterior afirmaba

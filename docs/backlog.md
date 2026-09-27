@@ -592,43 +592,40 @@ Las entradas siguientes preservan el detalle de hallazgos y decisiones previas. 
 - ~~**"Vista dominical" (PARTE 14/16 criterio 14) sin construir**~~ **RESUELTO en G10 (grupo n)**: ruta `/dominical` nueva, de nivel superior (NO anidada bajo `RootLayout`, NO en la `TabBar` — enlace discreto en `AppHeader` junto al badge de rol). Errores de EA (`GET /alerts`, nuevo — gap real: `Alert(module="config_drift")` ya se poblaba desde G5 pero ningún router lo listaba), desconexiones (reusa `HeartbeatCard`/`WatchdogTable` de Ejecución) y noticias de la semana entrante (reusa `NewsShieldPanel` con `hours=168`, ahora prop configurable). "Órdenes rechazadas" documentado como pendiente de la v1.1 del EA reporter (mismo estado que TCA). Criterio de salida verificado con test de contenido real (`vista_dominical.spec.ts`): confirma que EQUITY/P&L DÍA/DRAWDOWN nunca aparecen — la página nunca importa `AppHeader`/`StatCard`/`formatAmount`.
 - **Screenshot-diff de G8 sensible a re-siembras y a paralelismo alto**: los 10 specs nuevos de pestañas pasan 12/12 en serial (`--workers=1`) contra un seed fijo, pero regenerar el seed (datos aleatorios + contenido relativo a `now`, PARTE 13) o correr con muchos workers en paralelo bajo contención de CPU puede desviar 1-2 pestañas por encima del umbral del 2% en regiones no enmascaradas (fechas de heartbeat, ventana de News Shield, tablas de correlación/watchdog). Las aserciones de CONTENIDO (la parte que prueba corrección funcional) son 100% estables — no es un bug de la app. Mitigado en CI con `--workers=1` + `retries: 2` (ya en `playwright.config.ts`); si en el futuro se quiere paralelismo real, habría que enmascarar más regiones por pestaña o fijar el seed con una fecha `now` congelada en vez de `datetime.now(UTC)`.
   - ~~**Mecanismo exacto identificado en G9**~~ **RESUELTO en G9-07** (ver `ASSUMPTIONS.md`): 2 elementos condicionados a la hora REAL de ejecución (no al seed) que ninguna máscara podía cubrir sin antes arreglar esto — el badge "DATOS STALE" de `AppHeader.tsx` y el bloque heartbeat/latencia/uptime de `AccountCard.tsx` se montaban/desmontaban según el estado en vivo, desplazando la página entera. Fix de raíz: los 2 componentes ahora reservan SIEMPRE su altura (`invisible` en vez de ausentes) — determinismo verificado con tiempo real transcurrido (130+s cruzando el umbral de staleness, mismo baseline sigue pasando). Coste aceptado: un hueco reservado, invisible, cuando el badge/detalle no aplica.
-- **[G13-74] `e2e-acceptance-full` inestable en local (criterios 6/7/8/9): causa raíz unificada
-  encontrada y confirmada en código 2026-09-27, sin arreglar todavía (requiere plan
-  propio)**: los cuatro no son bugs independientes — comparten el mismo mecanismo de deriva
-  de calendario. `scripts/seed.py:88` calcula `now = datetime.now(UTC)` (reloj real en el
-  momento de sembrar) y lo pasa a `run_all_sweeps()` (correlación, watchdog, auditoría) y a
-  casi todos los generadores de escenarios (`apply_watchdog_scenarios`, impulsos, huérfanos,
-  etc.). Pero el perfil `full` fija su historia de trades en `FULL_HISTORY_END = 2026-06-30`
-  (`seed_lib/config.py:14`), con un comentario explícito: "el perfil de aceptación debe ser
-  independiente del reloj real". Cuanto más tiempo real pasa desde la última vez que alguien
-  sembró localmente con `--profile full`, más se separan "cuándo termina la historia
-  fabricada" de "qué `now` usaron los sweeps al evaluarla" — la ventana de correlación
-  (`window_start = now - 1240 días`, `services/correlations.py:32`) se desliza hacia
-  adelante y dentro/fuera de umbral según el día exacto en que se sembró, y lo mismo aplica
-  al umbral de staleness del watchdog (RUNAWAY→DEAD) y al estado de auditoría. **Verificado
-  hoy** (2026-09-27, 89 días después de `FULL_HISTORY_END`): sesión aislada de
-  `test_criterion_9` → PASA; sesión completa del fichero → **6/7/8 fallan, 9 pasa** —
-  consistente con que cada criterio tiene su propio margen de tolerancia al desfase, no con
-  que estén "rotos" en sentido estricto de bug de lógica.
-  **Por qué no se arregla aquí**: la corrección correcta no es cambiar una línea — hay un
-  comentario deliberado en `seed.py:154-167` que documenta que los heartbeats usan a
-  propósito un `now` FRESCO distinto (inserción tardía, no el de inicio de script) para no
-  quedar stale durante los ~minutos que tarda Playwright; y `apply_watchdog_scenarios()`
-  necesita conocer el MISMO `now` que después usará el sweep para que RUNAWAY/DEAD se sitúen
-  donde el test espera. Fijar el `now` de los sweeps a algo anclado a `FULL_HISTORY_END`
-  sin tocar coherentemente `scenarios.py`/`derived_states.py` podría cambiar qué falla, no
-  arreglarlo. **Corrección tras leer `.github/workflows/ci.yml`**: el job
-  `e2e-acceptance-full` SÍ reseeda `--profile full --reset` en cada corrida de CI con
-  `datetime.now(UTC)` real de ESE run — no está inmune por diseño como se afirmó primero.
-  Lo que sí evita CI es la acumulación de estado sucio local (siempre parte de una BD
-  vacía), pero no escapa a la misma deriva de calendario: cuanto más se aleje `now` real de
-  `FULL_HISTORY_END` (2026-06-30), más probable que `e2e-acceptance-full` empiece a fallar
-  en CI también, de forma aparentemente aleatoria según qué día se dispare el run. El job
-  `e2e-playwright` (perfil `ci`) sí es inmune de verdad, porque su `history_end=now` es
-  relativo por diseño. Próxima sesión que lo retome: entrar en plan mode,
-  decidir un `now` de referencia único y consistente para el perfil `full` que cubra sweeps
-  + generadores de escenario sin tocar el caso ya resuelto de heartbeats, con test de
-  regresión que fije la fecha de siembra y verifique los 4 criterios de forma determinista.
+- ~~**[G13-74] `e2e-acceptance-full` inestable en local (criterios 6/7/8/9)**~~ **CERRADO
+  2026-09-28 — diagnóstico de ayer corregido con evidencia empírica, no era lo que parecía.**
+  El análisis de código del 2026-09-27 (leído `services/correlations.py`, `seed.py`,
+  `scenarios.py`) identificó dos mecanismos DISTINTOS que se habían mezclado en una sola
+  entrada:
+  1. **Criterios 6/7/8: NO es un bug de código.** `test_criterion_7` llama
+     `datetime.now(UTC)` **en vivo dentro del propio test** (no lee un valor persistido) y
+     evalúa el watchdog contra trades sembrados hace tiempo; `test_criterion_6` lee el
+     recuento de `Alert` que dejó el `run_audit_daily` de la ÚLTIMA vez que se sembró. El
+     propio docstring del fichero de test ya lo advierte: "el seed real... ya corrido ANTES
+     de esta suite" — el contrato es sembrar y testear en el mismo momento, exactamente
+     como hace CI (`e2e-acceptance-full`: checkout→migrate→seed→test, todo en el mismo job,
+     segundos de diferencia). **Verificado empíricamente 2026-09-28**: el Postgres local
+     llevaba `seeded_at=2026-08-27` (**32 días** sin resembrar) — causa real de los 3
+     fallos. `python scripts/seed.py --profile full --reset` fresco +
+     `pytest tests/e2e/test_g8_acceptance_criteria.py` inmediatamente después → **9/9
+     passed**, sin tocar una sola línea de código. No hay nada que arreglar aquí; es
+     higiene de entorno local, no deuda de código.
+  2. **Criterio 9 (correlación): riesgo estructural real, pero de plazo largo (no urgente).**
+     Este SÍ lee un valor persistido (`CorrelationMatrix`, calculado una vez al sembrar con
+     el `now` de ESE momento) contra una ventana de `window_days=1240` sobre una historia de
+     trades fija en `FULL_HISTORY_END=2026-06-30`. Mientras la ventana siga cubriendo una
+     porción sustancial de esos 5,5 años de historia — hoy, 90 días después de
+     `FULL_HISTORY_END`, sigue pasando con margen —, no hay problema práctico. Solo
+     empezaría a fallar de verdad cuando `now` real se aleje lo bastante de
+     `FULL_HISTORY_END` como para que la ventana de 1240 días deje de capturar suficiente
+     historia correlacionada — del orden de años, no de días. No se arregla ahora
+     (sería ingeniería prematura para un riesgo a años vista); revisar si algún día
+     `e2e-acceptance-full` empieza a fallar SOLO el criterio 9 con una BD recién sembrada
+     (eso sí sería la señal de que ha llegado el momento).
+  **Lección operativa para sesiones futuras**: antes de investigar cualquier fallo de
+  `test_g8_acceptance_criteria.py` en local, comprobar primero `seeded_at` en
+  `system_config` (`key='seed_profile'`) y resembrar si tiene más de unas horas —
+  ahorra la mayor parte de las falsas alarmas de este fichero.
 - **Precios de seed no realistas en GDAXI/NDX/SPX500/US30** (encontrado en G10 al correr `backfill_r_multiple.py` contra Postgres real): varios trades sembrados de estos 4 índices tienen `open_price`/`sl` en una escala que no corresponde al price level real del instrumento (p.ej. `open_price=1.00000`/`sl=0.99000` para `US30`, que en realidad cotiza en el orden de 30.000-40.000) — probablemente `scripts/seed_lib/trades_history.py` generó el rango de SL sin tener en cuenta la escala de precio real de cada símbolo. Consecuencia real: `r_multiple` calculado sobre esos trades da magnitudes absurdas (hasta ~6,8x10⁴ en `US30`, miles en `GDAXI`/`NDX`/`SPX500`), lo que ya obligó a ampliar `RMultiple` de `NUMERIC(8,4)` a `NUMERIC(12,4)` (ver `column_types.py`) solo para poder escribirlo sin overflow — el valor en sí sigue sin ser interpretable como un R real hasta que el seed use precios realistas por símbolo. No se corrige aquí (fuera de alcance de G10, que no toca `scripts/seed.py`).
 
 ## G7 — huecos de negocio por pestaña (backend no calcula el dato, no es solo falta de exponerlo)

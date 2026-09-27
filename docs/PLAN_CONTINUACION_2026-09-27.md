@@ -360,14 +360,15 @@ No es obligatorio seguir este orden exacto, pero minimiza dependencias cruzadas:
    (`yaml.safe_load`) y el mismo comando PyInstaller ya se probó a mano en esta sesión con
    éxito, pero **no se ha visto correr en GitHub Actions real** — primera cosa a confirmar
    la próxima vez que se abra este repo.
-3. **Criterio 9 e2e (Lyra×Phoenix)**: retomarlo ahora. **Investigado y causa raíz
-   confirmada en código, sin arreglar (ver `docs/backlog.md` G13-74)**: no es solo el
-   criterio 9 — es un mecanismo de deriva de calendario compartido con los criterios 6/7/8,
-   por `scripts/seed.py:88` usando reloj real (`datetime.now(UTC)`) para sweeps/escenarios
-   mientras el perfil `full` fija su historia en `FULL_HISTORY_END=2026-06-30`. Arreglarlo
-   bien exige tocar `seed.py`/`derived_states.py`/`scenarios.py` de forma coherente sin
-   romper el `now` fresco deliberado de los heartbeats (comentario en `seed.py:154-167`) —
-   se deja como unidad propia con plan mode, no un parche de una línea.
+3. ~~**Criterio 9 e2e (Lyra×Phoenix)**~~ **CERRADO 2026-09-28**: el diagnóstico del
+   2026-09-27 (unificaba 6/7/8/9 bajo una sola causa de deriva de calendario) estaba
+   sobreestimado. Verificado empíricamente: el Postgres local llevaba 32 días sin
+   resembrar; un `--profile full --reset` fresco + la suite inmediatamente después →
+   **9/9 passed**, sin tocar código. Los criterios 6/7/8 no eran un bug — evalúan en vivo
+   contra un seed viejo, exactamente lo que su propio docstring dice que no se debe hacer.
+   Solo el 9 conserva un riesgo estructural real pero a años vista (no urgente). Ningún
+   cambio de código en `seed.py`/`derived_states.py`/`scenarios.py`. Detalle en
+   `docs/backlog.md` G13-74 y `docs/phase_status.md` (entrada 2026-09-28).
 4. **Docs de 2026-09-02**: archivar en `docs/historico/`. **HECHO** — `git mv` de los 3
    ficheros + 11 referencias cruzadas corregidas en esta sesión.
 5. **Segunda corrida diagnóstica de costes (G13-59/61)**: sin responder todavía — no se
