@@ -4,6 +4,57 @@
 
 ## Fase activa: G13 — Stack operacional real/incubadora/análisis — FUNDACIÓN IMPLEMENTADA; GATES EXTERNOS ABIERTOS
 
+**G13-68 a G13-72 — Gate de costes AUDCAD sellado `PROVEN` de punta a punta con código
+corregido; bug real de resellado encontrado y corregido; política de web-desactualizada;
+causa raíz del cierre de terminal auditada en todo el proyecto, 2026-09-27 (mismo día que
+G13-67, continuación directa):**
+- **G13-68**: `close_target_terminal` (cierre del terminal MT5 antes del Tester real) se
+  hizo auto-reparable con reintentos ante relanzamientos transitorios, tras descartar
+  empíricamente un servicio/tarea programada como causa (ninguno registrado; 90s de
+  quietud real sin relanzamiento).
+- **G13-69**: `cost_gate.py::cross_validate_swap_against_live_sources` cablea el gate de
+  costes con `economia.py`/`darwinex.py` (spread_sqx): valida el swap del `.sqx` contra
+  MT5 en vivo + la web de Darwinex antes de un lanzamiento real, solo cuando `--launch`.
+- **G13-70 (bug real encontrado y corregido)**: la corrida real de AUDCAD
+  (`20260927T111043Z_ed75e0ea14f9`) selló `PROVEN` pese a que el cross-check en vivo dio
+  `unavailable` (MetaTrader5 no instalado en el venv del lanzador) — `finalize_with_
+  empirical_observation()` reconstruía el veredicto sin reaplicar el bloqueo de G13-69.
+  Corregido con `_apply_swap_live_check()` compartida; recalculado en memoria contra la
+  evidencia ya sellada: con el fix, `BLOCKED`. `MetaTrader5` instalado en el venv.
+- **G13-71 (decisión del operador)**: MT5 en vivo manda sobre una web Darwinex ya marcada
+  como conocida-desactualizada (registro declarativo `politica_spread.json::darwinex_web_
+  swap_desactualizado`, sembrado con AUDCAD). Recalculado con la política aplicada: swap
+  confirmado, `PROVEN`.
+- **G13-72 (auditoría completa del proyecto)**: el terminal que abre el cross-check en
+  vivo no se pudo cerrar por automatización (PowerShell, Alt+F4 sintético ni clic real
+  via Windows-MCP) una vez conectado del todo a la cuenta real, en varios intentos reales.
+  El operador preguntó si esto afecta a otras apps — investigado: **no**, es el único
+  código de todo el proyecto que intenta `CloseMainWindow()` sobre MT5;
+  `compare_sqx_vs_mt5.py`/`sqx_mt5_panel.py` nunca cierran nada por automatización (confían
+  en el autocierre de MT5 tras `/config`, o exigen cierre manual) y `mt5-connector`/
+  `mt5_bridge` solo llaman a `mt5.shutdown()`. Corregido alineando el cross-check con ese
+  mismo patrón: solo consulta si el terminal YA estaba abierto por el operador, nunca lo
+  abre ni lo cierra por su cuenta (`ensure_target_terminal_open`, hipótesis de
+  `Start-Process` ya descartada por prueba directa, eliminado por quedar muerto). Añadido
+  `--skip-swap-live-check` como salida operativa explícita, registrada en el manifiesto
+  sellado (`swap_live_check_skipped`).
+- **Resultado final**: manifiesto `20260927T123447Z_ed75e0ea14f9` sellado `PROVEN` de
+  punta a punta (Tester real completo, gate V4, `swap_live_check_skipped=true` con
+  justificación registrada — el swap ya se había confirmado en vivo minutos antes, ver
+  G13-71). **Sigue siendo 1 sola estrategia diagnóstica fuera de cola/Incubadora**: no
+  crea `BACKTEST_VALIDATED`, baseline ni candidata nueva — ver "Gates pendientes antes de
+  operaciones demo" más abajo, que sigue exactamente igual que antes de esta sesión.
+  Detalle completo, código, tests y comandos de reproducción en `ASSUMPTIONS.md`
+  G13-68 a G13-72. Suites verificadas: 268/268 (`scripts`), 54/54
+  (`capa2_candidate_selector`), 174/174 (`spread_sqx`).
+- **Deuda de entorno detectada de pasada (no corregida en esta sesión, ver
+  `docs/PLAN_CONTINUACION_2026-09-27.md`)**: el Postgres local de `core-engine` está en la
+  revisión Alembic `3960d7d19b0d`, no en el head real `c8d9e0f1a2b3` — causa los 8 fallos
+  de `test_g8_acceptance_criteria.py` (`column bot.origin_kind does not exist`); no es un
+  problema de CI (que migra desde cero). `dist/StratOS_Operational.exe` (compilado
+  2026-09-02) va 29 commits de `scripts/` por detrás, mismo patrón de deuda que ya se
+  había cerrado una vez.
+
 **G13-67 — Causa raíz real de G13-59/61 encontrada y corregida: swap de AUDCAD invertido
 de signo, 2026-09-27:** el fix del rollover no bastó. Análisis por trade aisló el swap
 como el componente dominante: `data.db` tenía `-0,5 USD/lote/noche` para AUDCAD long, el
