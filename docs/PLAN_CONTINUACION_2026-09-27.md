@@ -186,10 +186,11 @@ tiene.
    siguen "PENDIENTE" en `PLAN_CONTINUACION_2026-09-02.md`, **sin cambio 25 días
    después**. Requieren sesión autenticada real del operador en la UI — no se pueden
    completar por agente sin credenciales/entorno.
-8. **G11-f**: el Strategy Tester del MCP demo devuelve `ok=false, run_id=0` — "GATE
-   OPERATIVO EXTERNO BLOQUEADO" en `phase_status.md` L301. Verificar si sigue vigente o
-   si quedó resuelto de pasada por el trabajo de hoy sobre `close_target_terminal` (no
-   confirmado, **requiere verificación explícita**, no asumir).
+8. ~~**G11-f**~~ **VERIFICADO 2026-09-27, sigue bloqueado, sin cambio**: `close_target_terminal`
+   (G13-68/72) toca un flujo de automatización totalmente distinto (Strategy Tester vía
+   `/config` de `run_operational_sqx_mt5_backtest.py`), no el MCP nativo de MT5 cuyo
+   `tester_run_backtest` es el que falla. Nada en el trabajo de hoy lo toca. Sigue
+   requiriendo que el operador deje operativo el Strategy Tester del VPS demo.
 9. **G12-00 "CIERRE DE UI/WS PENDIENTE"** (fase anterior, sigue formalmente abierta) y
    **G12 procedencia de pestañas mezclada** (`docs/g12_tabs_provenance_validation.md`):
    Portfolio/Riesgo/Auditoría/Dominical siguen sin selectores/etiquetas de procedencia
@@ -226,11 +227,11 @@ de mercado:
    operador pida retomarlo.
 7. **Precios sintéticos no realistas** en GDAXI/NDX/SPX500/US30 del seed (backlog L539) —
    cosmético, bajo impacto, solo importa si se usa el seed `full` para demos visuales.
-8. **Tabla `Baseline` nunca se crea** (backlog L586, "Pipeline: tabla Backtest vs
-   Forward"): ningún código del sistema crea nunca una fila `Baseline` — requeriría un
-   contrato de ingesta nuevo. Confirmar si esto sigue siendo cierto (podría haber
-   cambiado con G13-41 al persistir baselines por adjunto demo — **verificar antes de
-   asumir que sigue roto**).
+8. ~~**Tabla `Baseline` nunca se crea**~~ **RESUELTO, verificado 2026-09-27**: sí se crea.
+   2 filas reales en `stratos_operational` (`id=2`→bot 42, `id=3`→bot 43,
+   `source=BACKTEST`), obra de `import_archived_sqx_mt5_evidence.py` (G13-49). La entrada
+   de `backlog.md` (línea de G7) no se había reconciliado con la de línea 564 del mismo
+   fichero, que ya decía "RESUELTO EN CÓDIGO" — corregido.
 9. **TCA y Perfil de broker** (backlog L601): depende de v1.1 del EA reporter, sin
    consumidor todavía. Ligado al hueco de PARTE 9 de la spec (§2.3).
 10. **`ea_required_version`** (backlog L600): no existe el concepto de versión esperada
@@ -330,9 +331,10 @@ No es obligatorio seguir este orden exacto, pero minimiza dependencias cruzadas:
 3. **Rebuild del ejecutable** (§4.4.2): regenerar `dist/StratOS_Operational.exe` con el
    código actual, y valorar si conviene automatizarlo (CI o un hook) para no volver a
    acumular 29 commits de deuda una tercera vez.
-4. **Verificaciones puntuales antes de dar nada por hecho** (no requieren código, solo
-   lectura/confirmación): G11-f (¿sigue bloqueado el Tester del MCP demo?), tabla
-   `Baseline` (¿sigue sin crearse nunca?), `incubator_admission` (¿implementado ya o no?).
+4. ~~**Verificaciones puntuales**~~ **HECHAS 2026-09-27**: G11-f sigue bloqueado, sin
+   cambio (no relacionado con el trabajo de `close_target_terminal`). Tabla `Baseline`
+   resuelta (2 filas reales, ver §4.2.8). `incubator_admission` implementado desde
+   G13-30/G13-62 (`core/services/incubator_admission.py`), no era una pregunta abierta.
 5. **Deuda de código acotada, sin dependencia de tiempo de mercado**: §4.2.3
    (selectores de procedencia en el resto de pestañas), §4.2.5 (transición append-only
    para `USDJPYH1Lcity_5.15.110`).
