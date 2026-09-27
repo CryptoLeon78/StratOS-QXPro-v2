@@ -617,9 +617,15 @@ Las entradas siguientes preservan el detalle de hallazgos y decisiones previas. 
   necesita conocer el MISMO `now` que después usará el sweep para que RUNAWAY/DEAD se sitúen
   donde el test espera. Fijar el `now` de los sweeps a algo anclado a `FULL_HISTORY_END`
   sin tocar coherentemente `scenarios.py`/`derived_states.py` podría cambiar qué falla, no
-  arreglarlo. **Nota importante**: esto es un problema del entorno de desarrollo LOCAL
-  reseedeado a mano, no de CI (que siempre siembra `--profile ci`, con `history_end=now`,
-  inmune a esta deriva por diseño). Próxima sesión que lo retome: entrar en plan mode,
+  arreglarlo. **Corrección tras leer `.github/workflows/ci.yml`**: el job
+  `e2e-acceptance-full` SÍ reseeda `--profile full --reset` en cada corrida de CI con
+  `datetime.now(UTC)` real de ESE run — no está inmune por diseño como se afirmó primero.
+  Lo que sí evita CI es la acumulación de estado sucio local (siempre parte de una BD
+  vacía), pero no escapa a la misma deriva de calendario: cuanto más se aleje `now` real de
+  `FULL_HISTORY_END` (2026-06-30), más probable que `e2e-acceptance-full` empiece a fallar
+  en CI también, de forma aparentemente aleatoria según qué día se dispare el run. El job
+  `e2e-playwright` (perfil `ci`) sí es inmune de verdad, porque su `history_end=now` es
+  relativo por diseño. Próxima sesión que lo retome: entrar en plan mode,
   decidir un `now` de referencia único y consistente para el perfil `full` que cubra sweeps
   + generadores de escenario sin tocar el caso ya resuelto de heartbeats, con test de
   regresión que fije la fecha de siembra y verifique los 4 criterios de forma determinista.

@@ -27,8 +27,9 @@ bajo riesgo y entorno local al día (sigue `docs/PLAN_CONTINUACION_2026-09-27.md
   watchdog, auditoría) mientras el perfil `full` fija su historia en
   `FULL_HISTORY_END=2026-06-30` — cuanto más tiempo real pasa desde el último reseed local,
   más se desalinean. Afecta también al criterio 9 (Lyra×Phoenix), que hoy pasa pero es
-  igual de frágil. No es bug de CI (que siembra `--profile ci` con `history_end=now`,
-  inmune por diseño). No se ha tocado la base ni el código para arreglarlo — requiere una
+  igual de frágil. **`e2e-acceptance-full` de CI tampoco es inmune** (reseeda `full --reset`
+  con `now` real de cada run) — solo `e2e-playwright` (perfil `ci`, `history_end=now`) lo
+  es de verdad. No se ha tocado la base ni el código para arreglarlo — requiere una
   unidad propia con plan mode (toca `seed.py`/`derived_states.py`/`scenarios.py` de forma
   coherente sin romper el `now` fresco deliberado de los heartbeats). Suite completa:
   685 passed / 3 failed en 111s.
