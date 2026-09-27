@@ -699,3 +699,42 @@ Fase nueva, fuera del plan original G0-G9 (proyecto ya completo tras G9) — ini
   `spread_sqx`) dice que si, fail-closed. Cambiarlo (p. ej. aceptar MT5-en-vivo como
   autoritativo cuando difiere de una web marcada como conocida-desactualizada) es una
   decision de politica de negocio, no un bug -- no se ha tocado sin autorizacion explicita.
+
+- **[G13-71] Decision del operador (2026-09-27): MT5 en vivo manda sobre una web ya marcada
+  como conocida-desactualizada.** Implementado como registro explicito, no como excepcion
+  oculta en el codigo: `politica_spread.json::darwinex_web_swap_desactualizado` (semilla en
+  `spread_sqx/spread_sqx/config.py::POLITICA_BASE`), un diccionario `{simbolo: {motivo,
+  verificado}}` que el usuario edita a mano, igual que el resto de `politica_spread.json`.
+  Cada entrada exige su propia evidencia independiente de que MT5 es el lado correcto (no
+  basta con "MT5 y la web no coinciden"); no caduca sola -- si Darwinex corrige su web, la
+  entrada se queda pero deja de tener efecto, porque el override solo actua cuando la web
+  sigue en desacuerdo. Sembrada con `AUDCAD` (la evidencia de G13-67/G13-70: web
+  `swapLong=2.7/swapShort=-8` CAD, exactamente la mitad de MT5 en vivo `5.4/-16` CAD,
+  confirmado por reconciliacion de trades reales).
+
+  `economia.py::diagnostico()` gana el parametro `web_conocida_desactualizada=False`
+  (retrocompatible: todas las llamadas existentes, sin tocar, siguen fail-closed). Cuando es
+  `True` y la web no coincide, `swap_state` pasa a ser `mt5_state` en vez de `blocked`; un
+  mismatch real del lado MT5 (`mt5_state='mismatch'`) sigue bloqueando igual, el override
+  nunca encubre eso. El resultado expone siempre `web_override_applied` para que quede
+  constancia de cuando se uso. `cost_gate.py::cross_validate_swap_against_live_sources`
+  ahora importa tambien `spread_sqx.config`, resuelve `symbol in
+  darwinex_web_swap_desactualizado` y se lo pasa a `diagnostico()`; si la lectura de la
+  politica falla (fichero corrupto, etc.) se degrada a `False` -- fail-closed por defecto,
+  nunca se asume el override por un error de lectura.
+
+  9 tests nuevos entre `spread_sqx/tests_spread/test_economia.py` (override real: aplica,
+  no aplica si la web ya coincide, no encubre un mismatch de MT5) y
+  `capa2_candidate_selector/test_cost_gate.py` (busqueda de la politica por simbolo,
+  simbolo no listado, `web_override_applied` en el resultado, degradacion fail-closed si la
+  politica no se puede leer). Suites completas verificadas: 174/174 (`spread_sqx`), 54/54
+  (`capa2_candidate_selector`), 268/268 (`StratOS-QXPro-v2/scripts`).
+
+  **Recalculado el veredicto de AUDCAD con la politica ya aplicada** (cross-check real
+  contra MT5 en vivo + evidencia de costes V4 ya sellada de la corrida
+  `20260927T111043Z_ed75e0ea14f9`, sin relanzar el Tester): `mt5_state=ok`,
+  `web_override_applied=true`, `status=PROVEN`, `reasons=[]`, `seal_allowed=True`,
+  cobertura de trades 92,09%. El manifiesto sellado de esa corrida sigue sin tocarse
+  (inmutable); este es un recalculo en memoria, no una re-firma de esa evidencia. Para un
+  sello oficial `PROVEN` habria que re-ejecutar el lanzador de punta a punta con el codigo
+  ya corregido -- pendiente de que el operador lo autorice si lo quiere formalizado.
