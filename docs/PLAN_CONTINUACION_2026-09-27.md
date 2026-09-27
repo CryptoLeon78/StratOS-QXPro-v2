@@ -351,9 +351,15 @@ No es obligatorio seguir este orden exacto, pero minimiza dependencias cruzadas:
 1. **Repo anidado**: convertir a submódulo git. **Ejecución pendiente** (§4.3.2 actualizado)
    — es cirugía de git no trivial (`git rm -r --cached` + `git submodule add` en el repo
    padre `SQX_144_Full2`), se hace como unidad propia después de esta ronda de docs.
-2. **Rebuild del exe**: automatizar (CI o hook). **Pendiente de implementar** — añadir un
-   step al workflow de CI de `StratOS-QXPro-v2` que regenere `dist/StratOS_Operational.exe`
-   en cada push a `main`, o un hook local equivalente.
+2. **Rebuild del exe**: automatizar (CI o hook). **Implementado, sin verificar en Actions
+   real**: job nuevo `build-desktop-exe` en `.github/workflows/ci.yml` (`windows-latest`,
+   solo en push a `main`, no en PR). El launcher solo importa stdlib, así que el job no
+   necesita instalar `core-engine`/`api-gateway`, solo PyInstaller. No commitea el binario
+   (`dist/` sigue en `.gitignore`, correcto) — lo sube como artifact descargable de la
+   corrida, con smoke test `--help` antes de subirlo. YAML validado localmente
+   (`yaml.safe_load`) y el mismo comando PyInstaller ya se probó a mano en esta sesión con
+   éxito, pero **no se ha visto correr en GitHub Actions real** — primera cosa a confirmar
+   la próxima vez que se abra este repo.
 3. **Criterio 9 e2e (Lyra×Phoenix)**: retomarlo ahora. **Investigado y causa raíz
    confirmada en código, sin arreglar (ver `docs/backlog.md` G13-74)**: no es solo el
    criterio 9 — es un mecanismo de deriva de calendario compartido con los criterios 6/7/8,

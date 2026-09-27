@@ -508,3 +508,43 @@ jobs:
         run: |
           cd core-engine
           pytest tests/e2e/test_g8_acceptance_criteria.py -v
+
+  # G13-73/plan §7 pregunta 2: dist/StratOS_Operational.exe llego a ir 29
+  # commits atrasado dos veces por depender de que alguien lo recompilara a
+  # mano (scripts/build_stratos_operational_exe.ps1). Solo push a main (no
+  # PR): es distribucion, no gate de merge, y windows-latest es mas caro que
+  # ubuntu-latest. El launcher (scripts/stratos_operational_launcher.py) solo
+  # importa stdlib -- no hace falta instalar core-engine/api-gateway, solo
+  # PyInstaller. No se commitea el binario (dist/ esta en .gitignore, con
+  # razon): se sube como artifact de la corrida, descargable desde Actions.
+  build-desktop-exe:
+    runs-on: windows-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyInstaller
+        run: python -m pip install --upgrade pip pyinstaller
+
+      - name: Build StratOS_Operational.exe
+        run: |
+          python -m PyInstaller --noconfirm --clean --onefile --name StratOS_Operational `
+            --distpath dist `
+            --workpath runtime/operational/pyinstaller-work `
+            --specpath runtime/operational/pyinstaller-spec `
+            scripts/stratos_operational_launcher.py
+
+      - name: Smoke test (--help, sin Docker/MT5)
+        run: .\dist\StratOS_Operational.exe --help
+
+      - name: Upload exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: StratOS_Operational-exe
+          path: dist/StratOS_Operational.exe
+          retention-days: 30
