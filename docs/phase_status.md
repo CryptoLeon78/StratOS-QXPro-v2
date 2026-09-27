@@ -4,13 +4,22 @@
 
 ## Fase activa: G13 — Stack operacional real/incubadora/análisis — FUNDACIÓN IMPLEMENTADA; GATES EXTERNOS ABIERTOS
 
-**G13-67 — Causa raíz real de G13-59/61 encontrada: swap de AUDCAD invertido de signo,
-2026-09-27:** el fix del rollover no bastó — el diagnóstico siguió bloqueado con un
-delta mayor. Análisis por trade aisló el swap como el componente dominante: `data.db`
-tenía `-0,5 USD/lote/noche` para AUDCAD long, el real medido en MT5/trades es
-`+3,93`. Corregidos en `data.db` 15 instrumentos Darwinex (verificados contra MT5 en
-vivo + web pública), exóticos/acciones/ETF sin tocar. G13-59/61 sigue pendiente de
-re-lanzar con la config ya corregida. Detalle en `ASSUMPTIONS.md` G13-67 y
+**G13-67 — Causa raíz real de G13-59/61 encontrada y corregida: swap de AUDCAD invertido
+de signo, 2026-09-27:** el fix del rollover no bastó. Análisis por trade aisló el swap
+como el componente dominante: `data.db` tenía `-0,5 USD/lote/noche` para AUDCAD long, el
+real medido en MT5/trades es `+3,93`. Corregidos en `data.db` 15 instrumentos Darwinex
+(verificados contra MT5 en vivo + web pública), exóticos/acciones/ETF sin tocar.
+**Re-lanzado y confirmado**: delta MT5−SQX cae de 759,34 a 125,57 USD (−83 %) tras el
+fix. Gate sigue `BLOQUEADO` (exige exactitud al céntimo en el 100 % de la muestra;
+queda comisión sin ajustar + variación diaria del swap real). **Actualización — gate relajado (política V4) y AUDCAD ahora `PROVEN`:** el operador
+señaló que exigir exactitud al céntimo en el 100 % de los trades era irreal. Nueva
+política en `compare_sqx_vs_mt5.py`/`cost_gate.py`: tolerancia híbrida por trade (suelo
+2,00 USD o 30 % del coste, lo mayor) + cobertura mínima del 90 % de trades dentro de
+tolerancia (no el 100 %), calibrada con los 190 trades reales de la corrida. Recalculado
+sobre la evidencia ya sellada de AUDCAD (sin relanzar el Tester): `PROVEN`, cobertura
+92,09 %. 49/49 + 42/42 tests verdes en ambas apps. Detalle completo, incluidos dos
+hallazgos operativos reales (guardado fallido del Retest, y un problema no resuelto de
+auto-relanzamiento del terminal MT5 al cerrarlo) en `ASSUMPTIONS.md` G13-67 y
 `Apps_entorno_SQX/spread_sqx/CHANGELOG_spread_sqx.md`.
 
 **G13-66 — Graveyard fecha de inicio, parcialmente resuelto, 2026-09-27:** la tabla de

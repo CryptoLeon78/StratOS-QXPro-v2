@@ -514,3 +514,73 @@ Fase nueva, fuera del plan original G0-G9 (proyecto ya completo tras G9) — ini
   `Apps_entorno_SQX/spread_sqx/CHANGELOG_spread_sqx.md`. G13-59/61 sigue sin re-lanzarse
   con la config corregida — pendiente de una nueva corrida diagnóstica cuando el
   operador libere el terminal de nuevo.
+
+  **Addendum 2026-09-27, mismo día**: el primer Retest tras corregir el swap dio un CSV
+  *byte-idéntico* al anterior (mismo SHA-256), y `cost_gate.py` seguía leyendo `-0,5/-6,3`
+  desde `lastSettings.xml` dentro del `.sqx` — descartada la hipótesis de caché de sesión
+  de SQX (el operador confirmó que cerró y reabrió SQX antes de ese Retest). Causa real:
+  **los ficheros re-testeados no se habían guardado correctamente** la primera vez; tras
+  guardarlos de nuevo, el mismo trade de 4 noches pasó de `-1,60` a `+3,58` de
+  Comm/Swap — coincide con lo esperado (comisión `-1,00` + swap `6×0,764≈+4,58`). No se
+  concluye nada sobre si SQX hornea el swap en el `.sqx` al construir vs. relee `data.db`
+  en cada Retest: la causa fue un guardado fallido, no un comportamiento de caché de SQX.
+
+  **Segundo addendum, mismo día**: el relanzamiento con el CSV ya verificado falló al
+  intentar cerrar limpiamente el terminal MT5 objetivo (`close_target_terminal`, timeout
+  30s) pese a que el operador lo había cerrado a mano justo antes. Causa:
+  `MetaTrader5.initialize()` (usado en las consultas `symbol_info` de esta sesión, y
+  también internamente por `compare_sqx_vs_mt5.py`) **lanza el terminal automáticamente
+  si no encuentra ninguno abierto** — un efecto secundario no documentado hasta ahora
+  de la librería, no algo que este agente disparara deliberadamente. El terminal recién
+  auto-lanzado no estaba listo a tiempo para aceptar `CloseMainWindow()` en el plazo de
+  30s. Verificado sano en un segundo chequeo (`connected=True`, `trade_allowed=False`) y
+  relanzado con éxito de arranque en el segundo intento. **Para próximas sesiones**:
+  cualquier llamada a `MetaTrader5.initialize()` sin verificar antes si el terminal ya
+  está abierto puede lanzar uno nuevo sin avisar; comprobar `tasklist`/proceso antes de
+  asumir que una consulta de solo lectura no tiene efecto en el sistema real.
+
+  **Tercer addendum, mismo día — resultado final:** dos intentos más con
+  `--manage-backtest-terminal` fallaron en el mismo paso de cierre automático (PID nuevo
+  de `terminal64.exe` cada vez; ni `compare_sqx_vs_mt5.py` ni el lanzador tocan la API de
+  MetaTrader5 antes de ese punto, así que la causa exacta del re-lanzamiento del terminal
+  sigue sin identificarse — no se encontró tarea programada de Windows implicada).
+  Resuelto evitando esa ruta frágil: el operador cerró el terminal a mano y se lanzó
+  **sin** `--manage-backtest-terminal` (manifiesto
+  `runtime/operational/backtests_diagnostic/20260927T093208Z_ed75e0ea14f9/`). El swap
+  corregido (`long=3,82`) sí se aplicó esta vez: delta MT5−SQX cae de **759,34 a 125,57
+  USD** (−83 %), delta máxima por trade de 6,18 a 2,19. El gate sigue `BLOQUEADO`
+  (177/177 trades con alguna discrepancia dentro de la tolerancia de 0,01 USD/trade) —
+  el resto es probablemente el componente de comisión (SQX −1,00 vs MT5 real ≈−0,69 por
+  trade de 0,2 lotes) más la variación día a día del swap real ya conocida; un valor de
+  swap fijo no puede igualar al céntimo un swap real que fluctúa a diario.
+
+  **Cuarto addendum — el gate en sí era irreal, corregido (política V4, 2026-09-27):**
+  el operador señaló que exigir exactitud al céntimo en el 100 % de los trades
+  emparejados era irreal (`PAIRED_TRADE_COST_TOTALS_CENTS_V2/V3`, tolerancia 0,01 USD,
+  `trades_with_discrepancy == 0`). Calibrado con los 190 trades reales de esta misma
+  corrida: una tolerancia puramente relativa no sirve (los trades de solo comisión, con
+  coste ~0,5-1 USD, disparan un % absurdo por tener un denominador pequeño — P90 llegaba
+  al 145 %). Adoptada una tolerancia híbrida por trade (`max(suelo, % del coste)`) más una
+  cobertura mínima de trades dentro de tolerancia (no el 100 %):
+  `PER_TRADE_TOLERANCE_FLOOR_USD=2.00`, `PER_TRADE_TOLERANCE_RELATIVE=0.30`,
+  `MIN_MATCHED_COVERAGE=0.90` — floor=2,00/pct=30% cubre exactamente el 90 % (171/190) de
+  la muestra calibrada, el extremo bajo del rango que autorizó el operador. Implementado en
+  `SQX_vs_MT5_Panel/compare_sqx_vs_mt5.py::construir_evidencia_costes` (política
+  `PAIRED_TRADE_COST_TOTALS_CENTS_V4_HYBRID_TOLERANCE_COVERAGE`) y replicado en
+  `capa2_candidate_selector/cost_gate.py::assess_cost_comparability` (defensa en
+  profundidad: exige `matched_trade_coverage >= min_matched_coverage_required`
+  explícitamente, no solo confía en el `aggregate_match` ya calculado). 6 tests
+  actualizados/nuevos entre ambos módulos (2 nuevos en `test_compare_sqx_vs_mt5.py`, 2
+  fixtures + 1 nuevo en `test_cost_gate.py`, 3 fixtures en `tests/test_sqx_csv_dedup.py`
+  con deltas recalibrados para seguir excediendo la nueva tolerancia donde el test exige
+  bloqueo). Suite completa: 49/49 (`SQX_vs_MT5_Panel`) + 42/42 (`capa2_candidate_selector`).
+
+  **Recalculado sobre los datos ya sellados de AUDCAD** (sin relanzar el Tester real, la
+  evidencia MT5/SQX no cambia, solo la política de interpretación):
+  `status=PROVEN`, `comparable=True`, cobertura real 92,09 % (163/177 trades dentro de
+  tolerancia). El `run-manifest.json`/`cost-reconciliation.json` sellados de esa corrida
+  NO se reescriben (evidencia inmutable, computada bajo V3) — quedan como constancia de
+  que en el momento de esa corrida real el código aún no tenía la política V4. Para un
+  sello oficial `PROVEN`/`BACKTEST_VALIDATED` haría falta re-ejecutar el pipeline completo
+  con el código ya corregido, que ahora lo produciría de forma nativa — pendiente de que
+  el operador decida si formalizarlo.
