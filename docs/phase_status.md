@@ -4,6 +4,24 @@
 
 ## Fase activa: G13 — Stack operacional real/incubadora/análisis — FUNDACIÓN IMPLEMENTADA; GATES EXTERNOS ABIERTOS
 
+**G13-67 — Causa raíz real de G13-59/61 encontrada: swap de AUDCAD invertido de signo,
+2026-09-27:** el fix del rollover no bastó — el diagnóstico siguió bloqueado con un
+delta mayor. Análisis por trade aisló el swap como el componente dominante: `data.db`
+tenía `-0,5 USD/lote/noche` para AUDCAD long, el real medido en MT5/trades es
+`+3,93`. Corregidos en `data.db` 15 instrumentos Darwinex (verificados contra MT5 en
+vivo + web pública), exóticos/acciones/ETF sin tocar. G13-59/61 sigue pendiente de
+re-lanzar con la config ya corregida. Detalle en `ASSUMPTIONS.md` G13-67 y
+`Apps_entorno_SQX/spread_sqx/CHANGELOG_spread_sqx.md`.
+
+**G13-66 — Graveyard fecha de inicio, parcialmente resuelto, 2026-09-27:** la tabla de
+histórico de transiciones que G10 daba por inexistente (`docs/adr/0006`) en realidad se
+creó en G11 (`PipelinePhaseTransition`) sin que nadie revisitara el ADR. `GET
+/api/v1/cemetery` ahora expone `entered_pipeline_at` cruzando con esa tabla;
+`CemeteryCard.tsx` muestra el rango completo cuando existe, `None` declarado en caso
+contrario (bot admitido antes de G11, o sembrado sin pasar por F1-F7). Sin cambio visual
+en la captura de referencia (el seed de demo no crea `PipelineCandidate`). Detalle en
+`ASSUMPTIONS.md` G13-66.
+
 **A48 cerrado, 2026-09-27:** los dos consumidores de solo-lectura que quedaban sin el
 filtro de cuenta del incidente A16 (`record_operational_backtest.py::resolve_external_magic`,
 `report_history_attribution.py::classify`) ya lo aplican; `report_history_attribution.py`

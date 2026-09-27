@@ -239,7 +239,7 @@ Fase nueva, fuera del plan original G0-G9 (proyecto ya completo tras G9) — ini
 - **[G10-06]** `services/fx.py` — conversión REAL a EUR de exposición vía `FxRate` (esquema desde G1, nunca poblada por nada del sistema hasta ahora). `latest_rate()` sin inversión implícita; `eur_converted_pnl()` prueba directa y luego inversa, NUNCA asume 1:1 — una divisa sin tasa (en ninguna dirección) se excluye del total, reportada en `unconverted_currencies`. `GET /risk/exposure/eur`. **Caveat honesto**: ningún proceso puebla `FxRate` todavía — el servicio funciona correctamente (probado con datos sembrados a mano) pero en producción hoy no convertiría nada real.
 - **[G10-07]** `services/news.py::trades_in_news_window()` — retrospectivo, cruza `Trade` YA ejecutados contra las ventanas de `NewsEvent` por la divisa del símbolo (`symbol_currency`) — distinto de `routers/news.py::_shield_rows` (mira hacia adelante vía `Bot.market`). `GET /news/shield/trades?days=30` (default sembrado en `thresholds.seed.json`, mismo patrón que `news_shield_default_hours`).
 - **[G10-08]** 5 endpoints aditivos (sin fórmula nueva, solo exponer datos ya reales): `GET /bots/{id}/open-positions` · `GET /risk/montecarlo/history` (todas las runs, no solo la última — la fecha de firma `ts` ya estaba desde G5) · `KillSwitchStatusResponse.episode_max_dd_pct`/`episode_duration_seconds` (`services/killswitch_sweep.py::current_episode_stats()`, TDD real: episodio = racha ininterrumpida de eventos `level>0` desde el último desescalado a 0) · `AccountResponse.equity`/`balance`/`free_margin`/`margin_level` (`EquitySnapshot` más reciente por `account_id`, `DISTINCT ON` de Postgres).
-  - **Investigado y NO resuelto, honesto**: "Graveyard fecha de inicio" — `PipelineCandidate.entered_phase_at` se SOBRESCRIBE en cada promoción de fase (`routers/pipeline.py::promote_candidate`, línea verificada), no es histórico; para un bot ya archivado no representa su entrada a F1. No existe tabla de histórico de transiciones de pipeline (a diferencia de `SemaphoreTransition`/`UmsPhaseLog`, que sí son append-only). `Bot.created_at` descartado como sustituto (no todos los bots pasan por F1-F7). `docs/adr/0006` actualizado con el hallazgo, sigue vigente.
+  - **Investigado y NO resuelto, honesto**: "Graveyard fecha de inicio" — `PipelineCandidate.entered_phase_at` se SOBRESCRIBE en cada promoción de fase (`routers/pipeline.py::promote_candidate`, línea verificada), no es histórico; para un bot ya archivado no representa su entrada a F1. No existe tabla de histórico de transiciones de pipeline (a diferencia de `SemaphoreTransition`/`UmsPhaseLog`, que sí son append-only). `Bot.created_at` descartado como sustituto (no todos los bots pasan por F1-F7). `docs/adr/0006` actualizado con el hallazgo, sigue vigente. **Superado por G13-66**: esa tabla se creó en G11 sin que este hallazgo se revisitara.
 - **[G10-09]** `services/ums.py::monthly_evolution_metrics()` — trades cerrados + retorno_pct + max_dd_pct del último mes sobre datos reales (`Trade` + `real_portfolio_equity_curve` de G5), mezclado en el dict `metrics` de `confirm_advance`/`check_automatic_downgrade`. Sin equity suficiente en la ventana, `retorno_pct`/`max_dd_pct` quedan en `None`, no se inventan.
 - **[G10-10]** `GET /audit/continuity-gaps` — `compute_send_continuity()` ya calculaba `gaps` con detalle por tramo desde G5, solo `coverage_pct` se exponía (vía `/execution/heartbeat`). Wiring puro, sin fórmula nueva.
 - **[G10-11]** `services/benchmark.py` — "¿Añade valor real el portfolio?": `portfolio_monthly_returns()` (EquitySnapshot real) + `load_sp500_monthly()` + `compare_to_benchmark()` (CAGR/alfa/beta/t-stat vía `ols_alpha_beta` de G2 + Information Ratio/Batting Average/Up-Down capture, diseño propio, definiciones estándar de la industria). `GET /portfolio/benchmark`. `Settings.benchmark_csv_path` nuevo (`Path | None`, `None` → resuelve contra la raíz del repo — deliberadamente NO un default ya resuelto, para que un env var vacío no se coercione a `Path("")` = cwd; `benchmark_provider`/`benchmark_symbol` ya existían desde G0/G1 sin consumidor real). **Caveat heredado de G8** (`scripts/tests/test_sp500_benchmark.py`): el CSV solo tiene datos de mercado reales para 2021, el resto es sintético — comparar contra el seed real puede dar correlación espuria, no es un bug del cálculo.
@@ -475,3 +475,42 @@ Fase nueva, fuera del plan original G0-G9 (proyecto ya completo tras G9) — ini
   el hueco de plantilla que probablemente permitió pegar el ID equivocado sin ningún aviso;
   ahora incluye el bloque completo con el mismo comentario de advertencia que
   `.env.example` ("nunca usar grupos") más una nota explícita de este incidente.
+
+- **[G13-66] Graveyard fecha de inicio: parcialmente resuelto — la tabla que faltaba en
+  G10 ya existía desde G11:** `PipelinePhaseTransition` (`core/db/models/pipeline.py`,
+  docstring "creada desde G11; no inventa pasado") registra append-only cada transición
+  de fase, incluida el alta a F1 con `from_phase IS NULL` (escrita una única vez en
+  `create_candidate`, `routers/pipeline.py`). Nadie revisitó `docs/adr/0006`/backlog tras
+  crearla, así que el hallazgo de G10 ("no existe tabla de histórico") quedó
+  documentado como vigente cuando ya no lo era. `GET /api/v1/cemetery`
+  (`routers/cemetery.py`) ahora cruza `CemeteryEntry.bot_id` → `PipelineCandidate.id` →
+  esa transición y expone `entered_pipeline_at`; `CemeteryCard.tsx` muestra
+  `entered_pipeline_at → retired_at` cuando existe. Sigue `None` (ausencia declarada,
+  nunca `Bot.created_at`) para un bot admitido antes de G11 o sembrado sin pasar por
+  F1-F7 — mismo criterio que la versión original del ADR. El seed de demo
+  (`scripts/seed_lib/graveyard.py`) no crea `PipelineCandidate` para sus 9 lápidas, así
+  que la captura de referencia no cambia. 3 tests nuevos en `test_cemetery.py`; suite
+  completa `core-engine` verificada tras el cambio. `docs/adr/0006` actualizado.
+
+- **[G13-67] G13-59/61 costes: el rollover no era la causa raíz — el swap de AUDCAD tenía
+  el signo invertido y estaba ~8x infravalorado:** tras el fix del rollover (G13-65 en
+  `spread_sqx`, no confundir con esta entrada), se relanzó la corrida diagnóstica de
+  `AUDCADH4L_ForexMinorLateral_Strategy 2.92.87` (`runtime/operational/backtests_diagnostic/
+  20260926T235350Z_28e633a9a3f7/`) y siguió `BLOQUEADA`, con un delta mayor que antes
+  (759,34 USD, 177/177 trades discrepantes). Diagnóstico por trade emparejando
+  `sqx-trades.csv` contra `mt5-deals.csv` de esa misma corrida: aislando los trades sin
+  noche (solo comisión) de los de 4 noches (dominados por swap), el swap real medido en
+  MT5 para AUDCAD long es **+3,93 USD/lote/noche**, mientras `data.db` tenía
+  configurado **-0,5** — signo invertido y ~8x infravalorado. La comisión también
+  difiere (SQX -1,00 vs MT5 real -0,69 por trade de 0,2 lotes) pero es un componente
+  menor.
+
+  Verificado con MT5 en vivo (cuenta real Darwinex-Live) y cruzado contra la web pública
+  de Darwinex; corregidos en `data.db` 15 instrumentos (AUDCAD, AUDJPY, AUDUSD, CADJPY,
+  CHFJPY, EURJPY, EURUSD, GBPJPY, GBPUSD, NDX, NI225, NZDJPY, NZDUSD, XAGUSD, XAUUSD),
+  deliberadamente sin tocar exóticos (MXN/NOK/SEK/TRY) ni acciones/ETF. Detalle completo,
+  incluida la corrección de un bug real descubierto en el proceso (`MetaTrader5.symbol_info()`
+  devuelve `tick_value=0` para un símbolo no seleccionado en Market Watch) en
+  `Apps_entorno_SQX/spread_sqx/CHANGELOG_spread_sqx.md`. G13-59/61 sigue sin re-lanzarse
+  con la config corregida — pendiente de una nueva corrida diagnóstica cuando el
+  operador libere el terminal de nuevo.
