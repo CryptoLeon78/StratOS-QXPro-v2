@@ -158,6 +158,52 @@ def test_manifest_seal_is_deterministic() -> None:
     assert seal_payload({"b": 2, "a": 1}) == seal_payload({"a": 1, "b": 2})
 
 
+def test_ensure_target_terminal_open_does_nothing_if_already_running(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+
+    class OpenTarget:
+        def terminal_abierto(self, _terminal: str) -> bool:
+            return True
+
+    def fake_run(command: list[str], **_kwargs: object) -> None:
+        calls.append(command)
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+
+    runner.ensure_target_terminal_open(OpenTarget(), r"C:\MT5\terminal64.exe")
+
+    assert calls == []
+
+
+def test_ensure_target_terminal_open_launches_via_start_process_if_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # G13-72: MetaTrader5.initialize() auto-lanza el terminal si no encuentra
+    # ninguno abierto, y ese lanzamiento interno resulto no ser cerrable por
+    # automatizacion despues. Lanzarlo aqui explicitamente (Start-Process) hace
+    # que initialize() solo se conecte a una instancia ya abierta.
+    calls: list[list[str]] = []
+    sequence = iter([False, True])
+
+    class ClosedThenOpenTarget:
+        def terminal_abierto(self, _terminal: str) -> bool:
+            return next(sequence)
+
+    def fake_run(command: list[str], **_kwargs: object) -> None:
+        calls.append(command)
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    monkeypatch.setattr(runner.time, "sleep", lambda _seconds: None)
+
+    runner.ensure_target_terminal_open(ClosedThenOpenTarget(), r"C:\MT5\terminal64.exe")
+
+    assert len(calls) == 1
+    assert "Start-Process" in calls[0][4]
+    assert calls[0][-1] == r"C:\MT5\terminal64.exe"
+
+
 def test_target_terminal_management_requests_a_clean_close_without_force(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[list[str]] = []
 

@@ -68,9 +68,9 @@ def resolve_symbol_for_ticks(config: Any, cfg: dict[str, Any], symbol: str) -> s
     return next((names[candidate.casefold()] for candidate in candidates if candidate.casefold() in names), None)
 
 
-CLOSE_ATTEMPT_TIMEOUT_S = 30
+CLOSE_ATTEMPT_TIMEOUT_S = 60
 CLOSE_SETTLE_CHECK_S = 3
-CLOSE_MAX_ATTEMPTS = 3
+CLOSE_MAX_ATTEMPTS = 5
 
 
 def close_target_terminal(compare: Any, terminal_exe: str) -> bool:
@@ -118,6 +118,44 @@ def close_target_terminal(compare: Any, terminal_exe: str) -> bool:
         if not compare.terminal_abierto(terminal_exe):
             return True
     return False
+
+
+OPEN_WAIT_TIMEOUT_S = 30
+
+
+def ensure_target_terminal_open(compare: Any, terminal_exe: str) -> None:
+    """Launches the target terminal via ``Start-Process`` if it isn't running yet.
+
+    G13-72 (ver ASSUMPTIONS.md): un terminal que ``MetaTrader5.initialize()``
+    auto-lanza internamente no responde a un cierre posterior desde esta
+    automatización -- ni ``CloseMainWindow()`` por PowerShell, ni una
+    pulsación sintética real de Alt+F4 o un clic en su botón de cierre (los
+    tres probados en la corrida diagnóstica de AUDCAD del 2026-09-27), aunque
+    un cierre manual del operador siempre funciona al instante. La
+    explicación más verosímil es una frontera de sesión/integridad entre el
+    proceso que la librería lanza internamente y el resto de esta
+    automatización, no una cuestión de tiempos de espera.
+
+    Lanzarlo aquí explícitamente con ``Start-Process`` -- la misma vía con la
+    que un cierre por automatización sí funcionó en pruebas anteriores de esa
+    misma sesión -- hace que ``MetaTrader5.initialize()`` se limite a
+    *conectarse* (attach) a una instancia ya abierta en vez de lanzar una
+    nueva por su cuenta, para que ``close_target_terminal`` pueda cerrarla
+    después con normalidad.
+    """
+    if compare.terminal_abierto(terminal_exe):
+        return
+    subprocess.run(
+        ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+         "Start-Process -FilePath $args[0]", terminal_exe],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
+    )
+    deadline = time.monotonic() + OPEN_WAIT_TIMEOUT_S
+    while not compare.terminal_abierto(terminal_exe) and time.monotonic() < deadline:
+        time.sleep(0.25)
 
 
 def sqx_databank_identity(sqx_path: Path, sqx_root: Path) -> tuple[str, str, str]:
@@ -251,6 +289,18 @@ def parse_args() -> argparse.Namespace:
         help="Solicita el cierre limpio de la instancia objetivo antes del Tester.",
     )
     parser.add_argument("--launch", action="store_true", help="Ejecuta MT5; por defecto sólo preflight.")
+    parser.add_argument(
+        "--skip-swap-live-check",
+        action="store_true",
+        help=(
+            "Omite el cross-check en vivo del swap contra MT5/Darwinex (G13-69). Usar solo "
+            "cuando ya se ha verificado aparte en la misma sesión operativa: G13-72 documenta "
+            "que abrir el terminal para esta consulta puede dejarlo sin poder cerrarse por "
+            "automatización una vez conectado a la cuenta en vivo, exigiendo cierre manual del "
+            "operador cada vez. Queda registrado en el manifiesto sellado "
+            "(swap_live_check_skipped=true), nunca en silencio."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -307,19 +357,22 @@ def main() -> None:
     # meses invertido de signo y ~8x infravalorado en data.db sin que nada lo
     # detectara antes de gastar horas en el Tester real. Validarlo en vivo contra
     # MT5 + la web publica de Darwinex (economia.py/darwinex.py, ver ASSUMPTIONS
-    # G13-67/G13-68) solo tiene sentido para un lanzamiento real -- el preflight
-    # nunca debe tocar el terminal (comentario de `aplicar_config` mas abajo).
-    # Como esta consulta puede relanzar el terminal si no encuentra ninguno
-    # abierto (mismo efecto documentado en G13-68), se cierra de nuevo con el
-    # mismo close_target_terminal ya endurecido antes de proceder.
+    # G13-67/G13-68/G13-72) solo tiene sentido para un lanzamiento real -- el
+    # preflight nunca debe tocar el terminal (comentario de `aplicar_config` mas
+    # abajo). Se lanza aqui explicitamente con Start-Process (ensure_target_
+    # terminal_open) antes de que MetaTrader5.initialize() lo haga por su cuenta;
+    # no es la causa raiz de G13-72 (probado sin efecto en la corrida real del
+    # 2026-09-27) pero tampoco hace dano. --skip-swap-live-check evita abrir el
+    # terminal aqui si ya se verifico aparte en la misma sesion operativa.
     swap_live_check = None
-    if args.launch:
+    if args.launch and not args.skip_swap_live_check:
         try:
             sqx_swap_setup = sqx_cost_setup(sqx_path)
         except (OSError, ValueError) as exc:
             raise SystemExit(f"no se pudo leer el swap SQX para la validación en vivo; queda WITHHELD: {exc}") from exc
         live_symbol = resolve_symbol_for_ticks(config, cfg, sqx_swap_setup["symbol"])
         if live_symbol:
+            ensure_target_terminal_open(compare, terminal["exe"])
             swap_live_check = cross_validate_swap_against_live_sources(
                 live_symbol, sqx_swap_setup["swap"], terminal=terminal,
             )
@@ -408,6 +461,7 @@ def main() -> None:
         },
         "range": {"from": since, "to": until, "real_ticks_required": True},
         "cost_audit": cost_audit,
+        "swap_live_check_skipped": bool(args.skip_swap_live_check),
         "seal_eligible": bool(cost_audit["seal_allowed"]),
         "strategy": {
             "symbol": symbol,
