@@ -652,5 +652,50 @@ Fase nueva, fuera del plan original G0-G9 (proyecto ya completo tras G9) — ini
   `build_audit` en sus tres variantes). Documentado en `docs/backlog.md` como
   implementado. Suites completas verificadas: 49/49 (`capa2_candidate_selector`), 268/268
   (`StratOS-QXPro-v2/scripts`). No verificado todavía contra un swap real en vivo dentro
-  del flujo completo del lanzador (`--launch` real) — la próxima corrida operacional real
+  del flujo completo del lanzador (`--launch` real) -- la próxima corrida operacional real
   de AUDCAD (pendiente, ver G13-67) ejercitará esta ruta por primera vez de punta a punta.
+
+- **[G13-70] La corrida real de AUDCAD (2026-09-27, manifiesto
+  `20260927T111043Z_ed75e0ea14f9`) sello `PROVEN` con un bug real en el gate:** el venv de
+  `StratOS-QXPro-v2` no tenia instalado `MetaTrader5`, asi que
+  `cross_validate_swap_against_live_sources` devolvio `state=unavailable` en el preflight
+  -- correctamente registrado en `swap_live_cross_check` del audit inicial. Pero
+  `finalize_with_empirical_observation()` (el resellado posterior al Tester real, que es
+  el que fija el veredicto que cuenta) reconstruye `assessment` desde cero via
+  `assess_cost_comparability()` sin volver a aplicar el bloqueo de G13-69: el manifiesto
+  sello `status=PROVEN`/`seal_allowed=True` pese a que el swap en vivo nunca se confirmo.
+  Recalculado en memoria contra la evidencia ya sellada (sin reescribirla): con el fix,
+  ese mismo manifiesto habria dado `BLOCKED`.
+
+  Corregido extrayendo la logica de bloqueo a `_apply_swap_live_check(assessment,
+  swap_live_check)`, reutilizada tanto por `build_audit()` como por
+  `finalize_with_empirical_observation()` (que ahora lee `audit.get("swap_live_cross_check")`
+  del audit original antes de resellar). 1 test de regresion nuevo que reproduce
+  exactamente este escenario (observacion de costes ya `PROVEN` + `swap_live_cross_check`
+  `unavailable`, exige `BLOCKED` en el resultado final). `MetaTrader5` instalado en el venv
+  de `StratOS-QXPro-v2` (`pip install MetaTrader5`, no declarado en
+  `core-engine/pyproject.toml` a proposito: es una dependencia de `scripts/`, no del
+  dominio de `core-engine` -- mismo patron ya establecido en
+  `scripts/attach_g12_demo_eas.py`, que tambien asume MT5 opcional en este venv).
+
+  **Con el bug corregido y el cross-check ya ejecutado de verdad contra MT5 en vivo**,
+  AUDCAD_darwinex da: `mt5_state=ok` (el swap del `.sqx`, `long=3.82/short=-11.31`, coincide
+  con lo que MT5 en vivo publica ahora, `long=3.818/short=-11.31` via `swap_mode=1` points→
+  money) pero `darwinex.state=mismatch` -- la web publica de Darwinex sigue publicando
+  `swapLong=2.7/swapShort=-8` (CAD), la mitad exacta de lo que dice MT5 en vivo
+  (`5.4/-16` en el mismo calculo), el mismo factor 2x de desfase de la web ya documentado
+  para AUDCAD anteriormente en esta sesion. `economia.diagnostico()` (reutilizado tal
+  cual, sin modificar) exige que MT5 **y** la web coincidan para dar `swap.state=ok`; con
+  la web desalineada, el resultado combinado es `blocked` aunque el lado que ya se sabe
+  autoritativo (MT5 en vivo, verificado antes por reconciliacion de trades reales) este
+  correcto. Recalculado el veredicto completo (swap real + evidencia de costes V4 ya
+  sellada, sin relanzar el Tester): `status=BLOCKED`,
+  `reasons=[SQX_SWAP_NOT_CONFIRMED_AGAINST_LIVE_MT5_AND_DARWINEX]`, pese a que la cobertura
+  de trades (92,09%) sigue pasando de sobra la politica V4.
+
+  **Pendiente de decision del operador, no resuelto aqui:** ¿debe una web publica ya
+  conocida como desactualizada poder bloquear un swap que MT5 en vivo confirma? La politica
+  actual (heredada sin cambios de `economia.py`, usada tambien por el panel de
+  `spread_sqx`) dice que si, fail-closed. Cambiarlo (p. ej. aceptar MT5-en-vivo como
+  autoritativo cuando difiere de una web marcada como conocida-desactualizada) es una
+  decision de politica de negocio, no un bug -- no se ha tocado sin autorizacion explicita.
