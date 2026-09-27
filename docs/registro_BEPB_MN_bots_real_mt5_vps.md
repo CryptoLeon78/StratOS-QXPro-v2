@@ -2,7 +2,7 @@
 > `CustomComment` de este documento son los **vigentes** en el terminal BEPB tras el lote MN
 > aprobado, no la observación previa. La observación anterior a la migración se conserva inmutable
 > en `runtime/operational/external_inventory/bepb_magic_manifest.json`; no reescribas
-> este fichero con datos históricos ni al revés (ver `docs/AUDITORIA_2026-09-02.md` H3).
+> este fichero con datos históricos ni al revés (ver `docs/historico/AUDITORIA_2026-09-02.md` H3).
 
 - BEPB: 
 Estrategia 1: XAU1H1BUYSTOP_0620_Strategy 3.10.66 (XAUUSD,H1)

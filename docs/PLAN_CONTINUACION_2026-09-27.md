@@ -293,7 +293,7 @@ confirmación explícita en ese mismo mensaje".
 
 | Candidato | Por qué no es automático |
 |---|---|
-| `docs/AUDITORIA_2026-09-02.md`, `docs/PLAN_CONTINUACION_2026-09-02.md`, `docs/CANDIDATAS_FORWARD_2026-09-02.md` | Son snapshots históricos con fecha en el nombre, ya superados en la práctica, pero **tienen valor de archivo/auditoría** (reconstruyen "qué se sabía y cuándo"). No se recomienda borrarlos — si se quiere limpiar la raíz de `docs/`, moverlos a `docs/historico/` es más seguro que eliminarlos. Decisión de organización, no de basura. |
+| ~~`docs/AUDITORIA_2026-09-02.md`, `docs/PLAN_CONTINUACION_2026-09-02.md`, `docs/CANDIDATAS_FORWARD_2026-09-02.md`~~ | **HECHO 2026-09-27**: el operador confirmó archivar. `git mv` a `docs/historico/` (preserva historial); las 11 referencias cruzadas en otros `.md` corregidas a la nueva ruta. |
 | Repo anidado `StratOS-QXPro-v2` sin submódulo (§4.3.2) | Cambiar esto afecta el flujo de trabajo diario de `git` del operador — es una decisión de arquitectura de repos, no limpieza de ficheros. Ver §7. |
 | `dist/StratOS_Operational.exe` desactualizado | No se borra — se regenera. Requiere confirmar que el proceso de build (`build_desktop.ps1` o equivalente) sigue funcionando tal cual antes de invocarlo sin supervisión. |
 
@@ -346,25 +346,21 @@ No es obligatorio seguir este orden exacto, pero minimiza dependencias cruzadas:
 
 ---
 
-## 7. Preguntas bloqueantes pendientes de respuesta del operador
+## 7. Preguntas bloqueantes — RESPONDIDAS 2026-09-27 (tarde)
 
-Máximo 5 por sesión según `comportamiento.md` — estas son las candidatas identificadas
-hoy, para plantear en la próxima sesión que las necesite (no se han preguntado todavía
-porque no bloqueaban el trabajo de hoy):
-
-1. ¿Convertir `StratOS-QXPro-v2` en submódulo git del repo padre, o simplemente excluirlo
-   del índice de `SQX_144_Full2` con `.gitignore`? (§4.3.2, pendiente desde hace 25 días)
-2. ¿Automatizar el rebuild de `dist/StratOS_Operational.exe` (p. ej. en CI, o un
-   recordatorio programado) para que no vuelva a acumular decenas de commits de deuda, o
-   se prefiere seguir regenerándolo manualmente cuando se necesite?
-3. Sobre `e2e-acceptance-full` criterio 9 (Lyra×Phoenix, roto y no determinista): ¿se
-   mantiene la decisión de no investigarlo, o ha cambiado la prioridad?
-4. Sobre `docs/AUDITORIA_2026-09-02.md`/`PLAN_CONTINUACION_2026-09-02.md`/
-   `CANDIDATAS_FORWARD_2026-09-02.md`: ¿se archivan en `docs/historico/` para limpiar la
-   raíz de `docs/`, o se dejan donde están?
-5. ¿Hay ya un proyecto/databank SQX duplicado recalculable para la segunda corrida
-   diagnóstica de costes retenida (G13-59/61, distinta de la de hoy), o sigue sin
-   existir?
+1. **Repo anidado**: convertir a submódulo git. **Ejecución pendiente** (§4.3.2 actualizado)
+   — es cirugía de git no trivial (`git rm -r --cached` + `git submodule add` en el repo
+   padre `SQX_144_Full2`), se hace como unidad propia después de esta ronda de docs.
+2. **Rebuild del exe**: automatizar (CI o hook). **Pendiente de implementar** — añadir un
+   step al workflow de CI de `StratOS-QXPro-v2` que regenere `dist/StratOS_Operational.exe`
+   en cada push a `main`, o un hook local equivalente.
+3. **Criterio 9 e2e (Lyra×Phoenix)**: retomarlo ahora. **Investigación en curso** en esta
+   misma sesión — ver entrada nueva en `docs/backlog.md` cuando se cierre.
+4. **Docs de 2026-09-02**: archivar en `docs/historico/`. **HECHO** — `git mv` de los 3
+   ficheros + 11 referencias cruzadas corregidas en esta sesión.
+5. **Segunda corrida diagnóstica de costes (G13-59/61)**: sin responder todavía — no se
+   preguntó en la ronda de 4 (límite de `AskUserQuestion` por llamada). Sigue abierta para
+   la próxima vez que se retome el gate de costes.
 
 ---
 

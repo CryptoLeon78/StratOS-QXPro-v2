@@ -2,7 +2,7 @@
 > `CustomComment` de este documento son los **vigentes** en el terminal JJTI tras el lote MN
 > aprobado, no la observación previa. La observación anterior a la migración se conserva inmutable
 > en `runtime/operational/external_inventory/jjti_magic_manifest.json`; no reescribas
-> este fichero con datos históricos ni al revés (ver `docs/AUDITORIA_2026-09-02.md` H3).
+> este fichero con datos históricos ni al revés (ver `docs/historico/AUDITORIA_2026-09-02.md` H3).
 
 JJTI:
 

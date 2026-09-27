@@ -6,7 +6,7 @@ describe el entorno SQX (minado, blocksettings, FORJA); **no describe este proye
 fichero.
 
 Creado 2026-09-02 tras la auditoría: hasta entonces Codex trabajaba aquí heredando sólo el índice
-de la raíz, que ni menciona StratOS. Ver `docs/AUDITORIA_2026-09-02.md` H10.
+de la raíz, que ni menciona StratOS. Ver `docs/historico/AUDITORIA_2026-09-02.md` H10.
 
 ## Antes de proponer nada
 
@@ -18,7 +18,7 @@ Lee, en este orden:
    autoritativo de por qué el sistema es como es.
 3. `docs/backlog.md` — trabajo abierto, clasificado en defecto / capacidad bloqueada por datos /
    decisión deliberada.
-4. `docs/AUDITORIA_2026-09-02.md` — estado de las garantías (CI, tests, lint) y deuda abierta.
+4. `docs/historico/AUDITORIA_2026-09-02.md` — estado de las garantías (CI, tests, lint) y deuda abierta (snapshot histórico).
 
 La especificación contractual completa está en `doc_app/PROMPT_MAESTRO.md` (PARTES 0–17).
 **`doc_app/` y `capturas_proyecto_dashboard/` son de sólo lectura**: son entradas contractuales.

@@ -256,8 +256,9 @@ en SQX_vs_MT5.
 
 Auditoría independiente tras el trabajo en paralelo con Codex, y ejecución de los bloques
 P0-P2 del plan que salió de ella. Informe completo con comandos de reproducción en
-[`docs/AUDITORIA_2026-09-02.md`](AUDITORIA_2026-09-02.md); orden de trabajo y decisiones
-pendientes en [`docs/PLAN_CONTINUACION_2026-09-02.md`](PLAN_CONTINUACION_2026-09-02.md).
+[`docs/historico/AUDITORIA_2026-09-02.md`](historico/AUDITORIA_2026-09-02.md) (movido a
+`docs/historico/` el 2026-09-27, snapshot ya superado); orden de trabajo vigente en
+[`docs/PLAN_CONTINUACION_2026-09-27.md`](PLAN_CONTINUACION_2026-09-27.md).
 
 ### Lo que estaba roto y ya no
 

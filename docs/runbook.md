@@ -170,7 +170,7 @@ fuentes y la extracción de evidencia, y el prefiltro acaba leyendo evidencia vi
 **Requisito para que aparezcan candidatas nuevas**: sus `.sqx` **y** `.mq5` juntos en
 `EAs_SQX_guardados\Analisis\<proyecto>\Forward_finalistas\`. El `.mq5` se genera exportando
 desde SQX (*Export → MQL5 Expert Advisor*); una carpeta con sólo `.sqx` no se inventaría —
-ver `docs/CANDIDATAS_FORWARD_2026-09-02.md`.
+ver `docs/historico/CANDIDATAS_FORWARD_2026-09-02.md`.
 
 **Por qué esto no es un botón del panel web**: `core-engine` corre en un contenedor y no ve
 las rutas locales de SQX ni el terminal MT5. Un botón en la UI exigiría que un servicio web

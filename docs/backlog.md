@@ -149,7 +149,8 @@ síntoma era siempre el mismo: la pantalla de login no hacía nada.
 
 ## Deuda de garantía — abierta desde la auditoría 2026-09-02
 
-Detalle y comandos en [`AUDITORIA_2026-09-02.md`](AUDITORIA_2026-09-02.md). Nada de esto es un hueco
+Detalle y comandos en [`AUDITORIA_2026-09-02.md`](historico/AUDITORIA_2026-09-02.md) (movido a
+`docs/historico/` el 2026-09-27). Nada de esto es un hueco
 de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
 
 - ~~**[A1] G11/G12/G13 sin commitear**~~ **CERRADO 2026-09-02**: 9 commits temáticos; falta el `push` y el primer CI real. Salieron dos fugas de `.gitignore`: `.env.operational.example` estaba ignorado pese a declararse versionada, y `docs/history_deals_*.csv` (9.082 deals de cuentas reales) se habrían commiteado. Antes decía: — 194 ficheros en el working tree, último commit `a55694c`.
@@ -308,8 +309,8 @@ de negocio: es infraestructura de garantía que G11-G13 dejaron atrás.
   `report_history_attribution.py` y los scripts del incidente A16, nunca un default
   hardcodeado. Se retiró la regla `docs/history_deals_*.csv` de `.gitignore` (ya cubierta por
   `runtime/`, línea 41) y se actualizaron las 4 menciones de ruta en docstrings/ejemplos de
-  uso de esos scripts. Las referencias históricas en `docs/AUDITORIA_2026-09-02.md`,
-  `docs/PLAN_CONTINUACION_2026-09-02.md` y las entradas ya cerradas de este mismo backlog no
+  uso de esos scripts. Las referencias históricas en `docs/historico/AUDITORIA_2026-09-02.md`,
+  `docs/historico/PLAN_CONTINUACION_2026-09-02.md` y las entradas ya cerradas de este mismo backlog no
   se tocan: describen un estado real de esa fecha, no la ubicación actual.
 - ~~**[A48] `record_operational_backtest.py` y `report_history_attribution.py` usan
   `build_legacy_magic_map()` sin el filtro de `entry_matches_account()`**~~ **RESUELTO
