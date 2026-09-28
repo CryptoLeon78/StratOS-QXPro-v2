@@ -8,13 +8,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.auth.jwt import create_access_token, create_refresh_token, decode_token
 from core.auth.revocation import is_revoked, revoke_jti
 from core.auth.schemas import TokenResponse
-from core.auth.security import hash_password, verify_password
+from core.auth.security import hash_password, normalize_email, verify_password
 from core.config import Settings
 from core.db.models.governance import User
 
 
 async def authenticate_user(session: AsyncSession, email: str, password: str) -> User | None:
-    user = (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
+    normalized = normalize_email(email)
+    user = (
+        await session.execute(select(User).where(User.email == normalized))
+    ).scalar_one_or_none()
     if user is None or not verify_password(password, user.hashed_password):
         return None
     return user

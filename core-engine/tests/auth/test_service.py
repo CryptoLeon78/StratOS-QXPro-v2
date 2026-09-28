@@ -55,6 +55,25 @@ async def test_authenticate_user_returns_none_on_unknown_email(db_session: Async
     assert result is None
 
 
+async def test_authenticate_user_is_case_and_whitespace_insensitive_on_email(
+    db_session: AsyncSession,
+) -> None:
+    """Hallazgo real en produccion, 2026-09-28: `complete_recovery` ya
+    normalizaba el email (`.strip().casefold()`) para localizar al usuario,
+    pero `authenticate_user` lo comparaba tal cual llegaba del formulario de
+    login -- una mayuscula o un espacio de mas (p.ej. copiar/pegar el email)
+    bastaba para que el login diera 401 con la contrasena correcta, justo
+    despues de una recuperacion exitosa. Las dos rutas deben usar el mismo
+    criterio (`normalize_email`, ahora compartido en security.py)."""
+    user = await _persisted_user(db_session)
+    variant = f" {user.email.upper()} "  # type: ignore[attr-defined]
+
+    result = await authenticate_user(db_session, variant, TEST_USER_PASSWORD)
+
+    assert result is not None
+    assert result.id == user.id  # type: ignore[attr-defined]
+
+
 async def test_issue_tokens_roundtrips_to_the_same_user(db_session: AsyncSession) -> None:
     user = await _persisted_user(db_session)
     settings = _settings()

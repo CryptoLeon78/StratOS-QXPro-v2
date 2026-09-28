@@ -10,7 +10,7 @@ from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.auth.security import hash_password
+from core.auth.security import hash_password, normalize_email
 from core.config import Settings
 from core.db.models.governance import User
 from core.notifications.telegram import send_telegram_direct_message
@@ -18,12 +18,8 @@ from core.notifications.telegram import send_telegram_direct_message
 SECONDS_PER_MINUTE = 60
 
 
-def _normalized_email(email: str) -> str:
-    return email.strip().casefold()
-
-
 def _email_key(email: str) -> str:
-    return hashlib.sha256(_normalized_email(email).encode()).hexdigest()
+    return hashlib.sha256(normalize_email(email).encode()).hexdigest()
 
 
 def _code_digest(settings: Settings, code: str) -> str:
@@ -54,8 +50,8 @@ async def request_recovery_code(
     session: AsyncSession, redis: Redis, settings: Settings, email: str
 ) -> None:
     """No revela si el correo existe ni detalles de la configuracion."""
-    normalized = _normalized_email(email)
-    if normalized != _normalized_email(settings.operator_email) or not recovery_is_configured(
+    normalized = normalize_email(email)
+    if normalized != normalize_email(settings.operator_email) or not recovery_is_configured(
         settings
     ):
         return
@@ -92,9 +88,9 @@ async def complete_recovery(
     code: str,
     new_password: str,
 ) -> bool:
-    normalized = _normalized_email(email)
+    normalized = normalize_email(email)
     if (
-        normalized != _normalized_email(settings.operator_email)
+        normalized != normalize_email(settings.operator_email)
         or len(new_password) < settings.auth_password_min_length
     ):
         return False
