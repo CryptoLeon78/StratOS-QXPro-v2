@@ -4,6 +4,24 @@
 
 ## Fase activa: G13 — Stack operacional real/incubadora/análisis — FUNDACIÓN IMPLEMENTADA; GATES EXTERNOS ABIERTOS
 
+**Continuación 2026-09-28 — bug real en producción encontrado y arreglado: `AppHeader`
+reventaba con `TypeError` al expirar la sesión.** El operador reportó el crash en vivo
+(`localhost:5473`, "Unexpected Application Error!", `Cannot read properties of undefined
+(reading 'equity_eur')`) tras funcionar bien un momento. Confirmado en logs reales de
+`core-engine`: `POST /auth/refresh` devolvió 401 (el refresh token también había expirado),
+en cascada con `header/summary` y el resto de endpoints protegidos. Causa raíz: `isLoading`
+de TanStack Query solo cubre la carga inicial; si el refetch de los 5s falla, `isLoading`
+vuelve a `false` pero `data` sigue `undefined` — `AppHeader.tsx` usaba `data!.campo` en las
+6 StatCard confiando solo en `isLoading`. `RootLayout` redirige a `/login` al limpiar la
+sesión, pero esa actualización de Zustand y la del query de React Query son fuentes
+reactivas independientes: en el commit donde gana la segunda, el header aún renderiza con
+`data` vacío. Fix: `ready = !isLoading && data !== undefined` sustituye a `isLoading` como
+guarda (mismo placeholder "—" ya existente, cero cambio visual en el caso normal). Test de
+regresión (`AppHeaderDataRace.test.tsx`, mockeando el hook directamente) verificado contra
+el código viejo (mismo `TypeError`, misma línea) y limpio con el fix. 59/59 suite completa,
+lint y build limpios. **Desplegado**: imagen `frontend` del stack operacional reconstruida
+y contenedor reiniciado, `curl localhost:5473` → 200. Commit `d7da1e3`.
+
 **Continuación 2026-09-28 — últimos 2 pendientes del plan cerrados, ambos por desfase
 documental (no trabajo real pendiente):** (1) Selectores de procedencia
 (Portfolio/Salud/Riesgo/Auditoría/Dominical) ya estaban hechos desde G10
