@@ -1,5 +1,18 @@
 # Backlog — StratOS-QXPro
 
+- **[G13-75] Por qué se acumularon 52.512 filas duplicadas de `ingest_batch` para un solo
+  sello antes de que `MultipleResultsFound` empezara a reventar (2026-09-28, sin
+  investigar):** el fix de `.limit(1)` en `seal_and_create_batch()` (commit `d1e00f0`)
+  resuelve el síntoma (500 en bucle en `/ingest/equity`/`/ingest/positions`), pero no
+  explica el volumen: 1.455.975 filas totales en `ingest_batch`, con grupos de hasta
+  52.512/49.570/6.091 filas compartiendo exactamente el mismo `(account_id, batch_type,
+  sha256)`. Por diseño cada reenvío dejaba su propia fila (append-only, intencional), pero
+  ese volumen sugiere un conector reenviando el mismo payload de forma muy repetitiva
+  durante mucho tiempo — candidatas sin confirmar: (a) un conector atascado en bucle de
+  reintento, (b) un payload de heartbeat/equity naturalmente idéntico entre ciclos
+  (mismo hash por coincidencia de contenido, no por reenvío real del mismo lote). No
+  bloquea nada (el fix ya lo hace inofensivo), pero el crecimiento de la tabla merece una
+  mirada aparte antes de que se vuelva un problema de espacio/rendimiento.
 - ~~**[G13-73] Cola de prefiltro en 0 tras rebuild del exe**~~ **CERRADO 2026-09-28 — no es
   bug, es hueco real de datos en SQX (mismo patrón ya documentado para otros proyectos,
   ver A30 arriba).** Diagnóstico completo: de las 230 fuentes "resueltas" (hash de

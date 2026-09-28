@@ -4,6 +4,34 @@
 
 ## Fase activa: G13 — Stack operacional real/incubadora/análisis — FUNDACIÓN IMPLEMENTADA; GATES EXTERNOS ABIERTOS
 
+**Continuación 2026-09-28 — bug CRÍTICO en producción: la ingesta real de JJTI/BEPB estaba
+cayendo con 500 en bucle, encontrado y arreglado en vivo.** El operador reportó que el
+crash de `AppHeader` "seguía pasando" tras el fix/redeploy anterior; al revisar logs en
+tiempo real de `core-engine` no encontré más 401 (esa parte sí estaba arreglada) sino
+`POST /ingest/equity`/`POST /ingest/positions` devolviendo **500 en bucle**, activamente,
+contra las cuentas reales. Traceback: `sqlalchemy.exc.MultipleResultsFound` en
+`seal_and_create_batch()` (`core/ingest/batch.py`). Causa raíz: por diseño de esa misma
+función (su propio docstring, commit `e7dfa5e`), cada reenvío del mismo lote deja SU
+PROPIA fila append-only — tras el segundo reenvío del mismo sello ya hay 2 filas con el
+mismo `(account_id, batch_type, sha256)`, y sin `.limit(1)` en la consulta de idempotencia,
+un tercer reenvío legítimo (el escenario "141 reenvíos en 20 min" que motivó la función)
+hace que `.scalar_one_or_none()` reviente en vez de devolver `ya_visto=True`. Confirmado
+contra la BD real: **1.455.975 filas en `ingest_batch`, hasta 52.512 duplicadas para un
+solo sello** (cuenta 2, trades) — el test existente mockea `scalar_one_or_none()` y nunca
+ejercitó el comportamiento real con 2+ filas, por eso nunca se detectó. Fix: `.limit(1)`
+en la consulta. Test nuevo contra BD real (no mock) verificado: revienta igual sin el fix,
+pasa limpio con él. 688/689 suite completa (1 fallo preexistente ya diagnosticado, G13-74,
+higiene de entorno local, no relacionado). **Desplegado**: `core-engine`/`worker`/
+`scheduler` reconstruidos y reiniciados; verificado en logs en vivo — `POST /ingest/*` →
+200 OK sostenido, cero errores desde el redeploy. Commit `d1e00f0`.
+
+**Pendiente de investigar (no urgente, no bloquea nada)**: por qué se acumularon tantas
+filas duplicadas (52.512 para un solo sello) antes de que el bug empezara a reventar —
+sugiere que algo reenvía el mismo payload de forma muy repetitiva durante mucho tiempo
+(¿conector en bucle?, ¿payload de heartbeat/equity naturalmente idéntico entre ciclos?).
+El fix de `.limit(1)` hace que esto ya no rompa nada, pero el volumen en sí (1,45M filas en
+`ingest_batch`) merece una mirada aparte.
+
 **Continuación 2026-09-28 — bug real en producción encontrado y arreglado: `AppHeader`
 reventaba con `TypeError` al expirar la sesión.** El operador reportó el crash en vivo
 (`localhost:5473`, "Unexpected Application Error!", `Cannot read properties of undefined
