@@ -20,8 +20,10 @@ from __future__ import annotations
 import hashlib
 
 import pytest
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.db.models.decisions import Alert
 from core.ingest import batch as batch_module
 from tests.factories import AccountFactory, IngestBatchFactory
 
@@ -141,3 +143,73 @@ async def test_un_sello_reenviado_dos_veces_no_revienta_al_tercer_intento(
 
     assert ya_visto is True, "el sello ya estaba registrado (2 veces); debe avisar, no reventar"
     assert lote is not None
+
+
+async def _reenviar(db_session: AsyncSession, account: object, seal: str, n: int) -> None:
+    """Simula `n` reenvios reales del mismo sello, uno a uno (no bulk-insert
+    directo): cada llamada pasa por `_alert_if_excessive_resend`, igual que
+    en produccion."""
+    monkeypatch_target = batch_module.verify_batch_seal
+    batch_module.verify_batch_seal = lambda *a, **k: None  # type: ignore[assignment]
+    try:
+        for _ in range(n):
+            await batch_module.seal_and_create_batch(
+                db_session,
+                account,
+                "trades",
+                "LOGIN",
+                "conn-1",
+                seal,
+                [{"x": 1}],
+                10,  # type: ignore[arg-type]
+            )
+    finally:
+        batch_module.verify_batch_seal = monkeypatch_target
+
+
+async def test_pocos_reenvios_no_generan_alerta(db_session: AsyncSession) -> None:
+    """El escenario de diseno original ("141 reenvios en 20 minutos") es
+    ruido tolerado, no una alerta -- el umbral debe quedar por debajo de
+    ese volumen real sin disparar en el caso normal."""
+    account = AccountFactory()
+    db_session.add(account)
+    await db_session.flush()
+    seal = hashlib.sha256(b"pocos-reenvios").hexdigest()
+
+    await _reenviar(db_session, account, seal, batch_module._EXCESSIVE_RESEND_ALERT_THRESHOLD - 1)
+
+    n_alerts = (
+        await db_session.execute(
+            select(func.count()).select_from(Alert).where(Alert.module == "ingest_batch")
+        )
+    ).scalar_one()
+    assert n_alerts == 0
+
+
+async def test_reenvios_excesivos_generan_una_sola_alerta(db_session: AsyncSession) -> None:
+    """G13-75: un conector atascado reenviando el mismo sello debe quedar
+    visible en Auditoria en vez de acumular filas en silencio durante
+    semanas (caso real: 52.512 filas de BEPB, 21 dias, cero alertas). Una
+    sola alerta por sello (dedup_key), no una por cada reenvio posterior al
+    umbral -- de lo contrario un conector atascado seguiria generando ruido
+    sin parar en vez de una senal unica y accionable."""
+    account = AccountFactory()
+    db_session.add(account)
+    await db_session.flush()
+    seal = hashlib.sha256(b"conector-atascado").hexdigest()
+
+    await _reenviar(db_session, account, seal, batch_module._EXCESSIVE_RESEND_ALERT_THRESHOLD)
+    await _reenviar(db_session, account, seal, 5)  # sigue reenviando tras la alerta
+
+    alerts = (
+        (await db_session.execute(select(Alert).where(Alert.module == "ingest_batch")))
+        .scalars()
+        .all()
+    )
+    assert len(alerts) == 1
+    assert alerts[0].dedup_key == batch_module._excessive_resend_dedup_key(
+        account.id, "trades", seal
+    )
+    assert alerts[0].resolved is False
+    assert str(account.id) in alerts[0].message
+    assert "trades" in alerts[0].message
