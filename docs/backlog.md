@@ -745,3 +745,62 @@ Decisión del operador antes de empezar G7 (ver `ASSUMPTIONS.md` G7-01): estos h
 - ~~**Auditoría**: lista de "tramos sin envío" detallados~~ **RESUELTO en G10**: `compute_send_continuity()` ya calculaba `gaps` con detalle por tramo desde G5, solo faltaba exponerlo — `GET /audit/continuity-gaps` (no era una fórmula nueva, solo wiring). **Wiring de frontend: RESUELTO en G10 (m-06)** — `ContinuityCard.tsx` lista los tramos por cuenta (inicio → fin, duración), verificado en vivo.
 - ~~**Cuentas/EA**: equity/balance/margen libre/margin level por cuenta~~ **RESUELTO en G10** (`AccountResponse` incluye el `EquitySnapshot` más reciente por `account_id`; `None` si la cuenta nunca reportó uno). **Wiring de frontend: RESUELTO en G10 (m-07)** — `AccountCard.tsx` muestra las 4 celdas (grid siempre presente, "—" por celda faltante — mismo criterio anti-desplazamiento que G9-06/G9-07), verificado en vivo con cuenta con snapshot parcial y cuenta sin snapshot. `ea_required_version` sigue sin resolver (no existe el concepto de "versión esperada" en ningún sitio del sistema — fuera de alcance de G10, ver Contexto del plan de la fase).
 - **Ejecución/Cuentas-EA**: TCA y Perfil de broker — no es un hueco a resolver con una fórmula nueva, la propia captura documenta que depende de la v1.1 del EA reporter (fuera de alcance del conector actual, PARTE 9.1 "sin consumidor aún" para `/ingest/execution`).
+
+## G13-76 — agotamiento del pool DB por single-worker de core-engine (RESUELTO 2026-09-28)
+
+Encontrado en un "smoke real" pedido explícitamente por el operador ("creo que hay cosas
+rotas y el acceso también da problemas"), tras dos fixes previos en la misma sesión
+(crash de `AppHeader`, email-normalization en login) que NO explicaban el patrón completo
+de fallos que el operador seguía viendo.
+
+**Síntoma**: casi cualquier ruta de la API (`/auth/refresh`, `/header/summary`, `/bots/*`,
+`/pipeline-orchestrator/f5/incubation`, `/config/semaphore-instructions`, etc.) devolvía
+500 de forma intermitente, con una ventana sostenida de ~40s de fallos observada en vivo
+con navegación real (Chrome, pestañas Pipeline/Bots).
+
+**Causa raíz**: `core-engine/Dockerfile` arrancaba `uvicorn` sin `--workers` → 1 solo
+proceso, 1 solo event loop, sirviendo a la vez: (a) ingesta MT5 continua de BEPB+JJTI
+(positions cada 5s, deals incremental, equity cada 30s, heartbeat cada 60s) y (b) toda la
+API que consume la UI. Bajo ráfaga de peticiones concurrentes, el pool de conexiones DB
+(20+20 por defecto, ver `core-engine/src/core/db/base.py`) se agotaba —
+`sqlalchemy.exc.TimeoutError: QueuePool limit of size 20 overflow 20 reached` en el log
+real de `core-engine` — dejando sesiones en Postgres en estado `idle in transaction`
+durante 4-13s cada una (33 conexiones así en el momento de la captura). `api-gateway`
+proxeaba fielmente y esperaba, recibiendo `httpx.ReadTimeout` sin ningún bug propio —
+diagnóstico erróneo inicial (de esta misma sesión) apuntaba al gateway; corregido antes de
+tocar código, con evidencia: un `curl` DIRECTO a `core-engine:8300` (sin pasar por el
+gateway) reproducía la misma latencia de 46s para un simple 401.
+
+**Riesgo estructural adicional encontrado de paso**: `core-engine`, `worker` y `scheduler`
+comparten el mismo `Dockerfile`/imagen pero corren como 3 procesos independientes, cada
+uno con su propio engine/pool SQLAlchemy. Con los defaults de código (20+20 cada uno), el
+techo combinado posible era **120 conexiones** contra un Postgres con
+**`max_connections=100`** — insuficiente incluso antes de este incidente, por pura suerte
+de que los 3 procesos rara vez pican a la vez.
+
+**Fix (commit `1590342`, StratOS-QXPro-v2; puntero de submódulo actualizado en
+`SQX_144_Full2`)**:
+- `core-engine/Dockerfile`: `CMD` de `uvicorn` con `--workers 4` — 4 procesos reales
+  (paralelismo de verdad, no un solo núcleo sirviéndolo todo en serie).
+- `docker-compose.operational.yml`: `DB_POOL_SIZE=5`/`DB_MAX_OVERFLOW=5` por proceso para
+  `core-engine`, `worker` y `scheduler` (sin tocar `.env.operational`, que no se lee/edita
+  por regla del proyecto) — techo combinado baja de 120 a **60** de 100, con margen real.
+- `.env.example`: documentadas `DB_POOL_SIZE`/`DB_MAX_OVERFLOW` (cero hardcoding, quedan
+  declaradas con su default de código, 20+20, para uso de un solo proceso).
+- Verificado ANTES de desplegar que `core/ws/bridge.py` reenvía WebSockets vía Redis
+  Pub/Sub (8 topics), sin estado de conexión en memoria por proceso — pasar a 4 workers
+  no rompe tiempo real.
+
+**Verificación post-deploy (en vivo, no solo teoría)**:
+- `docker logs core-engine`: 4 procesos arrancados (`Started server process [8/9/10/11]`
+  + `Started parent process [1]`), ingesta `positions`/`heartbeat` fluyendo con 200 OK.
+- `curl` directo a `core-engine:8300/api/v1/bots`: **46s → 7ms**.
+- Postgres `pg_stat_activity`: **33 → 1** conexión `idle in transaction` (transitoria,
+  normal).
+- Smoke real en navegador (recarga `/login`): 0 errores 500, 0 timeouts, solo asset
+  loads 200/304.
+
+**Pendiente (no bloqueante, fuera de mi alcance sin credenciales)**: smoke test
+AUTENTICADO — navegar las 10 pestañas ya logueado. No tengo ni debo usar las credenciales
+reales del operador (cuentas Darwinex reales conectadas). El operador debería confirmar
+con su propio login que la navegación completa va fluida ahora.

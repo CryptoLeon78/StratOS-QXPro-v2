@@ -4,6 +4,39 @@
 
 ## Fase activa: G13 — Stack operacional real/incubadora/análisis — FUNDACIÓN IMPLEMENTADA; GATES EXTERNOS ABIERTOS
 
+**Continuación 2026-09-28 (noche, tras G13-75) — G13-76 cerrado: causa raíz real de "cosas
+rotas" en la app (smoke real a petición del operador) — pool de conexiones DB agotado por
+un solo worker de `core-engine`, corregido.** El operador reportó la app rota tras el crash de `AppHeader` y el bug de email-normalization
+ya arreglados antes en esta misma sesión (ver más abajo) y pidió un smoke test real, no solo
+estático.
+Diagnóstico en vivo: `curl` directo a `core-engine:8300/api/v1/bots` (sin pasar por
+`api-gateway`) tardaba **46 s** en devolver un simple 401; `docker logs core-engine`
+mostraba `sqlalchemy.exc.TimeoutError: QueuePool limit of size 20 overflow 20 reached`;
+Postgres tenía **33 conexiones en `idle in transaction`** (4-13 s cada una). Causa: el
+`Dockerfile` de `core-engine` arrancaba `uvicorn` **sin `--workers`** (un solo proceso, un
+solo event loop) sirviendo a la vez la ingesta MT5 continua (positions/deals/equity/
+heartbeat de BEPB+JJTI) y toda la API de la UI — una ráfaga de peticiones concurrentes
+bloqueaba el loop, las sesiones DB se quedaban abiertas mientras esperaban turno, y el pool
+de 40 conexiones se agotaba. Eso era exactamente lo que `api-gateway` veía como
+`httpx.ReadTimeout` al proxear, devuelto como 500 genérico en casi cualquier ruta
+(`/auth/refresh`, `/header/summary`, `/bots/*`, `/pipeline-orchestrator/*`, etc.) — el
+`api-gateway` no tenía ningún bug, solo esperaba fielmente a un `core-engine` saturado.
+Hallazgo adicional: `core-engine`, `worker` y `scheduler` corren cada uno su propio
+proceso con su propio engine/pool (20+20 por defecto, sin `DB_POOL_SIZE`/
+`DB_MAX_OVERFLOW` fijados) — **hasta 120 conexiones combinadas posibles contra un
+Postgres con `max_connections=100`**, techo insuficiente ya antes de este fix. Corrección
+aplicada (commit `1590342`): `core-engine/Dockerfile` arranca con `--workers 4` (4
+procesos reales, paralelismo real en vez de serializar todo en 1 núcleo); `DB_POOL_SIZE`/
+`DB_MAX_OVERFLOW` bajados a `5`+`5` por proceso en `docker-compose.operational.yml` para
+los 3 servicios, dejando el techo combinado en 60 de 100 (antes 120). Verificado antes de
+desplegar que `core/ws/bridge.py` ya reenvía por Redis Pub/Sub (sin estado en memoria por
+proceso), así que pasar a 4 workers no rompe los WebSockets. Verificado post-deploy: `curl`
+directo 46 s → **7 ms**; Postgres 33 → **1** conexión `idle in transaction` (normal);
+smoke real en el navegador (recarga de `/login` limpia) sin ningún 500 ni timeout. No pude
+completar un smoke test AUTENTICADO (no tengo ni debo usar las credenciales reales del
+operador, cuentas Darwinex reales de por medio) — pendiente que el operador confirme
+navegación completa con su login real. Detalle en `docs/backlog.md` G13-76.
+
 **Continuación 2026-09-28 (noche) — corrección final de G13-75: no hacía falta redesplegar
 el conector, ya estaba hecho desde el 26 de septiembre.** El operador pidió redesplegar el
 conector en el VPS directamente (RDP + acceso admin ya abiertos); antes de copiar nada se
