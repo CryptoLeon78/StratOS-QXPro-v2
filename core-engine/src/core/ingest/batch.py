@@ -49,13 +49,25 @@ async def seal_and_create_batch(
     """
     verify_batch_seal(claimed_sha256, account_login, batch_type, records)
 
+    # `.limit(1)` es obligatorio: por diseno de esta misma funcion, un sello
+    # reenviado dentro deja SU PROPIA fila cada vez (parrafo de arriba) -- el
+    # conector reenviando el mismo lote una tercera vez dentro deja 2+ filas
+    # con este mismo (account_id, batch_type, sha256), y sin el limite
+    # `.scalar_one_or_none()` revienta con `MultipleResultsFound` en vez de
+    # devolver `ya_visto=True`. Bug real en produccion, 2026-09-28: la
+    # version anterior de este query tumbaba /ingest/equity y
+    # /ingest/positions con 500 en cuanto un reenvio legitimo alcanzaba la
+    # segunda repeticion del mismo sello -- exactamente el escenario "141
+    # reenvios en 20 minutos" que motivo esta funcion.
     ya_registrado = (
         await session.execute(
-            select(IngestBatch).where(
+            select(IngestBatch)
+            .where(
                 IngestBatch.account_id == account.id,
                 IngestBatch.batch_type == batch_type,
                 IngestBatch.sha256 == claimed_sha256,
             )
+            .limit(1)
         )
     ).scalar_one_or_none()
     now = datetime.now(UTC)

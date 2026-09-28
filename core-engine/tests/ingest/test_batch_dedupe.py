@@ -17,9 +17,13 @@ sello repetido es defensa propia, no una optimizacion.
 
 from __future__ import annotations
 
+import hashlib
+
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.ingest import batch as batch_module
+from tests.factories import AccountFactory, IngestBatchFactory
 
 
 class _SesionFalsa:
@@ -92,3 +96,48 @@ async def test_un_sello_nuevo_sigue_registrandose(monkeypatch: pytest.MonkeyPatc
     assert ya_visto is False
     assert lote is not None
     assert len(session.anadidos) == 1
+
+
+async def test_un_sello_reenviado_dos_veces_no_revienta_al_tercer_intento(
+    db_session: AsyncSession,
+) -> None:
+    """Bug real en produccion, 2026-09-28: por diseno de esta misma funcion
+    (docstring de arriba), cada reenvio del mismo lote deja SU PROPIA fila --
+    tras el segundo reenvio ya hay 2 filas con el mismo (account_id,
+    batch_type, sha256). Sin `.limit(1)` en la consulta de idempotencia, un
+    TERCER reenvio legitimo (exactamente el escenario "141 reenvios en 20
+    minutos" que motivo esta funcion) hacia que `.scalar_one_or_none()`
+    lanzara `MultipleResultsFound` -- 500 real en /ingest/equity y
+    /ingest/positions contra las cuentas reales JJTI/BEPB. El test anterior
+    de este fichero mockea `scalar_one_or_none()` directamente y nunca
+    ejercita el comportamiento real de SQLAlchemy con 2+ filas -- por eso no
+    lo detecto. Este usa una BD real."""
+    account = AccountFactory()
+    db_session.add(account)
+    await db_session.flush()
+
+    seal = hashlib.sha256(b"lote-reenviado-3-veces").hexdigest()
+    # Simula que la funcion ya se llamo 2 veces antes con este mismo sello:
+    # 2 filas ya existen para (account_id, batch_type, sha256).
+    db_session.add(IngestBatchFactory(account_id=account.id, batch_type="equity", sha256=seal))
+    db_session.add(IngestBatchFactory(account_id=account.id, batch_type="equity", sha256=seal))
+    await db_session.flush()
+
+    monkeypatch_target = batch_module.verify_batch_seal
+    batch_module.verify_batch_seal = lambda *a, **k: None  # type: ignore[assignment]
+    try:
+        lote, ya_visto = await batch_module.seal_and_create_batch(
+            db_session,
+            account,
+            "equity",
+            "LOGIN",
+            "conn-1",
+            seal,
+            [{"x": 1}],
+            10,
+        )
+    finally:
+        batch_module.verify_batch_seal = monkeypatch_target
+
+    assert ya_visto is True, "el sello ya estaba registrado (2 veces); debe avisar, no reventar"
+    assert lote is not None
