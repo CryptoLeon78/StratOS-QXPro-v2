@@ -20,6 +20,14 @@ services:
     restart: unless-stopped
     env_file: !override
       - .env.operational
+    # 4 procesos uvicorn (ver Dockerfile) x (5+5) = 40 conexiones max desde
+    # aqui. Sumado a worker+scheduler (10+10) deja 60 de 100
+    # (max_connections de Postgres), con margen -- antes cada uno de los 3
+    # procesos podia pedir hasta 40 (20+20 por defecto), 120 combinados,
+    # por encima del techo real. Hallazgo real, 2026-09-28.
+    environment:
+      DB_POOL_SIZE: "5"
+      DB_MAX_OVERFLOW: "5"
     ports: !override
       - "8300:8000"
     volumes:
@@ -28,10 +36,16 @@ services:
     restart: unless-stopped
     env_file: !override
       - .env.operational
+    environment:
+      DB_POOL_SIZE: "5"
+      DB_MAX_OVERFLOW: "5"
   scheduler:
     restart: unless-stopped
     env_file: !override
       - .env.operational
+    environment:
+      DB_POOL_SIZE: "5"
+      DB_MAX_OVERFLOW: "5"
   api-gateway:
     restart: unless-stopped
     env_file: !override
