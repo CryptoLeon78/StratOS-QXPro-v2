@@ -4,6 +4,25 @@
 
 ## Fase activa: G13 — Stack operacional real/incubadora/análisis — FUNDACIÓN IMPLEMENTADA; GATES EXTERNOS ABIERTOS
 
+**Continuación 2026-09-28 — G13-75 cerrado: causa raíz de los 52.512 duplicados confirmada
+(deriva de despliegue del conector, no bug de este repo) + alerta de observabilidad
+desplegada.** A petición del operador ("investiga por qué se acumularon tantas y
+solucionalo con lógica"): rastreado por `connector_instance_id` estable + histograma diario
+hasta confirmar que **este mismo repo ya lo había diagnosticado el 2026-09-26** ("el
+conector del repo lleva watermark correcto... el del VPS debe correr una versión anterior")
+sin que nadie lo comprobara — el mismo patrón volvió a reventar el 2026-09-28, 375× más
+grande. `mt5-connector/src/connector/poller.py::poll_deals_incremental_once` tiene el
+watermark incremental correcto en este repo; el conector real desplegado contra JJTI/BEPB
+corre una versión anterior sin él. **Redesplegar ese binario queda fuera de mi alcance**
+(máquina/VPS real del operador). Lo que sí se arregló con lógica (commit `34c0939`):
+`seal_and_create_batch()` genera una `Alert` SUAVE (dedup_key, una vez por sello) al
+detectar 50+ reenvíos del mismo sello — visible en Auditoría el mismo día, no 3 semanas
+después. 5/5 tests contra BD real, 690/691 suite completa (1 fallo preexistente de G13-74,
+no relacionado), ruff/mypy --strict limpios en todo `core-engine`. Desplegado y verificado:
+`core-engine`/`worker`/`scheduler` reconstruidos y reiniciados, ingesta de
+`positions`/`equity`/`heartbeat` sana tras el redeploy. Detalle completo en
+`docs/backlog.md` G13-75.
+
 **Continuación 2026-09-28 — bug CRÍTICO en producción: la ingesta real de JJTI/BEPB estaba
 cayendo con 500 en bucle, encontrado y arreglado en vivo.** El operador reportó que el
 crash de `AppHeader` "seguía pasando" tras el fix/redeploy anterior; al revisar logs en

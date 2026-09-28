@@ -1,18 +1,37 @@
 # Backlog — StratOS-QXPro
 
-- **[G13-75] Por qué se acumularon 52.512 filas duplicadas de `ingest_batch` para un solo
-  sello antes de que `MultipleResultsFound` empezara a reventar (2026-09-28, sin
-  investigar):** el fix de `.limit(1)` en `seal_and_create_batch()` (commit `d1e00f0`)
-  resuelve el síntoma (500 en bucle en `/ingest/equity`/`/ingest/positions`), pero no
-  explica el volumen: 1.455.975 filas totales en `ingest_batch`, con grupos de hasta
-  52.512/49.570/6.091 filas compartiendo exactamente el mismo `(account_id, batch_type,
-  sha256)`. Por diseño cada reenvío dejaba su propia fila (append-only, intencional), pero
-  ese volumen sugiere un conector reenviando el mismo payload de forma muy repetitiva
-  durante mucho tiempo — candidatas sin confirmar: (a) un conector atascado en bucle de
-  reintento, (b) un payload de heartbeat/equity naturalmente idéntico entre ciclos
-  (mismo hash por coincidencia de contenido, no por reenvío real del mismo lote). No
-  bloquea nada (el fix ya lo hace inofensivo), pero el crecimiento de la tabla merece una
-  mirada aparte antes de que se vuelva un problema de espacio/rendimiento.
+- ~~**[G13-75] Por qué se acumularon 52.512 filas duplicadas de `ingest_batch` para un solo
+  sello**~~ **CAUSA RAÍZ CONFIRMADA 2026-09-28 — no es un bug de este repo, es deriva de
+  despliegue ya diagnosticada antes y nunca corregida.** Investigación completa:
+  - Los 52.512 duplicados (cuenta real BEPB, `batch_type=trades`) comparten **el mismo
+    `connector_instance_id`** durante 21 días (7 al 28 de septiembre) — descarta que el
+    buffer SQLite local se reinicie o se pierda entre reinicios (el `connector_instance_id`
+    se persiste en la misma tabla `meta` que el watermark `last_deal_ts`, y sobrevivió
+    intacto).
+  - El histograma diario muestra un patrón claro: ~280 filas/día (7-10 sept, cadencia normal
+    ~5 min) → salta a 1.600-5.800 filas/día (11-25 sept) → cae a 0 el 27 sept → 1 fila el 28.
+  - **Ya estaba diagnosticado**: este mismo fichero documentaba desde el 2026-09-26 (ver
+    entrada de arriba sobre "141 lotes... 20 minutos"): *"Queda una causa aguas arriba: el
+    conector del repo lleva watermark correcto (`poll_deals_incremental_once` persiste
+    `last_deal_ts` en `buffer.meta`), así que el del VPS debe correr una versión anterior o
+    perder su buffer al arrancar. Conviene comprobarlo allí."* — nunca se comprobó, y el
+    mismo patrón volvió a reventar el 2026-09-28, esta vez 375× más grande (52.512 vs 141).
+  - Verificado en el código de este repo: `mt5-connector/src/connector/poller.py::
+    poll_deals_incremental_once` SÍ implementa el watermark incremental correctamente
+    (persiste `last_deal_ts`, solo pide deals nuevos). El conector que corre de verdad
+    contra JJTI/BEPB no está usando este código — corre una versión anterior sin esa lógica.
+    **Redesplegar ese binario está fuera del alcance de este repo** (corre en la
+    máquina/VPS real del operador, no accesible desde esta sesión).
+  - **Lo que sí se arregló aquí, con lógica** (commit `34c0939`): la falta de
+    observabilidad que dejó crecer esto 21 días en silencio. `seal_and_create_batch()`
+    genera ahora una `Alert` (nivel SUAVE, una sola vez por sello vía `dedup_key`) cuando un
+    mismo sello se reenvía 50+ veces — muy por debajo del volumen real y del escenario
+    tolerado por diseño ("141 en 20 minutos"), para que esto sea visible en Auditoría el
+    mismo día en vez de 3 semanas después. 5/5 tests contra BD real (verificado: sin alerta
+    por debajo del umbral, una sola alerta persistente por encima). Desplegado en el stack
+    operacional real.
+  - **Pendiente de acción del operador** (no de código): confirmar y redesplegar la versión
+    actual del conector en la(s) máquina(s) que sirven a JJTI/BEPB.
 - ~~**[G13-73] Cola de prefiltro en 0 tras rebuild del exe**~~ **CERRADO 2026-09-28 — no es
   bug, es hueco real de datos en SQX (mismo patrón ya documentado para otros proyectos,
   ver A30 arriba).** Diagnóstico completo: de las 230 fuentes "resueltas" (hash de
