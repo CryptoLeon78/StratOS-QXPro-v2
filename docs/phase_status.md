@@ -4,6 +4,25 @@
 
 ## Fase activa: G13 — Stack operacional real/incubadora/análisis — FUNDACIÓN IMPLEMENTADA; GATES EXTERNOS ABIERTOS
 
+**Continuación 2026-09-28 (noche) — corrección final de G13-75: no hacía falta redesplegar
+el conector, ya estaba hecho desde el 26 de septiembre.** El operador pidió redesplegar el
+conector en el VPS directamente (RDP + acceso admin ya abiertos); antes de copiar nada se
+verificó por hash SHA-256 (no visualmente) que los 4 ficheros clave del conector real
+(`C:\StratOS\readonly-connector\mt5-connector\src\connector\{poller,buffer,sender,main}.py`,
+servicios NSSM `StratOSMt5Readonly_{bepb,jjti,incubadora}`) son **byte a byte idénticos**
+al código de este repo — el watermark incremental correcto ya estaba corriendo. Los 4
+procesos Python del conector arrancaron el **2026-09-26 a las 09:43**, coincidiendo con el
+desplome del histograma de duplicados esa misma mañana: alguien ya había reiniciado/
+corregido el conector dos días antes de que esta sesión empezara a investigar el
+2026-09-28. Sesión RDP verificada solo de lectura (hashes, timestamps, contenido de
+`buffer.sqlite`); no se tocó ninguna terminal MT5, servicio ni fichero. El diagnóstico de
+"conector desactualizado" de la entrada anterior de hoy era correcto como explicación
+HISTÓRICA (por qué se acumularon los 52.512 duplicados entre el 7 y el 26 de septiembre),
+pero incorrecto como estado ACTUAL — se corrigió en `docs/backlog.md` G13-75. La alerta de
+reenvío excesivo (commit `34c0939`) sigue siendo el fix de lógica correcto y ya desplegado,
+independientemente de este hallazgo.
+
+
 **Continuación 2026-09-28 — G13-75 cerrado: causa raíz de los 52.512 duplicados confirmada
 (deriva de despliegue del conector, no bug de este repo) + alerta de observabilidad
 desplegada.** A petición del operador ("investiga por qué se acumularon tantas y

@@ -18,20 +18,32 @@
     mismo patrón volvió a reventar el 2026-09-28, esta vez 375× más grande (52.512 vs 141).
   - Verificado en el código de este repo: `mt5-connector/src/connector/poller.py::
     poll_deals_incremental_once` SÍ implementa el watermark incremental correctamente
-    (persiste `last_deal_ts`, solo pide deals nuevos). El conector que corre de verdad
-    contra JJTI/BEPB no está usando este código — corre una versión anterior sin esa lógica.
-    **Redesplegar ese binario está fuera del alcance de este repo** (corre en la
-    máquina/VPS real del operador, no accesible desde esta sesión).
-  - **Lo que sí se arregló aquí, con lógica** (commit `34c0939`): la falta de
-    observabilidad que dejó crecer esto 21 días en silencio. `seal_and_create_batch()`
-    genera ahora una `Alert` (nivel SUAVE, una sola vez por sello vía `dedup_key`) cuando un
-    mismo sello se reenvía 50+ veces — muy por debajo del volumen real y del escenario
-    tolerado por diseño ("141 en 20 minutos"), para que esto sea visible en Auditoría el
-    mismo día en vez de 3 semanas después. 5/5 tests contra BD real (verificado: sin alerta
-    por debajo del umbral, una sola alerta persistente por encima). Desplegado en el stack
-    operacional real.
-  - **Pendiente de acción del operador** (no de código): confirmar y redesplegar la versión
-    actual del conector en la(s) máquina(s) que sirven a JJTI/BEPB.
+    (persiste `last_deal_ts`, solo pide deals nuevos).
+  - **Corrección tras acceso directo al VPS real (RDP, 2026-09-28 tarde) — el diagnóstico
+    de "conector desactualizado" era correcto SOLO como explicación histórica, ya no como
+    estado actual.** Verificado con acceso interactivo real (`C:\StratOS\readonly-connector\
+    mt5-connector\` en el VPS, servicios NSSM `StratOSMt5Readonly_bepb/jjti/incubadora`,
+    los tres `Running`): **los 4 ficheros clave del conector
+    (`poller.py`/`buffer.py`/`sender.py`/`main.py`) son BYTE A BYTE IDÉNTICOS** al código de
+    este repo (comparación por `Get-FileHash` SHA-256 contra el hash local, no visual). El
+    watermark real en `buffer.sqlite` de BEPB (`last_deal_ts`) estaba avanzando con
+    normalidad, actualizado a los pocos minutos de la consulta. Los 4 procesos Python del
+    conector (uno por servicio + su hilo) tienen `StartTime` **2026-09-26 09:43 AM** — casi
+    exactamente el momento en que el histograma diario de duplicados se desploma (última
+    entrada masiva a las 07:17 esa misma mañana). **Conclusión: alguien ya reinició/corrigió
+    el conector el 2026-09-26 por la mañana, dos días antes de que esta sesión empezara a
+    investigar** — el código nunca estuvo desactualizado hoy, solo lo estuvo ANTES de esa
+    fecha. No hace falta ninguna acción de redeploy: ya está hecho. Los 52.512 duplicados son
+    puramente evidencia histórica de la ventana rota (7-26 sept), no un problema activo.
+  - **Lo que sí se arregló aquí, con lógica** (commit `34c0939`, sigue siendo válido pase lo
+    que pase con el conector): la falta de observabilidad que dejó crecer esto 21 días en
+    silencio. `seal_and_create_batch()` genera ahora una `Alert` (nivel SUAVE, una sola vez
+    por sello vía `dedup_key`) cuando un mismo sello se reenvía 50+ veces — muy por debajo
+    del volumen real y del escenario tolerado por diseño ("141 en 20 minutos"), para que
+    esto sea visible en Auditoría el mismo día en vez de 3 semanas después. 5/5 tests
+    contra BD real, desplegado en el stack operacional real.
+  - **Nada pendiente del operador en este punto** — corrección de lo que se le pidió en la
+    sesión anterior: no hacía falta redesplegar nada porque ya estaba hecho.
 - ~~**[G13-73] Cola de prefiltro en 0 tras rebuild del exe**~~ **CERRADO 2026-09-28 — no es
   bug, es hueco real de datos en SQX (mismo patrón ya documentado para otros proyectos,
   ver A30 arriba).** Diagnóstico completo: de las 230 fuentes "resueltas" (hash de
