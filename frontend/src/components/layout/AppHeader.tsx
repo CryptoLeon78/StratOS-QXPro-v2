@@ -17,6 +17,19 @@ import uiStrings from "@/styles/ui_strings.es.json";
 // el commit del cliente WS lo sustituya por invalidacion via evento).
 export function AppHeader() {
   const { data, isLoading } = useHeaderSummary();
+  // `isLoading` de TanStack Query solo cubre la carga INICIAL: si un
+  // refetch posterior (poll de 5s o invalidacion por WS) falla -- p.ej. el
+  // access token expira y /auth/refresh tambien devuelve 401 (ver
+  // api/client.ts) -- `isLoading` se queda en `false` aunque `data` vuelva
+  // a `undefined`. RootLayout redirige a /login al limpiar la sesion, pero
+  // esa actualizacion de Zustand y esta de React Query son dos fuentes
+  // reactivas independientes: en el commit donde gana la segunda, este
+  // componente puede renderizar todavia con `data` vacio. `ready` cubre
+  // los dos casos (cargando O sin dato por cualquier motivo) con el mismo
+  // placeholder "-" que ya existia para la carga inicial, en vez de asumir
+  // `data` presente. Hallazgo real: TypeError en produccion leyendo
+  // `equity_eur` de `undefined`.
+  const ready = !isLoading && data !== undefined;
   // equity/alerts: los 2 topics de PARTE 9.3 que afectan a algun campo del
   // header (equity_eur/pnl_* vs alerts/pending_decisions).
   useWsTopic("equity", HEADER_SUMMARY_QUERY_KEY);
@@ -53,72 +66,71 @@ export function AppHeader() {
       <div className="grid grid-cols-2 gap-4 px-4 pb-4 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard
           label={uiStrings.header.equity}
-          value={isLoading ? "—" : `${formatAmount(data!.equity_eur)}`}
+          value={!ready ? "—" : `${formatAmount(data.equity_eur)}`}
         />
         <StatCard
           label={uiStrings.header.pnlDay}
-          value={isLoading ? "—" : formatSignedAmount(data!.pnl_day)}
+          value={!ready ? "—" : formatSignedAmount(data.pnl_day)}
           valueClassName={
-            !isLoading && Number(data!.pnl_day) < 0 ? "text-pnl-negative" : "text-pnl-positive"
+            ready && Number(data.pnl_day) < 0 ? "text-pnl-negative" : "text-pnl-positive"
           }
           subtext={
-            !isLoading &&
+            ready &&
             interpolate(uiStrings.header.weekMonth, {
-              week: formatAmount(data!.pnl_week),
-              month: formatAmount(data!.pnl_month),
+              week: formatAmount(data.pnl_week),
+              month: formatAmount(data.pnl_month),
             })
           }
         />
         <StatCard
           label={uiStrings.header.drawdown}
-          value={isLoading ? "—" : formatPercent(data!.portfolio_dd_pct)}
+          value={!ready ? "—" : formatPercent(data.portfolio_dd_pct)}
           subtext={
-            !isLoading &&
-            (data!.ks_level === 0
+            ready &&
+            (data.ks_level === 0
               ? uiStrings.header.ksInactive
-              : interpolate(uiStrings.header.ksActive, { level: data!.ks_level }))
+              : interpolate(uiStrings.header.ksActive, { level: data.ks_level }))
           }
         />
         <StatCard
           label={uiStrings.header.semaphoreGlobal}
-          value={isLoading ? "—" : <SemaphoreBadge state={data!.global_semaphore} />}
+          value={!ready ? "—" : <SemaphoreBadge state={data.global_semaphore} />}
         />
         <StatCard
           label={uiStrings.header.mt}
           value={
-            isLoading ? (
+            !ready ? (
               "—"
             ) : (
               <span className="flex items-center gap-1.5">
-                {data!.mt_connected ? (
+                {data.mt_connected ? (
                   <Wifi className="size-4 text-semantic-success" />
                 ) : (
                   <WifiOff className="size-4 text-semantic-danger" />
                 )}
-                {data!.mt_connected ? uiStrings.header.connected : uiStrings.header.disconnected}
+                {data.mt_connected ? uiStrings.header.connected : uiStrings.header.disconnected}
               </span>
             )
           }
           subtext={
-            !isLoading &&
-            interpolate(uiStrings.header.openPositions, { count: data!.open_positions })
+            ready && interpolate(uiStrings.header.openPositions, { count: data.open_positions })
           }
         />
         <StatCard
           label={uiStrings.header.alerts}
           value={
-            isLoading ? (
+            !ready ? (
               "—"
             ) : (
               <span className="flex items-center gap-1.5">
                 <Bell className="size-4 text-text-secondary" />
-                {data!.alerts}
+                {data.alerts}
               </span>
             )
           }
           subtext={
-            !isLoading &&
-            interpolate(uiStrings.header.pendingDecisions, { count: data!.pending_decisions })
+            ready &&
+            interpolate(uiStrings.header.pendingDecisions, { count: data.pending_decisions })
           }
         />
       </div>
@@ -134,14 +146,13 @@ export function AppHeader() {
       <div className="px-4 pb-3" data-testid="data-stale-badge">
         <Badge
           variant="warning"
-          className={
-            isLoading || data!.data_stale_seconds === null ? "invisible" : undefined
-          }
+          className={!ready || data.data_stale_seconds === null ? "invisible" : undefined}
         >
           {interpolate(uiStrings.header.dataStale, {
-            minutes: !isLoading && data!.data_stale_seconds !== null
-              ? Math.round(data!.data_stale_seconds / 60)
-              : 0,
+            minutes:
+              ready && data.data_stale_seconds !== null
+                ? Math.round(data.data_stale_seconds / 60)
+                : 0,
           })}
         </Badge>
       </div>
