@@ -26,7 +26,10 @@ from core.notifications.dispatch import dispatch_new_alerts
 from core.notifications.telegram import send_telegram_message
 from core.services.audit import AuditConfig, run_audit_daily
 from core.services.config_drift import run_drift_check
-from core.services.correlations import CorrelationServiceConfig, run_mt5_real_correlation_snapshot
+from core.services.correlations import (
+    CorrelationServiceConfig,
+    run_mt5_real_correlation_snapshots_by_account,
+)
 from core.services.impulses import ImpulseServiceConfig, evaluate_pending_impulses
 from core.services.killswitch_sweep import KillSwitchSweepConfig, sweep_accounts
 from core.services.montecarlo import (
@@ -111,7 +114,7 @@ async def task_run_watchdog(ctx: dict[str, Any]) -> None:
 @_instrumented("task_run_correlations")
 async def task_run_correlations(ctx: dict[str, Any]) -> None:
     async with ctx["session_factory"]() as session:
-        await run_mt5_real_correlation_snapshot(
+        await run_mt5_real_correlation_snapshots_by_account(
             session, CorrelationServiceConfig(), datetime.now(UTC)
         )
         await session.commit()

@@ -40,6 +40,7 @@ async def record(candidate_ids: list[int], tester_timezone: str) -> str:
     async with async_session_factory() as session, session.begin():
         trades_by_bot: dict[int, list[TradePnl]] = {}
         evidence: list[dict[str, object]] = []
+        account_ids: set[int] = set()
         for candidate_id in sorted(set(candidate_ids)):
             candidate = await session.get(PipelineCandidate, candidate_id)
             if candidate is None:
@@ -47,6 +48,7 @@ async def record(candidate_ids: list[int], tester_timezone: str) -> str:
             bot = await session.get(Bot, candidate.bot_id)
             if bot is None:
                 raise ValueError(f"candidate {candidate_id} has no bot")
+            account_ids.add(bot.account_id)
             events = list(
                 (
                     await session.scalars(
@@ -108,6 +110,8 @@ async def record(candidate_ids: list[int], tester_timezone: str) -> str:
                     ],
                 }
             )
+        if len(account_ids) != 1:
+            raise ValueError("candidates must belong to a single account (ADR 0013)")
         all_dates = [trade.closed_at for trades in trades_by_bot.values() for trade in trades]
         result = await persist_mt5_backtest_correlation_snapshot(
             session,
@@ -118,6 +122,7 @@ async def record(candidate_ids: list[int], tester_timezone: str) -> str:
             input_manifest={"schema_version": "mt5-backtest-correlation-v1", "evidence": evidence},
             trades_by_bot=trades_by_bot,
             config=CorrelationServiceConfig(),
+            account_id=next(iter(account_ids)),
         )
     return f"snapshot_id={result.snapshot.id} source=MT5_BACKTEST status={result.snapshot.status} created={result.created}"
 

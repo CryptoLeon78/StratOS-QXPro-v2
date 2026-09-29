@@ -205,8 +205,19 @@ async def compute_portfolio_contribution(session: AsyncSession, bot: Bot) -> Por
     account_origin = await session.scalar(
         select(Account.data_origin).where(Account.id == bot.account_id)
     )
-    snapshot = None
-    if account_origin == AccountDataOrigin.BROKER_REAL:
+    # ADR 0013: primero la matriz calculada para SU cuenta; solo si aun no existe,
+    # la heredada del pool de cuentas reales.
+    snapshot = await session.scalar(
+        select(CorrelationSnapshot)
+        .where(
+            CorrelationSnapshot.source == CorrelationSource.MT5_REAL,
+            CorrelationSnapshot.status == "COMPLETED",
+            CorrelationSnapshot.account_scope["account_id"].as_integer() == bot.account_id,
+        )
+        .order_by(CorrelationSnapshot.created_at.desc())
+        .limit(1)
+    )
+    if snapshot is None and account_origin == AccountDataOrigin.BROKER_REAL:
         snapshot = await session.scalar(
             select(CorrelationSnapshot)
             .where(

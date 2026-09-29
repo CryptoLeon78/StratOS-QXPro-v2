@@ -32,8 +32,14 @@ class CorrelationServiceConfig:
     window_days: int = 1240
     redundant_factor: float = 3.0
     ffill_limit: int = 3
-    # 7.5, caso limite: "bot con <30 dias -> excluido con nota".
-    min_days_for_correlation: int = 30
+    # 7.5, caso limite: bot con historia insuficiente -> excluido con nota. ADR 0013
+    # (G14-02, peticion del operador 2026-09-29): un bot entra con >=10 dias con
+    # operaciones O >=10 operaciones cerradas (antes 30 dias).
+    min_days_for_correlation: int = 10
+    min_trades_for_correlation: int = 10
+    # Por debajo de estas observaciones (dias con actividad de alguno de los dos
+    # bots del par) la UI marca el par como "baja confianza".
+    low_confidence_obs: int = 30
     # sin TTL contractual: recalculo semanal es el invalidador natural, este
     # es solo una red de seguridad si el job deja de correr (ASSUMPTIONS G5).
     cache_ttl_s: int = 8 * 24 * 3600
@@ -70,6 +76,14 @@ def build_daily_pnl_by_bot(trades_by_bot: dict[int, list[TradePnl]]) -> dict[int
         )
         result[bot_id] = frame.groupby("date")["pnl"].sum()
     return result
+
+
+def is_eligible_series(series: pd.Series, n_trades: int, config: CorrelationServiceConfig) -> bool:
+    """Regla de inclusion (ADR 0013): dias con operaciones u operaciones cerradas."""
+    return (
+        len(series) >= config.min_days_for_correlation
+        or n_trades >= config.min_trades_for_correlation
+    )
 
 
 def _pair_correlations(corr: pd.DataFrame) -> dict[tuple[int, int], float]:
@@ -167,7 +181,7 @@ async def _persist_source_snapshot(
     included = {
         bot_id: series
         for bot_id, series in daily.items()
-        if len(series) >= config.min_days_for_correlation
+        if is_eligible_series(series, len(trades_by_bot[bot_id]), config)
     }
     if len(included) < 2:
         snapshot = CorrelationSnapshot(
@@ -215,6 +229,7 @@ async def _persist_source_snapshot(
                 bot_b_id=bot_b_id,
                 correlation=correlation_value,
                 is_redundant_pair=redundant[(bot_a_id, bot_b_id)],
+                n_obs=len(included[bot_a_id].index.union(included[bot_b_id].index)),
             )
         )
     await session.flush()
@@ -225,32 +240,39 @@ async def run_mt5_real_correlation_snapshot(
     session: AsyncSession,
     config: CorrelationServiceConfig,
     now: datetime,
+    account_id: int | None = None,
 ) -> CorrelationSnapshotResult:
-    """Calcula sólo trades cerrados asignados de cuentas ``BROKER_REAL``.
+    """Calcula sólo trades cerrados asignados a un bot.
+
+    Sin `account_id`: pool de cuentas ``BROKER_REAL`` (comportamiento
+    heredado). Con `account_id` (ADR 0013): SOLO los trades de esa cuenta,
+    cualquiera que sea su origen -- no hay mezcla posible, y el origen queda
+    declarado en `account_scope`.
 
     Los huérfanos se excluyen de forma explícita: sin identidad de bot no
-    pueden participar en una correlación por estrategia. Fixture y demo no
-    se consultan ni siquiera como relleno de serie.
+    pueden participar en una correlación por estrategia.
     """
     window_start = now - timedelta(days=config.window_days)
-    rows = (
-        await session.execute(
-            select(
-                Trade.id,
-                Trade.bot_id,
-                Trade.close_time,
-                Trade.profit,
-                Trade.commission,
-                Trade.swap,
-                Trade.account_id,
-            )
-            .join(Account, Account.id == Trade.account_id)
-            .where(Account.data_origin == AccountDataOrigin.BROKER_REAL)
-            .where(Trade.close_time.is_not(None), Trade.close_time >= window_start)
-            .where(Trade.bot_id.is_not(None))
-            .order_by(Trade.id.asc(), Trade.close_time.asc())
+    query = (
+        select(
+            Trade.id,
+            Trade.bot_id,
+            Trade.close_time,
+            Trade.profit,
+            Trade.commission,
+            Trade.swap,
+            Trade.account_id,
         )
-    ).all()
+        .join(Account, Account.id == Trade.account_id)
+        .where(Trade.close_time.is_not(None), Trade.close_time >= window_start)
+        .where(Trade.bot_id.is_not(None))
+        .order_by(Trade.id.asc(), Trade.close_time.asc())
+    )
+    if account_id is None:
+        query = query.where(Account.data_origin == AccountDataOrigin.BROKER_REAL)
+    else:
+        query = query.where(Trade.account_id == account_id)
+    rows = (await session.execute(query)).all()
     trades_by_bot: dict[int, list[TradePnl]] = {}
     input_rows: list[dict[str, object]] = []
     account_ids: set[int] = set()
@@ -272,6 +294,18 @@ async def run_mt5_real_correlation_snapshot(
                 "swap": str(swap),
             }
         )
+    if account_id is None:
+        account_scope: dict[str, object] = {
+            "data_origin": AccountDataOrigin.BROKER_REAL.value,
+            "account_ids": sorted(account_ids),
+        }
+    else:
+        origin = await session.scalar(select(Account.data_origin).where(Account.id == account_id))
+        account_scope = {
+            "data_origin": origin.value if origin is not None else None,
+            "account_ids": [account_id],
+            "account_id": account_id,
+        }
     return await _persist_source_snapshot(
         session,
         source=CorrelationSource.MT5_REAL,
@@ -279,14 +313,26 @@ async def run_mt5_real_correlation_snapshot(
         window_start=window_start,
         window_end=now,
         window_days=config.window_days,
-        account_scope={
-            "data_origin": AccountDataOrigin.BROKER_REAL.value,
-            "account_ids": sorted(account_ids),
-        },
+        account_scope=account_scope,
         input_manifest={"trades": input_rows},
         trades_by_bot=trades_by_bot,
         config=config,
     )
+
+
+async def run_mt5_real_correlation_snapshots_by_account(
+    session: AsyncSession, config: CorrelationServiceConfig, now: datetime
+) -> list[CorrelationSnapshotResult]:
+    """ADR 0013: una matriz observada por cuenta activa."""
+    account_ids = (
+        (await session.execute(select(Account.id).where(Account.is_active.is_(True))))
+        .scalars()
+        .all()
+    )
+    return [
+        await run_mt5_real_correlation_snapshot(session, config, now, account_id)
+        for account_id in account_ids
+    ]
 
 
 async def persist_mt5_backtest_correlation_snapshot(
@@ -299,8 +345,14 @@ async def persist_mt5_backtest_correlation_snapshot(
     input_manifest: dict[str, object],
     trades_by_bot: dict[int, list[TradePnl]],
     config: CorrelationServiceConfig,
+    account_id: int | None = None,
 ) -> CorrelationSnapshotResult:
-    """Entrada para el importador sellado de Tester; no acepta trades reales."""
+    """Entrada para el importador sellado de Tester; no acepta trades reales.
+    `account_id` (ADR 0013) declara la cuenta cuyos bots componen la matriz."""
+    account_scope: dict[str, object] = {"data_origin": "MT5_TESTER_SEALED_ARTIFACT"}
+    if account_id is not None:
+        account_scope["account_id"] = account_id
+        account_scope["account_ids"] = [account_id]
     return await _persist_source_snapshot(
         session,
         source=CorrelationSource.MT5_BACKTEST,
@@ -308,7 +360,7 @@ async def persist_mt5_backtest_correlation_snapshot(
         window_start=window_start,
         window_end=window_end,
         window_days=window_days,
-        account_scope={"data_origin": "MT5_TESTER_SEALED_ARTIFACT"},
+        account_scope=account_scope,
         input_manifest=input_manifest,
         trades_by_bot=trades_by_bot,
         config=config,
@@ -329,7 +381,7 @@ async def run_correlation_job(
     included = {
         bot_id: series
         for bot_id, series in returns_by_bot.items()
-        if len(series) >= config.min_days_for_correlation
+        if is_eligible_series(series, len(trades_by_bot[bot_id]), config)
     }
     if len(included) < 2:
         return
