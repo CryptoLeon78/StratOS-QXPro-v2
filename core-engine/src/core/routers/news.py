@@ -22,6 +22,7 @@ from core.db.base import get_session
 from core.db.enums import NewsImpact
 from core.db.models.accounts import Bot
 from core.db.models.governance import NewsEvent
+from core.routers.scope import AccountScope
 from core.services.news import trades_in_news_window
 
 router = APIRouter(prefix="/api/v1/news", tags=["news"], dependencies=[Depends(get_current_user)])
@@ -42,7 +43,9 @@ class NewsShieldRow(BaseModel):
     affected_bots: list[str]
 
 
-async def _shield_rows(session: AsyncSession, hours: int) -> list[NewsShieldRow]:
+async def _shield_rows(
+    session: AsyncSession, hours: int, account_id: int | None = None
+) -> list[NewsShieldRow]:
     now = datetime.now(UTC)
     end = now + timedelta(hours=hours)
     events = (
@@ -56,7 +59,10 @@ async def _shield_rows(session: AsyncSession, hours: int) -> list[NewsShieldRow]
         .scalars()
         .all()
     )
-    bots = (await session.execute(select(Bot.name, Bot.market))).all()
+    bots_query = select(Bot.name, Bot.market)
+    if account_id is not None:
+        bots_query = bots_query.where(Bot.account_id == account_id)
+    bots = (await session.execute(bots_query)).all()
 
     rows = []
     for event in events:
@@ -92,30 +98,34 @@ class TradeInNewsWindowResponse(BaseModel):
 
 @router.get("/shield", response_model=list[NewsShieldRow])
 async def news_shield(
-    hours: int = Query(default=_SHIELD_DEFAULT_HOURS), session: AsyncSession = Depends(get_session)
+    account_id: AccountScope,
+    hours: int = Query(default=_SHIELD_DEFAULT_HOURS),
+    session: AsyncSession = Depends(get_session),
 ) -> list[NewsShieldRow]:
-    return await _shield_rows(session, hours)
+    return await _shield_rows(session, hours, account_id)
 
 
 @router.get("/shield/trades", response_model=list[TradeInNewsWindowResponse])
 async def news_shield_trades(
+    account_id: AccountScope,
     days: int = Query(default=_SHIELD_TRADES_DEFAULT_DAYS),
     session: AsyncSession = Depends(get_session),
 ) -> list[TradeInNewsWindowResponse]:
     now = datetime.now(UTC)
     matches = await trades_in_news_window(
-        session, window_start=now - timedelta(days=days), window_end=now
+        session, window_start=now - timedelta(days=days), window_end=now, account_id=account_id
     )
     return [TradeInNewsWindowResponse.model_validate(m) for m in matches]
 
 
 @router.get("/shield/windows", response_model=None)
 async def news_shield_windows(
+    account_id: AccountScope,
     hours: int = Query(default=_SHIELD_DEFAULT_HOURS),
     format_: Literal["text", "csv", "json"] = Query(default="text", alias="format"),
     session: AsyncSession = Depends(get_session),
 ) -> PlainTextResponse | list[NewsShieldRow]:
-    rows = await _shield_rows(session, hours)
+    rows = await _shield_rows(session, hours, account_id)
     if format_ == "json":
         return rows
     if format_ == "csv":

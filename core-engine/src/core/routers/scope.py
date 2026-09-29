@@ -5,8 +5,9 @@ portfolio (uso interno: sweeps, jobs); la UI siempre lo envia."""
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstrumentedAttribute
 
 from core.db.base import get_session
 from core.db.models.accounts import Account
@@ -27,3 +28,11 @@ async def get_account_scope(
 
 
 AccountScope = Annotated[int | None, Depends(get_account_scope)]
+
+
+def account_or_portfolio(
+    column: InstrumentedAttribute[int | None], account_id: int
+) -> ColumnElement[bool]:
+    """Filas de la cuenta MAS las de portfolio (`account_id` NULL, heredadas
+    o sin cuenta): decisiones y alertas globales se ven en todas las cuentas."""
+    return or_(column == account_id, column.is_(None))

@@ -60,6 +60,7 @@ async def _apply_p5_check(
                     message=f"Posicion {position.ticket_mt5} ({position.symbol}) sin stop loss.",
                     action_required="Colocar SL de inmediato (P5).",
                     dedup_key=dedup_key,
+                    account_id=account_id,
                 )
             )
     elif existing is not None:

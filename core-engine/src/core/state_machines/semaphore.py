@@ -246,6 +246,7 @@ async def apply_semaphore_transition(
                 instruction_text=result.instruction_text or "",
                 evidence=result.trigger_metrics,
                 status=DecisionStatus.PENDING,
+                account_id=bot.account_id,
             )
         )
 
@@ -257,6 +258,7 @@ async def apply_semaphore_transition(
                 module="semaphore",
                 message=f"Bot magic {bot.magic_number}: {result.from_state} -> {result.to_state}",
                 action_required=result.instruction_text if result.requires_confirmation else None,
+                account_id=bot.account_id,
             )
         )
 

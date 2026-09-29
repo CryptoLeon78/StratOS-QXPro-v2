@@ -30,7 +30,10 @@ class TradeInNewsWindow:
 
 
 async def trades_in_news_window(
-    session: AsyncSession, window_start: datetime, window_end: datetime
+    session: AsyncSession,
+    window_start: datetime,
+    window_end: datetime,
+    account_id: int | None = None,
 ) -> list[TradeInNewsWindow]:
     """Trades cuyo intervalo `[open_time, close_time o ahora]` se solapa
     con la ventana de exclusion de un `NewsEvent` de la misma divisa (via
@@ -62,13 +65,14 @@ async def trades_in_news_window(
         return []
     currency_by_symbol = {symbol: currency for symbol, currency in symbol_rows}
 
-    trades = (
-        await session.execute(
-            select(Trade, Bot.name)
-            .outerjoin(Bot, Bot.id == Trade.bot_id)
-            .where(Trade.symbol.in_(currency_by_symbol.keys()), Trade.open_time <= window_end)
-        )
-    ).all()
+    trades_query = (
+        select(Trade, Bot.name)
+        .outerjoin(Bot, Bot.id == Trade.bot_id)
+        .where(Trade.symbol.in_(currency_by_symbol.keys()), Trade.open_time <= window_end)
+    )
+    if account_id is not None:
+        trades_query = trades_query.where(Trade.account_id == account_id)
+    trades = (await session.execute(trades_query)).all()
 
     now = datetime.now(UTC)
     matches: list[TradeInNewsWindow] = []

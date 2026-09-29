@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.auth.dependencies import get_current_user
 from core.db.base import get_session
 from core.db.models.governance import MonteCarloRun
+from core.routers.scope import AccountScope
 from core.services.risk import (
     RiskServiceConfig,
     compute_exposure,
@@ -79,29 +80,36 @@ class MonteCarloResponse(BaseModel):
 
 
 @router.get("/tail", response_model=TailRiskResponse | None)
-async def risk_tail(session: AsyncSession = Depends(get_session)) -> TailRiskResponse | None:
-    result = await compute_tail_risk(session, _RISK_CONFIG, datetime.now(UTC))
+async def risk_tail(
+    account_id: AccountScope, session: AsyncSession = Depends(get_session)
+) -> TailRiskResponse | None:
+    result = await compute_tail_risk(session, _RISK_CONFIG, datetime.now(UTC), account_id)
     return TailRiskResponse.model_validate(result) if result is not None else None
 
 
 @router.get("/exposure", response_model=list[ExposureRowResponse])
-async def risk_exposure(session: AsyncSession = Depends(get_session)) -> list[ExposureRowResponse]:
-    rows = await compute_exposure(session)
+async def risk_exposure(
+    account_id: AccountScope, session: AsyncSession = Depends(get_session)
+) -> list[ExposureRowResponse]:
+    rows = await compute_exposure(session, account_id)
     return [ExposureRowResponse.model_validate(row) for row in rows]
 
 
 @router.get("/exposure/by-currency", response_model=list[ExposureCurrencySubtotalResponse])
 async def risk_exposure_by_currency(
+    account_id: AccountScope,
     session: AsyncSession = Depends(get_session),
 ) -> list[ExposureCurrencySubtotalResponse]:
-    rows = await compute_exposure(session)
+    rows = await compute_exposure(session, account_id)
     subtotals = exposure_subtotals_by_currency(rows)
     return [ExposureCurrencySubtotalResponse.model_validate(s) for s in subtotals.values()]
 
 
 @router.get("/exposure/eur", response_model=ExposureEurResponse)
-async def risk_exposure_eur(session: AsyncSession = Depends(get_session)) -> ExposureEurResponse:
-    rows = await compute_exposure(session)
+async def risk_exposure_eur(
+    account_id: AccountScope, session: AsyncSession = Depends(get_session)
+) -> ExposureEurResponse:
+    rows = await compute_exposure(session, account_id)
     result = await exposure_pnl_eur(session, rows)
     return ExposureEurResponse(
         pnl_eur=result.pnl_eur,

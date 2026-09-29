@@ -51,8 +51,11 @@ def signed_slippage(fill: ExecutionFill) -> Decimal:
     )
 
 
-async def tca_summary(session: AsyncSession) -> TcaSummary | None:
-    reports = list((await session.execute(select(ExecutionFill))).scalars().all())
+async def tca_summary(session: AsyncSession, account_id: int | None = None) -> TcaSummary | None:
+    fills_query = select(ExecutionFill)
+    if account_id is not None:
+        fills_query = fills_query.where(ExecutionFill.account_id == account_id)
+    reports = list((await session.execute(fills_query)).scalars().all())
     if not reports:
         return None
     fills = [report for report in reports if report.status == _FILLED_STATUS]

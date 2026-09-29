@@ -13,7 +13,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.auth.dependencies import get_current_user
 from core.db.base import get_session
 from core.db.enums import CemeteryCause, PipelinePhase
+from core.db.models.accounts import Bot
 from core.db.models.pipeline import CemeteryEntry, PipelineCandidate, PipelinePhaseTransition
+from core.routers.scope import AccountScope
 from core.state_machines.challenger import evaluate_cemetery_reactivation
 from core.state_machines.types import ChallengerConfig
 
@@ -61,9 +63,15 @@ async def _entered_pipeline_at(session: AsyncSession, bot_id: int) -> datetime |
 
 @router.get("", response_model=list[CemeteryEntryResponse])
 async def list_cemetery(
+    account_id: AccountScope,
     session: AsyncSession = Depends(get_session),
 ) -> list[CemeteryEntryResponse]:
-    entries = list((await session.execute(select(CemeteryEntry))).scalars().all())
+    entries_query = select(CemeteryEntry)
+    if account_id is not None:
+        entries_query = entries_query.join(Bot, Bot.id == CemeteryEntry.bot_id).where(
+            Bot.account_id == account_id
+        )
+    entries = list((await session.execute(entries_query)).scalars().all())
     return [
         CemeteryEntryResponse.model_validate(entry).model_copy(
             update={"entered_pipeline_at": await _entered_pipeline_at(session, entry.bot_id)}

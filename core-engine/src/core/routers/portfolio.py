@@ -22,6 +22,7 @@ from core.db.base import get_session
 from core.db.enums import CorrelationSource, PipelinePhase
 from core.db.models.accounts import Bot
 from core.db.models.governance import CorrelationSnapshot, CorrelationSnapshotPair
+from core.routers.scope import AccountScope
 from core.services.benchmark import (
     compare_to_benchmark,
     load_sp500_monthly,
@@ -109,16 +110,17 @@ class CorrelationSnapshotResponse(BaseModel):
     pairs: list[CorrelationRow]
 
 
-async def _active_bot_allocations(session: AsyncSession) -> list[tuple[str, Decimal]]:
-    rows = (
-        await session.execute(
-            select(Bot.profile, Bot.capital_allocated_pct).where(
-                Bot.pipeline_phase.in_(_ACTIVE_PHASES),
-                Bot.profile.is_not(None),
-                Bot.capital_allocated_pct.is_not(None),
-            )
-        )
-    ).all()
+async def _active_bot_allocations(
+    session: AsyncSession, account_id: int | None = None
+) -> list[tuple[str, Decimal]]:
+    query = select(Bot.profile, Bot.capital_allocated_pct).where(
+        Bot.pipeline_phase.in_(_ACTIVE_PHASES),
+        Bot.profile.is_not(None),
+        Bot.capital_allocated_pct.is_not(None),
+    )
+    if account_id is not None:
+        query = query.where(Bot.account_id == account_id)
+    rows = (await session.execute(query)).all()
     # `profile` y `capital_allocated_pct` son nullable y el tipo estatico no
     # refleja los `is_not(None)` de la consulta: se reafirman aqui en vez de
     # castear a ciegas.
@@ -155,24 +157,29 @@ def _aggregate(
 
 
 @router.get("/blocks", response_model=list[AllocationRow])
-async def portfolio_blocks(session: AsyncSession = Depends(get_session)) -> list[AllocationRow]:
-    allocations = await _active_bot_allocations(session)
+async def portfolio_blocks(
+    account_id: AccountScope, session: AsyncSession = Depends(get_session)
+) -> list[AllocationRow]:
+    allocations = await _active_bot_allocations(session, account_id)
     block_allocations = [(PROFILE_BLOCK_MAP[profile], capital) for profile, capital in allocations]
     return _aggregate(block_allocations, BLOCK_TARGET)
 
 
 @router.get("/profiles", response_model=list[AllocationRow])
-async def portfolio_profiles(session: AsyncSession = Depends(get_session)) -> list[AllocationRow]:
-    allocations = await _active_bot_allocations(session)
+async def portfolio_profiles(
+    account_id: AccountScope, session: AsyncSession = Depends(get_session)
+) -> list[AllocationRow]:
+    allocations = await _active_bot_allocations(session, account_id)
     return _aggregate(allocations, PROFILE_TARGET)
 
 
 @router.get("/benchmark", response_model=BenchmarkComparisonResponse | None)
 async def portfolio_benchmark(
+    account_id: AccountScope,
     session: AsyncSession = Depends(get_session),
 ) -> BenchmarkComparisonResponse | None:
     settings = get_settings()
-    portfolio = await portfolio_monthly_returns(session, datetime.now(UTC))
+    portfolio = await portfolio_monthly_returns(session, datetime.now(UTC), account_id)
     benchmark = load_sp500_monthly(settings.benchmark_csv_path)
     result = compare_to_benchmark(portfolio, benchmark)
     if result is None:

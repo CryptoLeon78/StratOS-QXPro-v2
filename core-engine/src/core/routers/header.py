@@ -25,9 +25,14 @@ from core.auth.dependencies import get_current_user
 from core.db.base import get_session
 from core.db.enums import AccountDataOrigin, DecisionStatus, PipelinePhase, SemaphoreState
 from core.db.models.accounts import Account, Bot
-from core.db.models.decisions import Alert, Decision, KillSwitchEvent
+from core.db.models.decisions import Alert, Decision
 from core.db.models.market import HeartbeatLog, Trade
-from core.services.killswitch_sweep import KillSwitchSweepConfig, compute_portfolio_dd_pct
+from core.routers.scope import AccountScope, account_or_portfolio
+from core.services.killswitch_sweep import (
+    KillSwitchSweepConfig,
+    compute_portfolio_dd_pct,
+    current_killswitch_level,
+)
 from core.services.risk import real_portfolio_equity_curve
 
 router = APIRouter(prefix="/api/v1", tags=["header"], dependencies=[Depends(get_current_user)])
@@ -80,7 +85,7 @@ class EquityCurvePoint(BaseModel):
 
 
 async def compute_header_summary(
-    session: AsyncSession, *, now: datetime | None = None
+    session: AsyncSession, *, now: datetime | None = None, account_id: int | None = None
 ) -> HeaderSummaryResponse:
     """Calcula la cabecera con un reloj explícito para fixtures verificables.
 
@@ -88,7 +93,7 @@ async def compute_header_summary(
     actual. El seed full congelado lo aporta solo para su auto-verificación.
     """
     now = now or datetime.now(UTC)
-    curve = await real_portfolio_equity_curve(session, now - timedelta(days=35))
+    curve = await real_portfolio_equity_curve(session, now - timedelta(days=35), account_id)
     equity_eur = Decimal(str(curve.iloc[-1])) if not curve.empty else Decimal("0")
 
     def _pnl_since(days: int) -> Decimal:
@@ -99,29 +104,32 @@ async def compute_header_summary(
             return Decimal("0")
         return equity_eur - Decimal(str(past))
 
-    dd_pct = await compute_portfolio_dd_pct(session, KillSwitchSweepConfig(), now) or Decimal("0")
-    ks_level = (
-        await session.execute(
-            select(KillSwitchEvent.level).order_by(KillSwitchEvent.ts.desc()).limit(1)
-        )
-    ).scalar_one_or_none() or 0
+    dd_pct = await compute_portfolio_dd_pct(
+        session, KillSwitchSweepConfig(), now, account_id
+    ) or Decimal("0")
+    ks_level = await current_killswitch_level(session, account_id)
 
-    bot_states = (
-        (
-            await session.execute(
-                select(Bot.semaphore_state).where(
-                    Bot.pipeline_phase.in_((PipelinePhase.F7, PipelinePhase.PRODUCCION))
-                )
-            )
+    # Sin cuenta: solo los bots vivos de portfolio (F7/PRODUCCION). Con cuenta
+    # (ADR 0013): todos los bots de esa cuenta salvo los archivados -- la
+    # Incubadora no tiene bots F7 y su semaforo seguiria siempre en VERDE.
+    states_query = select(Bot.semaphore_state)
+    if account_id is None:
+        states_query = states_query.where(
+            Bot.pipeline_phase.in_((PipelinePhase.F7, PipelinePhase.PRODUCCION))
         )
-        .scalars()
-        .all()
-    )
+    else:
+        states_query = states_query.where(
+            Bot.account_id == account_id, Bot.pipeline_phase != PipelinePhase.CEMENTERIO
+        )
+    bot_states = (await session.execute(states_query)).scalars().all()
     global_semaphore = (
         max(bot_states, key=lambda s: _SEMAPHORE_SEVERITY[s]).value if bot_states else "VERDE"
     )
 
-    last_heartbeat = (await session.execute(select(func.max(HeartbeatLog.ts)))).scalar_one_or_none()
+    heartbeat_query = select(func.max(HeartbeatLog.ts))
+    if account_id is not None:
+        heartbeat_query = heartbeat_query.where(HeartbeatLog.account_id == account_id)
+    last_heartbeat = (await session.execute(heartbeat_query)).scalar_one_or_none()
     heartbeat_age_seconds = (now - last_heartbeat).total_seconds() if last_heartbeat else None
     mt_connected = (
         heartbeat_age_seconds is not None and heartbeat_age_seconds <= _HEARTBEAT_STALE_AFTER_S
@@ -136,17 +144,20 @@ async def compute_header_summary(
         else None
     )
 
-    open_positions = (
-        await session.execute(select(func.count(Trade.id)).where(Trade.close_time.is_(None)))
-    ).scalar() or 0
-    alerts = (
-        await session.execute(select(func.count(Alert.id)).where(Alert.resolved.is_(False)))
-    ).scalar_one()
-    pending_decisions = (
-        await session.execute(
-            select(func.count(Decision.id)).where(Decision.status == DecisionStatus.PENDING)
+    positions_query = select(func.count(Trade.id)).where(Trade.close_time.is_(None))
+    alerts_query = select(func.count(Alert.id)).where(Alert.resolved.is_(False))
+    decisions_query = select(func.count(Decision.id)).where(
+        Decision.status == DecisionStatus.PENDING
+    )
+    if account_id is not None:
+        positions_query = positions_query.where(Trade.account_id == account_id)
+        alerts_query = alerts_query.where(account_or_portfolio(Alert.account_id, account_id))
+        decisions_query = decisions_query.where(
+            account_or_portfolio(Decision.account_id, account_id)
         )
-    ).scalar_one()
+    open_positions = (await session.execute(positions_query)).scalar() or 0
+    alerts = (await session.execute(alerts_query)).scalar_one()
+    pending_decisions = (await session.execute(decisions_query)).scalar_one()
 
     return HeaderSummaryResponse(
         equity_eur=equity_eur,
@@ -210,34 +221,35 @@ class DataProvenanceResponse(BaseModel):
 
 @router.get("/data-provenance", response_model=DataProvenanceResponse)
 async def data_provenance(
+    account_id: AccountScope,
     session: AsyncSession = Depends(get_session),
 ) -> DataProvenanceResponse:
-    rows = (
-        await session.execute(
-            select(
-                Account.data_origin,
-                func.count(func.distinct(Account.id)),
-                func.count(Bot.id),
-            )
-            .select_from(Account)
-            .outerjoin(Bot, Bot.account_id == Account.id)
-            .group_by(Account.data_origin)
-            .order_by(Account.data_origin)
+    provenance_query = (
+        select(
+            Account.data_origin,
+            func.count(func.distinct(Account.id)),
+            func.count(Bot.id),
         )
-    ).all()
+        .select_from(Account)
+        .outerjoin(Bot, Bot.account_id == Account.id)
+        .group_by(Account.data_origin)
+        .order_by(Account.data_origin)
+    )
+    if account_id is not None:
+        provenance_query = provenance_query.where(Account.id == account_id)
+    rows = (await session.execute(provenance_query)).all()
     composicion = [
         ProvenanceRow(data_origin=origin, accounts=n_accounts, bots=n_bots)
         for origin, n_accounts, n_bots in rows
     ]
-    total, atribuidos, sin_ea = (
-        await session.execute(
-            select(
-                func.count(Trade.ticket_mt5),
-                func.count(Trade.bot_id),
-                func.count(Trade.ticket_mt5).filter(Trade.magic_number == 0),
-            )
-        )
-    ).one()
+    attribution_query = select(
+        func.count(Trade.ticket_mt5),
+        func.count(Trade.bot_id),
+        func.count(Trade.ticket_mt5).filter(Trade.magic_number == 0),
+    )
+    if account_id is not None:
+        attribution_query = attribution_query.where(Trade.account_id == account_id)
+    total, atribuidos, sin_ea = (await session.execute(attribution_query)).one()
     # `magic=0` es ausencia declarada de EA (operacion manual o del broker, o un historico
     # que no publica magic); el resto de huerfanos son EAs retirados que ya no tienen bot.
     retirados = total - atribuidos - sin_ea
@@ -257,18 +269,23 @@ async def data_provenance(
 
 
 @router.get("/header/summary", response_model=HeaderSummaryResponse)
-async def header_summary(session: AsyncSession = Depends(get_session)) -> HeaderSummaryResponse:
-    return await compute_header_summary(session)
+async def header_summary(
+    account_id: AccountScope, session: AsyncSession = Depends(get_session)
+) -> HeaderSummaryResponse:
+    return await compute_header_summary(session, account_id=account_id)
 
 
 @router.get("/summary/equity-curve", response_model=list[EquityCurvePoint])
 async def equity_curve(
+    account_id: AccountScope,
     range_: Literal["30d", "90d", "180d", "1y", "all"] = Query(default="90d", alias="range"),
     session: AsyncSession = Depends(get_session),
 ) -> list[EquityCurvePoint]:
     now = datetime.now(UTC)
     lookback_days = _EQUITY_CURVE_LOOKBACK_DAYS[range_]
-    curve = await real_portfolio_equity_curve(session, now - timedelta(days=lookback_days))
+    curve = await real_portfolio_equity_curve(
+        session, now - timedelta(days=lookback_days), account_id
+    )
     # pandas-stubs tipa `.items()` como `Iterable[tuple[Hashable, Any]]` --
     # demasiado generico para que mypy --strict reconozca el indice como
     # fecha (mismo problema documentado en services/correlations.py).

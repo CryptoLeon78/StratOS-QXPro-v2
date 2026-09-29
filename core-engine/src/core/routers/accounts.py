@@ -20,6 +20,7 @@ from core.db.base import get_session
 from core.db.enums import AccountDataOrigin
 from core.db.models.accounts import Account, Bot
 from core.db.models.market import EaState, EquitySnapshot
+from core.routers.scope import AccountScope
 from core.services.config_drift import compute_drift
 
 router = APIRouter(
@@ -115,9 +116,15 @@ async def list_accounts(session: AsyncSession = Depends(get_session)) -> list[Ac
 
 
 @router.get("/drift", response_model=list[DriftRowResponse])
-async def account_drift(session: AsyncSession = Depends(get_session)) -> list[DriftRowResponse]:
+async def account_drift(
+    account_id: AccountScope, session: AsyncSession = Depends(get_session)
+) -> list[DriftRowResponse]:
     rows = await compute_drift(session)
-    return [DriftRowResponse.model_validate(row) for row in rows]
+    return [
+        DriftRowResponse.model_validate(row)
+        for row in rows
+        if account_id is None or row.account_id == account_id
+    ]
 
 
 @router.get("/{account_id}/eas", response_model=list[EaStateResponse])

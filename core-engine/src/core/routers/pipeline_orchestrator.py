@@ -16,6 +16,7 @@ from core.auth.dependencies import get_current_user
 from core.config import Settings, get_settings
 from core.db.base import get_session
 from core.db.enums import AssetAdmissionStatus
+from core.db.models.accounts import Bot
 from core.db.models.operations import (
     OperationalAsset,
     OperationalAssetEvent,
@@ -24,6 +25,7 @@ from core.db.models.operations import (
     PipelineWorkItem,
 )
 from core.db.models.pipeline import F6Evaluation, F6StagingEvaluation, PipelineCandidate
+from core.routers.scope import AccountScope
 from core.services.incubation_observation import assemble_incubation_observation
 
 router = APIRouter(prefix="/api/v1/pipeline-orchestrator", tags=["pipeline-orchestrator"])
@@ -137,18 +139,18 @@ async def list_f3_backtest_evidence(
 
 @router.get("/f5/incubation", dependencies=[Depends(get_current_user)], response_model=None)
 async def list_f5_incubation(
+    account_id: AccountScope,
     session: AsyncSession = Depends(get_session),
 ) -> list[dict[str, object]]:
     """F5 read model; baseline and demo observation are never mixed."""
-    candidates = list(
-        (
-            await session.scalars(
-                select(PipelineCandidate).where(
-                    PipelineCandidate.current_phase.in_(("F4", "F5", "F6", "F7"))
-                )
-            )
-        ).all()
+    candidates_query = select(PipelineCandidate).where(
+        PipelineCandidate.current_phase.in_(("F4", "F5", "F6", "F7"))
     )
+    if account_id is not None:
+        candidates_query = candidates_query.join(Bot, Bot.id == PipelineCandidate.bot_id).where(
+            Bot.account_id == account_id
+        )
+    candidates = list((await session.scalars(candidates_query)).all())
     result: list[dict[str, object]] = []
     for candidate in candidates:
         observation = await assemble_incubation_observation(session, candidate)

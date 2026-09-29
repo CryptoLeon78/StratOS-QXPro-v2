@@ -165,6 +165,7 @@ async def run_drift_check(session: AsyncSession, redis: Redis, now: datetime) ->
                     + ".",
                     action_required="Corregir el contrato operativo del EA en el terminal MT5.",
                     dedup_key=dedup_key,
+                    account_id=row.account_id,
                 )
                 session.add(alert)
                 await session.flush()

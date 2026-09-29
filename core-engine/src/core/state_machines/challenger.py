@@ -126,6 +126,7 @@ async def apply_cemetery_archival(
             module="pipeline",
             message=f"Bot {bot.name} archivado en el Cementerio ({cause.value}).",
             action_required=None,
+            account_id=bot.account_id,
         )
     )
 
@@ -228,6 +229,7 @@ async def apply_overstay_alert(
             module="challenger",
             message=f"{bot.name}: {config.instruction_overstay}",
             action_required=config.instruction_overstay,
+            account_id=bot.account_id,
         )
     )
     event = {

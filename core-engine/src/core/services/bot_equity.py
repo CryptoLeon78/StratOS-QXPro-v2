@@ -197,11 +197,9 @@ async def compute_portfolio_contribution(session: AsyncSession, bot: Bot) -> Por
         )
     ).scalar()
     pnl_account = Decimal(pnl_account_raw) if pnl_account_raw is not None else Decimal("0")
-    total_pnl_raw = (
-        await session.execute(select(closed_pnl).where(Trade.close_time.is_not(None)))
-    ).scalar()
-    total_pnl = Decimal(total_pnl_raw) if total_pnl_raw is not None else Decimal("0")
-    pct_of_total = float(pnl_bot / total_pnl * 100) if total_pnl != 0 else None
+    # ADR 0013: la contribucion se mide sobre el P&L de SU cuenta, no sobre el
+    # universo mezclado de todas las cuentas.
+    pct_of_total = float(pnl_bot / pnl_account * 100) if pnl_account != 0 else None
 
     correlation_vs_rest = None
     account_origin = await session.scalar(

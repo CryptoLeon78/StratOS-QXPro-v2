@@ -151,14 +151,31 @@ async def compute_send_continuity(
     return ContinuityResult(account_id=account_id, coverage_pct=coverage_pct, gaps=gaps)
 
 
-async def compute_seals_summary(session: AsyncSession) -> SealsSummary:
-    total_batches = (await session.execute(select(func.count(IngestBatch.id)))).scalar() or 0
-    total_trades = (await session.execute(select(func.count(Trade.id)))).scalar() or 0
-    ticket_min = (await session.execute(select(func.min(Trade.ticket_mt5)))).scalar()
-    ticket_max = (await session.execute(select(func.max(Trade.ticket_mt5)))).scalar()
-    history_start = (await session.execute(select(func.min(Trade.open_time)))).scalar()
+async def compute_seals_summary(
+    session: AsyncSession, account_id: int | None = None
+) -> SealsSummary:
+    batches_query = select(func.count(IngestBatch.id))
+    trade_filter = []
+    if account_id is not None:
+        batches_query = batches_query.where(IngestBatch.account_id == account_id)
+        trade_filter.append(Trade.account_id == account_id)
+    total_batches = (await session.execute(batches_query)).scalar() or 0
+    total_trades = (
+        await session.execute(select(func.count(Trade.id)).where(*trade_filter))
+    ).scalar() or 0
+    ticket_min = (
+        await session.execute(select(func.min(Trade.ticket_mt5)).where(*trade_filter))
+    ).scalar()
+    ticket_max = (
+        await session.execute(select(func.max(Trade.ticket_mt5)).where(*trade_filter))
+    ).scalar()
+    history_start = (
+        await session.execute(select(func.min(Trade.open_time)).where(*trade_filter))
+    ).scalar()
     history_end = (
-        await session.execute(select(func.max(func.coalesce(Trade.close_time, Trade.open_time))))
+        await session.execute(
+            select(func.max(func.coalesce(Trade.close_time, Trade.open_time))).where(*trade_filter)
+        )
     ).scalar()
     return SealsSummary(
         total_batches=total_batches,
@@ -204,6 +221,7 @@ async def run_audit_daily(
                     message=f"Cuenta {account_id}: descuadre contable ({discrepancy_label}).",
                     action_required="Revisar reconciliacion en la pestana Auditoria.",
                     dedup_key=dedup_key,
+                    account_id=account_id,
                 )
                 session.add(alert)
                 await session.flush()

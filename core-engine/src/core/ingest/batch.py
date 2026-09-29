@@ -145,5 +145,6 @@ async def _alert_if_excessive_resend(
             ),
             action_required="Confirmar y redesplegar la version actual del conector en esa cuenta.",
             dedup_key=dedup_key,
+            account_id=account_id,
         )
     )

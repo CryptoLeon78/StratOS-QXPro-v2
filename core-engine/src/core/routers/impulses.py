@@ -15,6 +15,7 @@ from core.db.base import get_session
 from core.db.enums import ImpulseAction, ImpulseStatus
 from core.db.models.accounts import Bot
 from core.db.models.decisions import ImpulseLog
+from core.routers.scope import AccountScope
 from core.services.impulses import ImpulseReport, create_impulse, quarterly_report
 
 router = APIRouter(
@@ -52,10 +53,13 @@ class ImpulseReportResponse(BaseModel):
 
 
 @router.get("", response_model=list[ImpulseResponse])
-async def list_impulses(session: AsyncSession = Depends(get_session)) -> list[ImpulseLog]:
-    return list(
-        (await session.execute(select(ImpulseLog).order_by(ImpulseLog.ts.desc()))).scalars().all()
-    )
+async def list_impulses(
+    account_id: AccountScope, session: AsyncSession = Depends(get_session)
+) -> list[ImpulseLog]:
+    query = select(ImpulseLog).order_by(ImpulseLog.ts.desc())
+    if account_id is not None:
+        query = query.join(Bot, Bot.id == ImpulseLog.bot_id).where(Bot.account_id == account_id)
+    return list((await session.execute(query)).scalars().all())
 
 
 @router.post("", response_model=ImpulseResponse, status_code=status.HTTP_201_CREATED)

@@ -16,6 +16,7 @@ from core.auth.dependencies import get_current_user
 from core.db.base import get_session
 from core.db.enums import BotProfile, PipelinePhase, SemaphoreState
 from core.db.models.accounts import Baseline, Bot
+from core.routers.scope import AccountScope
 from core.services.semaphore_sweep import (
     SemaphoreSweepConfig,
     assemble_health_chips,
@@ -31,6 +32,7 @@ _SWEEP_CONFIG = SemaphoreSweepConfig()
 
 class HealthRow(BaseModel):
     bot_id: int
+    account_id: int
     magic_number: int
     name: str
     profile: BotProfile | None
@@ -52,9 +54,14 @@ class HealthRow(BaseModel):
 
 
 @router.get("/bots", response_model=list[HealthRow])
-async def health_bots(session: AsyncSession = Depends(get_session)) -> list[HealthRow]:
+async def health_bots(
+    account_id: AccountScope, session: AsyncSession = Depends(get_session)
+) -> list[HealthRow]:
     now = datetime.now(UTC)
-    bots = (await session.execute(select(Bot).where(Bot.baseline_id.is_not(None)))).scalars().all()
+    bots_query = select(Bot).where(Bot.baseline_id.is_not(None))
+    if account_id is not None:
+        bots_query = bots_query.where(Bot.account_id == account_id)
+    bots = (await session.execute(bots_query)).scalars().all()
     rows: list[HealthRow] = []
     for bot in bots:
         baseline = await session.get(Baseline, bot.baseline_id)
@@ -65,6 +72,7 @@ async def health_bots(session: AsyncSession = Depends(get_session)) -> list[Heal
         rows.append(
             HealthRow(
                 bot_id=bot.id,
+                account_id=bot.account_id,
                 magic_number=bot.magic_number,
                 name=bot.name,
                 profile=bot.profile,

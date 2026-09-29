@@ -40,6 +40,7 @@ class WatchdogServiceConfig:
 @dataclass(frozen=True)
 class WatchdogRow:
     bot_id: int
+    account_id: int
     magic_number: int
     state: WatchdogState
     observed_30d: int
@@ -69,9 +70,15 @@ async def _publish_alert_event(redis: Redis, event_type: str, alert: Alert) -> N
 
 
 async def evaluate_all_bots(
-    session: AsyncSession, config: WatchdogServiceConfig, now: datetime
+    session: AsyncSession,
+    config: WatchdogServiceConfig,
+    now: datetime,
+    account_id: int | None = None,
 ) -> list[WatchdogRow]:
-    bots = (await session.execute(select(Bot))).scalars().all()
+    bots_query = select(Bot)
+    if account_id is not None:
+        bots_query = bots_query.where(Bot.account_id == account_id)
+    bots = (await session.execute(bots_query)).scalars().all()
     window_start = now - timedelta(days=_WATCHDOG_WINDOW_DAYS)
     rows: list[WatchdogRow] = []
     for bot in bots:
@@ -102,6 +109,7 @@ async def evaluate_all_bots(
         rows.append(
             WatchdogRow(
                 bot_id=bot.id,
+                account_id=bot.account_id,
                 magic_number=bot.magic_number,
                 state=state,
                 observed_30d=observed,
@@ -137,6 +145,7 @@ async def run_watchdog_sweep(
                     ),
                     action_required="Revisar el bot en el terminal MT5.",
                     dedup_key=dedup_key,
+                    account_id=row.account_id,
                 )
                 session.add(alert)
                 await session.flush()

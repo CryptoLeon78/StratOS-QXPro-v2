@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.enums import ActorType, AlertLevel, Verdict
+from core.db.models.accounts import Bot
 from core.db.models.decisions import Alert, DecisionLog
 from core.db.models.pipeline import PipelineCandidate
 from core.state_machines.hash_chain import GENESIS_HASH, compute_decision_hash
@@ -149,6 +150,9 @@ async def apply_pipeline_gate(
     )
 
     if result.verdict == Verdict.KILL.value:
+        candidate_account_id = (
+            await session.execute(select(Bot.account_id).where(Bot.id == candidate.bot_id))
+        ).scalar_one_or_none()
         session.add(
             Alert(
                 ts=now,
@@ -156,6 +160,7 @@ async def apply_pipeline_gate(
                 module="pipeline",
                 message=f"Candidato {candidate.bot_id} en KILL ({result.verdict_reason}).",
                 action_required="Autopsia obligatoria antes de archivar en el Cementerio.",
+                account_id=candidate_account_id,
             )
         )
 

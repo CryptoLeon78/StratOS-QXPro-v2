@@ -31,17 +31,22 @@ _MONTHS_PER_YEAR = 12
 _DEFAULT_CSV_PATH = Path(__file__).resolve().parents[4] / "scripts" / "data" / "sp500_monthly.csv"
 
 
-async def portfolio_monthly_returns(session: AsyncSession, now: datetime) -> pd.Series:
+async def portfolio_monthly_returns(
+    session: AsyncSession, now: datetime, account_id: int | None = None
+) -> pd.Series:
     """Retornos mensuales reales de portfolio: ultimo `EquitySnapshot` de
     cada mes calendario, solo cuentas REALES (nunca DEMO, P6.2)."""
-    rows = (
-        await session.execute(
-            select(EquitySnapshot.ts, EquitySnapshot.equity)
-            .join(Account, Account.id == EquitySnapshot.account_id)
-            .where(Account.is_demo.is_(False))
-            .order_by(EquitySnapshot.ts)
-        )
-    ).all()
+    query = (
+        select(EquitySnapshot.ts, EquitySnapshot.equity)
+        .join(Account, Account.id == EquitySnapshot.account_id)
+        .order_by(EquitySnapshot.ts)
+    )
+    # Con cuenta concreta (ADR 0013) se pide SU curva, real o demo.
+    if account_id is None:
+        query = query.where(Account.is_demo.is_(False))
+    else:
+        query = query.where(EquitySnapshot.account_id == account_id)
+    rows = (await session.execute(query)).all()
     if not rows:
         return pd.Series(dtype=float)
 

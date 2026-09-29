@@ -15,6 +15,7 @@ from core.db.base import get_session
 from core.db.models.accounts import Account
 from core.db.models.market import HeartbeatLog
 from core.formulas.types import WatchdogState
+from core.routers.scope import AccountScope
 from core.services.audit import AuditConfig, compute_send_continuity
 from core.services.tca import tca_summary
 from core.services.watchdog import WatchdogServiceConfig, evaluate_all_bots
@@ -64,18 +65,23 @@ class BrokerProfileResponse(BaseModel):
 
 @router.get("/watchdog", response_model=list[WatchdogRowResponse])
 async def execution_watchdog(
+    account_id: AccountScope,
     session: AsyncSession = Depends(get_session),
 ) -> list[WatchdogRowResponse]:
-    rows = await evaluate_all_bots(session, _WATCHDOG_CONFIG, datetime.now(UTC))
+    rows = await evaluate_all_bots(session, _WATCHDOG_CONFIG, datetime.now(UTC), account_id)
     return [WatchdogRowResponse.model_validate(row, from_attributes=True) for row in rows]
 
 
 @router.get("/heartbeat", response_model=list[HeartbeatResponse])
 async def execution_heartbeat(
+    account_id: AccountScope,
     session: AsyncSession = Depends(get_session),
 ) -> list[HeartbeatResponse]:
     now = datetime.now(UTC)
-    account_ids = (await session.execute(select(Account.id))).scalars().all()
+    accounts_query = select(Account.id)
+    if account_id is not None:
+        accounts_query = accounts_query.where(Account.id == account_id)
+    account_ids = (await session.execute(accounts_query)).scalars().all()
     rows = []
     for account_id in account_ids:
         last = (
@@ -102,6 +108,8 @@ async def execution_heartbeat(
 
 
 @router.get("/tca", response_model=TcaResponse | None)
-async def execution_tca(session: AsyncSession = Depends(get_session)) -> TcaResponse | None:
-    summary = await tca_summary(session)
+async def execution_tca(
+    account_id: AccountScope, session: AsyncSession = Depends(get_session)
+) -> TcaResponse | None:
+    summary = await tca_summary(session, account_id)
     return TcaResponse.model_validate(summary, from_attributes=True) if summary else None

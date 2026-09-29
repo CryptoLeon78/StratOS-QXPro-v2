@@ -16,6 +16,7 @@ from core.db.base import get_session
 from core.db.enums import DecisionStatus
 from core.db.models.decisions import Decision
 from core.db.models.governance import User
+from core.routers.scope import AccountScope, account_or_portfolio
 
 router = APIRouter(
     prefix="/api/v1/decisions", tags=["decisions"], dependencies=[Depends(get_current_user)]
@@ -34,6 +35,7 @@ class DecisionResponse(BaseModel):
     decided_at: datetime | None
     decided_by: str | None
     postpone_until: datetime | None
+    account_id: int | None
 
     model_config = {"from_attributes": True}
 
@@ -55,12 +57,15 @@ async def _get_pending_decision(session: AsyncSession, decision_id: int) -> Deci
 
 @router.get("", response_model=list[DecisionResponse])
 async def list_decisions(
+    account_id: AccountScope,
     decision_status: DecisionStatus | None = None,
     session: AsyncSession = Depends(get_session),
 ) -> list[Decision]:
     query = select(Decision).order_by(Decision.ts.desc())
     if decision_status is not None:
         query = query.where(Decision.status == decision_status)
+    if account_id is not None:
+        query = query.where(account_or_portfolio(Decision.account_id, account_id))
     return list((await session.execute(query)).scalars().all())
 
 

@@ -20,6 +20,7 @@ from core.auth.dependencies import get_current_user
 from core.db.base import get_session
 from core.db.models.accounts import Account
 from core.redis import get_redis
+from core.routers.scope import AccountScope
 from core.services.audit import (
     AuditConfig,
     ReconciliationResult,
@@ -70,12 +71,13 @@ class SealsSummaryResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-async def _status(session: AsyncSession) -> list[ReconciliationResult]:
-    account_ids = (
-        (await session.execute(select(Account.id).where(Account.is_active.is_(True))))
-        .scalars()
-        .all()
-    )
+async def _status(
+    session: AsyncSession, account_id: int | None = None
+) -> list[ReconciliationResult]:
+    accounts_query = select(Account.id).where(Account.is_active.is_(True))
+    if account_id is not None:
+        accounts_query = accounts_query.where(Account.id == account_id)
+    account_ids = (await session.execute(accounts_query)).scalars().all()
     results = []
     for account_id in account_ids:
         result = await compute_reconciliation(session, account_id, _AUDIT_CONFIG)
@@ -85,8 +87,10 @@ async def _status(session: AsyncSession) -> list[ReconciliationResult]:
 
 
 @router.get("/status", response_model=list[ReconciliationResponse])
-async def audit_status(session: AsyncSession = Depends(get_session)) -> list[ReconciliationResult]:
-    return await _status(session)
+async def audit_status(
+    account_id: AccountScope, session: AsyncSession = Depends(get_session)
+) -> list[ReconciliationResult]:
+    return await _status(session, account_id)
 
 
 @router.post("/run", response_model=list[ReconciliationResponse])
@@ -99,20 +103,28 @@ async def audit_run(
 
 
 @router.get("/seals", response_model=SealsSummaryResponse)
-async def audit_seals(session: AsyncSession = Depends(get_session)) -> SealsSummary:
-    return await compute_seals_summary(session)
+async def audit_seals(
+    account_id: AccountScope, session: AsyncSession = Depends(get_session)
+) -> SealsSummary:
+    return await compute_seals_summary(session, account_id)
 
 
 @router.get("/continuity-gaps", response_model=list[ContinuityGapsResponse])
 async def audit_continuity_gaps(
+    account_id: AccountScope,
     days: int = Query(default=_AUDIT_CONFIG.continuity_window_days),
     session: AsyncSession = Depends(get_session),
 ) -> list[ContinuityGapsResponse]:
     now = datetime.now(UTC)
-    account_ids = (await session.execute(select(Account.id))).scalars().all()
+    accounts_query = select(Account.id)
+    if account_id is not None:
+        accounts_query = accounts_query.where(Account.id == account_id)
+    account_ids = (await session.execute(accounts_query)).scalars().all()
     result = []
-    for account_id in account_ids:
-        continuity = await compute_send_continuity(session, account_id, _AUDIT_CONFIG, days, now)
+    for continuity_account_id in account_ids:
+        continuity = await compute_send_continuity(
+            session, continuity_account_id, _AUDIT_CONFIG, days, now
+        )
         result.append(
             ContinuityGapsResponse(
                 account_id=continuity.account_id,
