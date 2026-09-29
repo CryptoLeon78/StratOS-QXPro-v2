@@ -28,10 +28,13 @@ class WithdrawalServiceConfig:
 
 
 async def calculate(
-    session: AsyncSession, config: WithdrawalServiceConfig, now: datetime
+    session: AsyncSession,
+    config: WithdrawalServiceConfig,
+    now: datetime,
+    account_id: int | None = None,
 ) -> Decimal:
     window_start = now - timedelta(days=config.window_days)
-    equity_curve = await real_portfolio_equity_curve(session, window_start)
+    equity_curve = await real_portfolio_equity_curve(session, window_start, account_id)
     if len(equity_curve) < 2:
         return Decimal("0")
 
@@ -59,6 +62,7 @@ async def register_withdrawal(
     checklist_run: ChecklistRun,
     equity_before: Decimal,
     now: datetime,
+    account_id: int | None = None,
 ) -> WithdrawalLog:
     if not checklist_run.completed:
         raise ValueError("register_withdrawal: el checklist mensual no esta completado")
@@ -68,6 +72,7 @@ async def register_withdrawal(
         amount=amount,
         equity_before=equity_before,
         checklist_completed=checklist_run.items,
+        account_id=account_id,
     )
     session.add(log)
     await session.flush()

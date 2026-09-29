@@ -34,8 +34,6 @@ class CorrelationMatrix(Base):
     bot_b_id: Mapped[int] = mapped_column(ForeignKey("bot.id"))
     correlation: Mapped[float] = mapped_column()
     is_redundant_pair: Mapped[bool] = mapped_column(Boolean)
-    # ADR 0013: observaciones (dias) comunes del par; NULL en snapshots anteriores.
-    n_obs: Mapped[int | None] = mapped_column(Integer, nullable=True)
     window_days: Mapped[int] = mapped_column(Integer)
 
 
@@ -77,6 +75,8 @@ class CorrelationSnapshotPair(Base):
     bot_b_id: Mapped[int] = mapped_column(ForeignKey("bot.id"))
     correlation: Mapped[float] = mapped_column()
     is_redundant_pair: Mapped[bool] = mapped_column(Boolean)
+    # ADR 0013: observaciones (dias) comunes del par; NULL en snapshots anteriores.
+    n_obs: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class MonteCarloRun(Base):

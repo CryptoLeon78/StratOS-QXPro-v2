@@ -14,6 +14,7 @@ from core.auth.dependencies import get_current_user
 from core.db.base import get_session
 from core.db.enums import ChecklistType
 from core.db.models.governance import ChecklistRun, WithdrawalLog
+from core.routers.scope import AccountScope
 from core.services.risk import real_portfolio_equity_curve
 from core.services.withdrawals import WithdrawalServiceConfig, calculate, register_withdrawal
 
@@ -45,15 +46,18 @@ class WithdrawalLogResponse(BaseModel):
 
 @router.get("/calculator", response_model=CalculatorResponse)
 async def withdrawals_calculator(
+    account_id: AccountScope,
     session: AsyncSession = Depends(get_session),
 ) -> CalculatorResponse:
-    amount = await calculate(session, _CONFIG, datetime.now(UTC))
+    amount = await calculate(session, _CONFIG, datetime.now(UTC), account_id)
     return CalculatorResponse(suggested_amount_eur=amount)
 
 
 @router.post("", response_model=WithdrawalLogResponse)
 async def register(
-    body: RegisterWithdrawalRequest, session: AsyncSession = Depends(get_session)
+    body: RegisterWithdrawalRequest,
+    account_id: AccountScope,
+    session: AsyncSession = Depends(get_session),
 ) -> WithdrawalLog:
     checklist = (
         await session.execute(
@@ -69,11 +73,13 @@ async def register(
         )
 
     now = datetime.now(UTC)
-    curve = await real_portfolio_equity_curve(session, now - timedelta(days=30))
+    curve = await real_portfolio_equity_curve(session, now - timedelta(days=30), account_id)
     equity_before = Decimal(str(curve.iloc[-1])) if not curve.empty else Decimal("0")
 
     try:
-        log = await register_withdrawal(session, body.amount, checklist, equity_before, now)
+        log = await register_withdrawal(
+            session, body.amount, checklist, equity_before, now, account_id
+        )
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     await session.commit()

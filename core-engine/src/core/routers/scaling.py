@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.auth.dependencies import get_current_user
 from core.db.base import get_session
 from core.db.models.governance import UmsPhaseLog
+from core.routers.scope import AccountScope
 from core.services.ums import current_phase
 
 router = APIRouter(
@@ -33,12 +34,17 @@ class UmsPhaseResponse(BaseModel):
 
 
 @router.get("/ums", response_model=UmsPhaseResponse | None)
-async def scaling_ums(session: AsyncSession = Depends(get_session)) -> UmsPhaseLog | None:
-    return await current_phase(session)
+async def scaling_ums(
+    account_id: AccountScope, session: AsyncSession = Depends(get_session)
+) -> UmsPhaseLog | None:
+    return await current_phase(session, account_id)
 
 
 @router.get("/monthly", response_model=list[UmsPhaseResponse])
-async def scaling_monthly(session: AsyncSession = Depends(get_session)) -> list[UmsPhaseLog]:
-    return list(
-        (await session.execute(select(UmsPhaseLog).order_by(UmsPhaseLog.ts.asc()))).scalars().all()
-    )
+async def scaling_monthly(
+    account_id: AccountScope, session: AsyncSession = Depends(get_session)
+) -> list[UmsPhaseLog]:
+    query = select(UmsPhaseLog).order_by(UmsPhaseLog.ts.asc())
+    if account_id is not None:
+        query = query.where(UmsPhaseLog.account_id == account_id)
+    return list((await session.execute(query)).scalars().all())

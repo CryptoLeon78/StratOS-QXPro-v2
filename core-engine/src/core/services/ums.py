@@ -139,7 +139,9 @@ def evaluate_advance_readiness(
     return UmsReadiness(current.phase, months_in_phase, True, None)
 
 
-async def monthly_evolution_metrics(session: AsyncSession, now: datetime) -> dict[str, Any]:
+async def monthly_evolution_metrics(
+    session: AsyncSession, now: datetime, account_id: int | None = None
+) -> dict[str, Any]:
     """G10 (docs/backlog.md): `trades`/`retorno_pct`/`max_dd_pct` del
     ultimo mes (`_AVG_DAYS_PER_MONTH` dias, misma constante ya usada en
     este modulo), para la columna "Evolucion mensual" de Escalado --
@@ -148,17 +150,16 @@ async def monthly_evolution_metrics(session: AsyncSession, now: datetime) -> dic
     Sin equity suficiente en la ventana, `retorno_pct`/`max_dd_pct` quedan
     en `None` -- no se inventan."""
     window_start = now - timedelta(days=_AVG_DAYS_PER_MONTH)
-    trades_count = (
-        await session.execute(
-            select(func.count(Trade.id)).where(
-                Trade.close_time.isnot(None),
-                Trade.close_time >= window_start,
-                Trade.close_time <= now,
-            )
-        )
-    ).scalar() or 0
+    trades_query = select(func.count(Trade.id)).where(
+        Trade.close_time.isnot(None),
+        Trade.close_time >= window_start,
+        Trade.close_time <= now,
+    )
+    if account_id is not None:
+        trades_query = trades_query.where(Trade.account_id == account_id)
+    trades_count = (await session.execute(trades_query)).scalar() or 0
 
-    equity_curve = await real_portfolio_equity_curve(session, window_start)
+    equity_curve = await real_portfolio_equity_curve(session, window_start, account_id)
     if len(equity_curve) < 2:
         return {"trades": trades_count, "retorno_pct": None, "max_dd_pct": None}
 
@@ -174,10 +175,13 @@ async def monthly_evolution_metrics(session: AsyncSession, now: datetime) -> dic
     }
 
 
-async def current_phase(session: AsyncSession) -> UmsPhaseLog | None:
-    return (
-        await session.execute(select(UmsPhaseLog).order_by(UmsPhaseLog.ts.desc()).limit(1))
-    ).scalar_one_or_none()
+async def current_phase(session: AsyncSession, account_id: int | None = None) -> UmsPhaseLog | None:
+    """Fase vigente. Con `account_id` (ADR 0013) cada cuenta lleva su propia
+    escalera: solo cuentan las filas de esa cuenta."""
+    query = select(UmsPhaseLog).order_by(UmsPhaseLog.ts.desc()).limit(1)
+    if account_id is not None:
+        query = query.where(UmsPhaseLog.account_id == account_id)
+    return (await session.execute(query)).scalar_one_or_none()
 
 
 async def confirm_advance(
@@ -187,10 +191,11 @@ async def confirm_advance(
     signed_by: str,
     current_equity: Decimal,
     now: datetime,
+    account_id: int | None = None,
 ) -> UmsPhaseLog:
     """Re-evalua siempre (nunca confia en un `ready_to_advance` de hace
     rato) y rechaza si no cumple, antes de tocar la BBDD."""
-    last = await current_phase(session)
+    last = await current_phase(session, account_id)
     current_state = (
         UmsCurrentState(phase=last.phase, entered_at=last.ts) if last is not None else None
     )
@@ -209,10 +214,11 @@ async def confirm_advance(
         metrics={
             "sharpe": metrics.sharpe,
             "dd_pct": str(metrics.dd_pct),
-            **await monthly_evolution_metrics(session, now),
+            **await monthly_evolution_metrics(session, now, account_id),
         },
         ready_to_advance=True,
         signed_by=signed_by,
+        account_id=account_id,
     )
     session.add(row)
     await session.flush()
@@ -225,8 +231,9 @@ async def check_automatic_downgrade(
     config: UmsConfig,
     current_equity: Decimal,
     now: datetime,
+    account_id: int | None = None,
 ) -> None:
-    last = await current_phase(session)
+    last = await current_phase(session, account_id)
     if last is None:
         return
 
@@ -238,13 +245,15 @@ async def check_automatic_downgrade(
         ts=now,
         phase=target_phase.phase,
         equity_at=current_equity,
-        metrics=await monthly_evolution_metrics(session, now),
+        metrics=await monthly_evolution_metrics(session, now, account_id),
         ready_to_advance=False,
         signed_by=None,
+        account_id=account_id,
     )
     session.add(row)
 
-    dedup_key = f"ums:downgrade:{now.date().isoformat()}"
+    scope_suffix = f":{account_id}" if account_id is not None else ""
+    dedup_key = f"ums:downgrade:{now.date().isoformat()}{scope_suffix}"
     alert = Alert(
         ts=now,
         level=AlertLevel.CRITICA,
@@ -255,6 +264,7 @@ async def check_automatic_downgrade(
         ),
         action_required="Revisar la causa de la caida de equity.",
         dedup_key=dedup_key,
+        account_id=account_id,
     )
     session.add(alert)
     await session.flush()

@@ -14,6 +14,7 @@ from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.db.models.accounts import Account
 from core.db.models.decisions import KillSwitchEvent
 from core.services.risk import real_portfolio_equity_curve
 from core.state_machines.killswitch import (
@@ -32,10 +33,13 @@ class KillSwitchSweepConfig:
 
 
 async def compute_portfolio_dd_pct(
-    session: AsyncSession, config: KillSwitchSweepConfig, now: datetime
+    session: AsyncSession,
+    config: KillSwitchSweepConfig,
+    now: datetime,
+    account_id: int | None = None,
 ) -> Decimal | None:
     equity_curve = await real_portfolio_equity_curve(
-        session, now - timedelta(days=config.equity_lookback_days)
+        session, now - timedelta(days=config.equity_lookback_days), account_id
     )
     if equity_curve.empty:
         return None
@@ -46,12 +50,13 @@ async def compute_portfolio_dd_pct(
     return Decimal(str((peak - current) / peak * 100))
 
 
-async def current_killswitch_level(session: AsyncSession) -> int:
-    last = (
-        await session.execute(
-            select(KillSwitchEvent.level).order_by(KillSwitchEvent.ts.desc()).limit(1)
-        )
-    ).scalar_one_or_none()
+async def current_killswitch_level(session: AsyncSession, account_id: int | None = None) -> int:
+    """Nivel vigente. Con `account_id` (ADR 0013) solo cuentan los eventos de
+    esa cuenta: los heredados de portfolio (`account_id` NULL) no la afectan."""
+    query = select(KillSwitchEvent.level).order_by(KillSwitchEvent.ts.desc()).limit(1)
+    if account_id is not None:
+        query = query.where(KillSwitchEvent.account_id == account_id)
+    last = (await session.execute(query)).scalar_one_or_none()
     return last if last is not None else 0
 
 
@@ -63,7 +68,7 @@ class KillSwitchEpisodeStats:
 
 
 async def current_episode_stats(
-    session: AsyncSession, now: datetime
+    session: AsyncSession, now: datetime, account_id: int | None = None
 ) -> KillSwitchEpisodeStats | None:
     """G10 (docs/backlog.md): MAX DD y DURACION del episodio de
     kill-switch ACTIVO -- la racha ininterrumpida de eventos `level>0` mas
@@ -71,11 +76,10 @@ async def current_episode_stats(
     ultimo desescalado a `level=0` (o desde el principio del historial, si
     nunca hubo uno). Nivel actual 0, o sin eventos -- sin episodio activo,
     `None`."""
-    events = (
-        (await session.execute(select(KillSwitchEvent).order_by(KillSwitchEvent.ts.desc())))
-        .scalars()
-        .all()
-    )
+    events_query = select(KillSwitchEvent).order_by(KillSwitchEvent.ts.desc())
+    if account_id is not None:
+        events_query = events_query.where(KillSwitchEvent.account_id == account_id)
+    events = (await session.execute(events_query)).scalars().all()
     if not events or events[0].level == 0:
         return None
 
@@ -98,11 +102,30 @@ async def sweep_portfolio(
     config: KillSwitchConfig,
     sweep_config: KillSwitchSweepConfig,
     now: datetime,
+    account_id: int | None = None,
 ) -> None:
-    dd_pct = await compute_portfolio_dd_pct(session, sweep_config, now)
+    dd_pct = await compute_portfolio_dd_pct(session, sweep_config, now, account_id)
     if dd_pct is None:
         return
 
-    current_level = await current_killswitch_level(session)
+    current_level = await current_killswitch_level(session, account_id)
     result = evaluate_killswitch_escalation(dd_pct, current_level, config)
-    await apply_killswitch_transition(session, redis, result)
+    await apply_killswitch_transition(session, redis, result, account_id)
+
+
+async def sweep_accounts(
+    session: AsyncSession,
+    redis: Redis,
+    config: KillSwitchConfig,
+    sweep_config: KillSwitchSweepConfig,
+    now: datetime,
+) -> None:
+    """ADR 0013: una escalera de kill-switch por cuenta activa (real o demo),
+    cada una sobre su propia curva de equity."""
+    account_ids = (
+        (await session.execute(select(Account.id).where(Account.is_active.is_(True))))
+        .scalars()
+        .all()
+    )
+    for account_id in account_ids:
+        await sweep_portfolio(session, redis, config, sweep_config, now, account_id)

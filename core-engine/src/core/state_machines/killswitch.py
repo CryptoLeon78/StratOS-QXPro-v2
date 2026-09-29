@@ -114,10 +114,13 @@ async def apply_killswitch_transition(
     session: AsyncSession,
     redis: Redis,
     result: TransitionResult,
+    account_id: int | None = None,
 ) -> None:
     """Persiste KillSwitchEvent + DecisionLog (hash-chain) + Decision (si
     requiere confirmacion) + Alert, publica en events:killswitch con el
-    esquema de PARTE 9.3. No-op si `result.changed` es False."""
+    esquema de PARTE 9.3. No-op si `result.changed` es False. `account_id`
+    (ADR 0013) etiqueta el evento, la decision y la alerta con la cuenta a
+    la que pertenece el DD; `None` = escalera de portfolio heredada."""
     if not result.changed:
         return
 
@@ -132,6 +135,7 @@ async def apply_killswitch_transition(
             portfolio_dd_pct=dd_pct,
             actions=result.trigger_metrics,
             instruction_text=result.instruction_text or "",
+            account_id=account_id,
         )
     )
 
@@ -144,6 +148,8 @@ async def apply_killswitch_transition(
         "to": result.to_state,
         **result.trigger_metrics,
     }
+    if account_id is not None:
+        payload["account_id"] = account_id
     new_hash = compute_decision_hash(
         prev_hash=prev_hash,
         ts=now,
@@ -174,6 +180,7 @@ async def apply_killswitch_transition(
                 instruction_text=result.instruction_text or "",
                 evidence=result.trigger_metrics,
                 status=DecisionStatus.PENDING,
+                account_id=account_id,
             )
         )
 
@@ -185,6 +192,7 @@ async def apply_killswitch_transition(
                 module="killswitch",
                 message=f"Kill-switch nivel {result.from_state} -> {result.to_state}",
                 action_required=result.instruction_text if result.requires_confirmation else None,
+                account_id=account_id,
             )
         )
 
@@ -195,5 +203,6 @@ async def apply_killswitch_transition(
         "to": result.to_state,
         "instruction": result.instruction_text,
         "requires_confirmation": result.requires_confirmation,
+        "account_id": account_id,
     }
     await redis.publish("events:killswitch", json.dumps(event))

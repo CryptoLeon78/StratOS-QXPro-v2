@@ -15,10 +15,12 @@ from decimal import Decimal
 from typing import Any
 
 import httpx
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import get_settings
 from core.db.enums import AlertLevel
+from core.db.models.accounts import Account
 from core.metrics import ARQ_JOB_DURATION_SECONDS, ARQ_JOB_FAILURES_TOTAL
 from core.notifications.dispatch import dispatch_new_alerts
 from core.notifications.telegram import send_telegram_message
@@ -26,7 +28,7 @@ from core.services.audit import AuditConfig, run_audit_daily
 from core.services.config_drift import run_drift_check
 from core.services.correlations import CorrelationServiceConfig, run_mt5_real_correlation_snapshot
 from core.services.impulses import ImpulseServiceConfig, evaluate_pending_impulses
-from core.services.killswitch_sweep import KillSwitchSweepConfig, sweep_portfolio
+from core.services.killswitch_sweep import KillSwitchSweepConfig, sweep_accounts
 from core.services.montecarlo import (
     MonteCarloServiceConfig,
     bots_due_for_recalc,
@@ -90,7 +92,7 @@ async def task_run_semaphore_sweep(ctx: dict[str, Any]) -> None:
 async def task_run_killswitch_sweep(ctx: dict[str, Any]) -> None:
     run_start = datetime.now(UTC)
     async with ctx["session_factory"]() as session:
-        await sweep_portfolio(
+        await sweep_accounts(
             session, ctx["redis"], KillSwitchConfig(), KillSwitchSweepConfig(), run_start
         )
         await session.commit()
@@ -138,13 +140,21 @@ async def task_run_audit_daily(ctx: dict[str, Any]) -> None:
 async def task_run_ums_downgrade_check(ctx: dict[str, Any]) -> None:
     run_start = datetime.now(UTC)
     async with ctx["session_factory"]() as session:
-        equity_curve = await real_portfolio_equity_curve(session, run_start - timedelta(days=7))
-        if equity_curve.empty:
-            return
-        current_equity = Decimal(str(equity_curve.iloc[-1]))
-        await check_automatic_downgrade(
-            session, ctx["redis"], UmsConfig(), current_equity, run_start
+        account_ids = (
+            (await session.execute(select(Account.id).where(Account.is_active.is_(True))))
+            .scalars()
+            .all()
         )
+        for account_id in account_ids:
+            equity_curve = await real_portfolio_equity_curve(
+                session, run_start - timedelta(days=7), account_id
+            )
+            if equity_curve.empty:
+                continue
+            current_equity = Decimal(str(equity_curve.iloc[-1]))
+            await check_automatic_downgrade(
+                session, ctx["redis"], UmsConfig(), current_equity, run_start, account_id
+            )
         await session.commit()
         await _dispatch_new_alerts(session, ctx["redis"], run_start)
 
