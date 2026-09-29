@@ -12,12 +12,12 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.auth.dependencies import get_current_user
 from core.db.base import get_session
-from core.db.enums import AccountDataOrigin
+from core.db.enums import AccountDataOrigin, PipelinePhase
 from core.db.models.accounts import Account, Bot
 from core.db.models.market import EaState, EquitySnapshot
 from core.routers.scope import AccountScope
@@ -43,6 +43,7 @@ class AccountResponse(BaseModel):
     free_margin: Decimal | None
     margin_level: float | None
     equity_ts: datetime | None
+    bot_count: int
 
 
 class EaStateResponse(BaseModel):
@@ -91,6 +92,15 @@ async def list_accounts(session: AsyncSession = Depends(get_session)) -> list[Ac
         .scalars()
         .all()
     }
+    bot_counts = dict(
+        (
+            await session.execute(
+                select(Bot.account_id, func.count(Bot.id))
+                .where(Bot.pipeline_phase != PipelinePhase.CEMENTERIO)
+                .group_by(Bot.account_id)
+            )
+        ).all()
+    )
     result = []
     for account in accounts:
         snapshot = latest_by_account.get(account.id)
@@ -110,6 +120,7 @@ async def list_accounts(session: AsyncSession = Depends(get_session)) -> list[Ac
                 free_margin=snapshot.free_margin if snapshot else None,
                 margin_level=snapshot.margin_level if snapshot else None,
                 equity_ts=snapshot.ts if snapshot else None,
+                bot_count=bot_counts.get(account.id, 0),
             )
         )
     return result

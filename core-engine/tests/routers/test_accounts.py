@@ -33,6 +33,22 @@ class TestListAccounts:
         assert len(response.json()) == 1
         assert response.json()[0]["equity"] is None  # sin snapshot -- no inventado
 
+    async def test_reports_the_number_of_live_bots_per_account(
+        self, api_client: AsyncClient, db_connection: AsyncConnection
+    ) -> None:
+        session = await _session(db_connection)
+        with_bots = AccountFactory()
+        empty = AccountFactory()
+        session.add_all([with_bots, empty])
+        await session.flush()
+        session.add_all([BotFactory(account_id=with_bots.id), BotFactory(account_id=with_bots.id)])
+        await session.commit()
+
+        counts = {
+            row["id"]: row["bot_count"] for row in (await api_client.get("/api/v1/accounts")).json()
+        }
+        assert counts == {with_bots.id: 2, empty.id: 0}
+
     async def test_includes_the_latest_equity_snapshot(
         self, api_client: AsyncClient, db_connection: AsyncConnection
     ) -> None:
