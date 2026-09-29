@@ -1,4 +1,3 @@
-import { CorrelationMatrix } from "@/components/domain/portfolio/CorrelationMatrix";
 import { MacroStructureCard } from "@/components/domain/portfolio/MacroStructureCard";
 import { MicroProfilesTable } from "@/components/domain/portfolio/MicroProfilesTable";
 import { PortfolioBenchmarkCard } from "@/components/domain/portfolio/PortfolioBenchmarkCard";
@@ -14,7 +13,6 @@ export default function PortfolioPage() {
         <MacroStructureCard />
         <MicroProfilesTable />
       </div>
-      <CorrelationMatrix />
       <PortfolioBenchmarkCard />
     </div>
   );

@@ -2,8 +2,11 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RouterProvider } from "react-router-dom";
 
+import { startAccountScopeSync } from "@/lib/accountScopeSync";
 import { queryClient } from "@/lib/queryClient";
 import { router } from "@/routes/router";
+
+startAccountScopeSync(queryClient);
 
 export default function App() {
   return (

@@ -4,6 +4,10 @@
     "title": "Panel Maestro de Portfolio — Copiloto de decisiones · StratOS",
     "roleBadge": "Ingeniero",
     "loadingTab": "Cargando…",
+    "queryError": "No se pudieron cargar los datos.",
+    "retry": "Reintentar",
+    "routeErrorTitle": "Algo ha fallado al mostrar esta pantalla",
+    "routeErrorReload": "Recargar",
     "g12DemoLabel": "DEMO LOCAL · G12",
     "operationalLabel": "OPERACIONAL LOCAL · SIN FIXTURE"
   },
@@ -71,19 +75,34 @@
   },
   "tabs": {
     "resumen": "Resumen",
-    "cuentasEa": "Cuentas/EA",
+    "cuentasEa": "Cuentas",
     "pipeline": "Pipeline",
     "bots": "Bots",
     "portfolio": "Portfolio",
+    "correlacion": "Correlación",
     "salud": "Salud",
     "riesgo": "Riesgo",
     "ejecucion": "Ejecución",
     "escalado": "Escalado",
-    "graveyard": "Graveyard",
+    "graveyard": "Cementerio",
     "auditoria": "Auditoría"
   },
+  "accountScope": {
+    "switcherLabel": "Cuenta",
+    "pickTitle": "Elige la cuenta con la que trabajar",
+    "pickHint": "Todas las pestañas muestran únicamente los datos de la cuenta seleccionada.",
+    "needAccount": "Elige una cuenta para continuar.",
+    "real": "Real",
+    "demo": "Demo",
+    "botCount": "{n} bots",
+    "equity": "Equity",
+    "selected": "Seleccionada",
+    "goToSummary": "Ir al Resumen",
+    "portfolioScopeNote": "Muestra la cuenta {name} ({kind}).",
+    "summaryBanner": "Cuenta: {name} · {kind} · {login}"
+  },
   "equityCard": {
-    "title": "Equity del portfolio (todos los bots)",
+    "title": "Equity de {account}",
     "maxDrawdownPeriod": "DD máx. periodo: {pct}",
     "staleNotice": "Sin snapshot reciente de equity — cifra puede no reflejar el estado actual.",
     "ranges": {
@@ -114,6 +133,7 @@
     "instructionPrefix": "MT: "
   },
   "bots": {
+    "semaphoreFilters": { "ALL": "Todos", "VERDE": "Verde", "AMARILLO": "Amarillo", "NARANJA": "Naranja" },
     "impulseButton": "Tengo el impulso de intervenir",
     "searchPlaceholder": "Buscar…",
     "emptySearch": "Sin bots que coincidan con la búsqueda.",
@@ -158,7 +178,7 @@
     "colPnlNeto": "P&L neto",
     "contributionTitle": "Contribución al portfolio",
     "sizingObjetivo": "Sizing objetivo",
-    "colPctOfTotalPnl": "% del P&L total",
+    "colPctOfTotalPnl": "% del P&L de la cuenta",
     "colCorrelationVsRest": "Correlación c/resto",
     "colPnlBotAccount": "P&L bot/cuenta",
     "openPositionsTitle": "Posiciones abiertas ({count})",
@@ -231,8 +251,19 @@
     "correlationNoSnapshot": "Aún no existe un snapshot sellado para esta fuente.",
     "correlationWithheld": "Snapshot retenido: {reason}",
     "correlationSources": {
-      "MT5_BACKTEST": "Teórica · MT5 Strategy Tester",
-      "MT5_REAL": "Observada · MT5 real (BEPB/JJTI)"
+      "MT5_BACKTEST": "Teórica · MT5 Strategy Tester · {account}",
+      "MT5_REAL": "Observada · MT5 real · {account}"
+    },
+    "correlationSnapshotMeta": "Snapshot {date} · ventana {days} días · {included} de {installed} bots incluidos",
+    "correlationLowConfidence": "Baja confianza: menos de 30 días de actividad común (celdas punteadas).",
+    "correlationRedundantLegend": "Borde marcado: par redundante (> 3× la correlación media).",
+    "coverageTitle": "Bots instalados que no entran en la matriz",
+    "coverageActivity": "{days} días · {trades} operaciones",
+    "coverageReasons": {
+      "SIN_SNAPSHOT": "Aún sin snapshot de esta cuenta",
+      "HISTORIA_INSUFICIENTE": "Historia insuficiente",
+      "SIN_PARES_VALIDOS": "Serie sin varianza o sin días comunes",
+      "SIN_EVIDENCIA_BACKTEST": "Sin evidencia de backtest sellada"
     },
     "colBloque": "Bloque",
     "colObjetivo": "Objetivo",

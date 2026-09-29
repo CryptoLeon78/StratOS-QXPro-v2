@@ -4,16 +4,17 @@ import { EMAIL, PASSWORD, headerMask, login } from "./helpers";
 
 test.skip(!EMAIL || !PASSWORD, "PLAYWRIGHT_TEST_EMAIL/PLAYWRIGHT_TEST_PASSWORD no configurados");
 
-test("pestana Cuentas/EA: Prod + Quarry, deriva de configuracion, panel TCA pendiente", async ({
+test("pestana Cuentas: selector Prod + Quarry, detalle de la cuenta elegida, deriva, panel TCA pendiente", async ({
   page,
 }) => {
   await login(page);
   await page.goto("/cuentas-ea");
 
-  await expect(page.getByText("Prod", { exact: true })).toBeVisible();
-  await expect(page.getByText("Quarry", { exact: true })).toBeVisible();
-  await expect(page.getByText("stratos-prod-1")).toBeVisible();
-  await expect(page.getByText("stratos-quarry-1")).toBeVisible();
+  // ADR 0013: el selector ofrece las dos cuentas; el detalle es solo el de la elegida.
+  const selector = page.getByRole("radiogroup", { name: "Elige la cuenta con la que trabajar" });
+  await expect(selector.getByRole("radio", { name: /Prod/ })).toBeVisible();
+  await expect(selector.getByRole("radio", { name: /Quarry/ })).toBeVisible();
+  await expect(page.getByText(/stratos-prod-1/).first()).toBeVisible();
   await expect(page.getByText("Deriva de configuración")).toBeVisible();
   await expect(page.getByText("Sin deriva detectada")).toBeVisible();
 

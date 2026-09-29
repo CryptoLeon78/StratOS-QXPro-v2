@@ -1,9 +1,11 @@
 import { useState } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { QueryError } from "@/components/domain/QueryError";
 import { EquityAreaChart } from "@/components/domain/EquityAreaChart";
 import { useEquityCurve } from "@/hooks/queries/useEquityCurve";
 import { useHeaderSummary } from "@/hooks/queries/useHeaderSummary";
+import { useAccountScope } from "@/hooks/useAccountScope";
 import { computeMaxDrawdownPct } from "@/lib/equityStats";
 import { formatAmount, formatPercent, formatSignedAmount } from "@/lib/formatters";
 import { interpolate } from "@/lib/i18n";
@@ -13,13 +15,14 @@ import type { EquityRange } from "@/api/endpoints/header";
 
 const RANGES: EquityRange[] = ["30d", "90d", "180d", "1y", "all"];
 
-// PARTE 7.1: card "Equity del portfolio (todos los bots)" -- cifra grande,
+// PARTE 7.1: card de equity (titulo dinamico con la cuenta activa, ADR 0014) -- cifra grande,
 // delta absoluto+%, "DD max. periodo" (calculado cliente, ver
 // lib/equityStats.ts -- el backend no sirve DD por punto), selectores de
 // rango, area verde (EquityAreaChart).
 export function EquityCard() {
   const [range, setRange] = useState<EquityRange>("90d");
-  const { data, isLoading } = useEquityCurve(range);
+  const { account } = useAccountScope();
+  const { data, isLoading, isError, refetch } = useEquityCurve(range);
   // "equity sin snapshot reciente -> cifra atenuada + aviso" (PARTE 7.1,
   // caso limite): mismo data_stale_seconds que ya usa AppHeader para el
   // badge DATOS STALE, no una heuristica de frescura nueva/duplicada.
@@ -36,7 +39,7 @@ export function EquityCard() {
   return (
     <Card data-testid="equity-card">
       <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-base">{uiStrings.equityCard.title}</CardTitle>
+        <CardTitle className="text-base">{interpolate(uiStrings.equityCard.title, { account: account?.name ?? "" })}</CardTitle>
         <div className="flex gap-1">
           {RANGES.map((r) => (
             <button
@@ -56,7 +59,9 @@ export function EquityCard() {
         </div>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
+        {isError ? (
+          <QueryError onRetry={() => void refetch()} />
+        ) : isLoading ? (
           <div className="h-64" />
         ) : (
           <>

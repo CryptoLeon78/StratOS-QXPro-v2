@@ -24,5 +24,5 @@ export interface DataProvenance {
 }
 
 export function getDataProvenance(): Promise<DataProvenance> {
-  return apiFetch<DataProvenance>("/data-provenance");
+  return apiFetch<DataProvenance>("/api/v1/data-provenance");
 }

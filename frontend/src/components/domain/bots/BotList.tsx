@@ -1,8 +1,10 @@
 import { useState } from "react";
 
+import { QueryError } from "@/components/domain/QueryError";
 import { SemaphoreBadge } from "@/components/domain/SemaphoreBadge";
 import { Input } from "@/components/ui/input";
 import { useBots } from "@/hooks/queries/useBots";
+import { SEMAPHORE_FILTERS, sortBotsForList } from "@/lib/botOrder";
 import uiStrings from "@/styles/ui_strings.es.json";
 import type { BotRow } from "@/api/endpoints/bots";
 
@@ -16,11 +18,14 @@ export function BotList({
   selectedId: number | null;
   onSelect: (bot: BotRow) => void;
 }) {
-  const { data } = useBots();
+  const { data, isError, refetch } = useBots();
   const [query, setQuery] = useState("");
+  const [semaphore, setSemaphore] = useState<(typeof SEMAPHORE_FILTERS)[number]>("ALL");
 
-  const filtered = (data ?? []).filter((bot) =>
-    bot.name.toLowerCase().includes(query.toLowerCase())
+  const filtered = sortBotsForList(data ?? []).filter(
+    (bot) =>
+      bot.name.toLowerCase().includes(query.toLowerCase()) &&
+      (semaphore === "ALL" || bot.semaphore_state === semaphore)
   );
   const groups = new Map<string, BotRow[]>();
   for (const bot of filtered) {
@@ -36,7 +41,25 @@ export function BotList({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
-      {filtered.length === 0 && (
+      <div className="flex flex-wrap gap-1">
+        {SEMAPHORE_FILTERS.map((option) => (
+          <button
+            key={option}
+            type="button"
+            aria-pressed={semaphore === option}
+            onClick={() => setSemaphore(option)}
+            className={`rounded-md px-2 py-0.5 text-xs ${
+              semaphore === option
+                ? "bg-accent-primary text-text-primary"
+                : "text-text-secondary hover:bg-bg-surfaceHover"
+            }`}
+          >
+            {uiStrings.bots.semaphoreFilters[option]}
+          </button>
+        ))}
+      </div>
+      {isError && <QueryError onRetry={() => void refetch()} />}
+      {!isError && filtered.length === 0 && (
         <p className="p-2 text-xs text-text-secondary">{uiStrings.bots.emptySearch}</p>
       )}
       <div className="flex-1 space-y-3 overflow-y-auto">

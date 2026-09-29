@@ -4,6 +4,7 @@ import { createBrowserRouter } from "react-router-dom";
 import LoginPage from "@/routes/LoginPage";
 import ResumenPage from "@/routes/ResumenPage";
 import RootLayout from "@/routes/RootLayout";
+import RouteError from "@/routes/RouteError";
 import uiStrings from "@/styles/ui_strings.es.json";
 
 // Code-splitting por ruta (G9, docs/backlog.md): Resumen y Login se
@@ -16,6 +17,7 @@ const CuentasEaPage = lazy(() => import("@/routes/CuentasEaPage"));
 const PipelinePage = lazy(() => import("@/routes/PipelinePage"));
 const BotsPage = lazy(() => import("@/routes/BotsPage"));
 const PortfolioPage = lazy(() => import("@/routes/PortfolioPage"));
+const CorrelacionPage = lazy(() => import("@/routes/CorrelacionPage"));
 const SaludPage = lazy(() => import("@/routes/SaludPage"));
 const RiesgoPage = lazy(() => import("@/routes/RiesgoPage"));
 const EjecucionPage = lazy(() => import("@/routes/EjecucionPage"));
@@ -40,12 +42,14 @@ export const router = createBrowserRouter([
   {
     path: "/",
     element: <RootLayout />,
+    errorElement: <RouteError />,
     children: [
       { index: true, element: <ResumenPage /> },
       { path: "cuentas-ea", element: <CuentasEaPage /> },
       { path: "pipeline", element: <PipelinePage /> },
       { path: "bots", element: <BotsPage /> },
       { path: "portfolio", element: <PortfolioPage /> },
+      { path: "correlacion", element: <CorrelacionPage /> },
       { path: "salud", element: <SaludPage /> },
       { path: "riesgo", element: <RiesgoPage /> },
       { path: "ejecucion", element: <EjecucionPage /> },

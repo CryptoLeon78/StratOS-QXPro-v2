@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 import uiStrings from "@/styles/ui_strings.es.json";
 import type { PipelinePhase } from "@/api/endpoints/pipeline";
 
-const COUNTED_PHASES: PipelinePhase[] = ["F1", "F2", "F3", "F4", "F5", "F6", "F7"];
+// ADR 0012: F1-F3 salen de la superficie operativa (investigacion); el panel cuenta F4-F7.
+const COUNTED_PHASES: PipelinePhase[] = ["F4", "F5", "F6", "F7"];
 
 // module -> prefijo/color de "novedades". Diseno propio (PARTE 7.1 no da
 // la regla exacta, solo el ejemplo visual) -- ver ASSUMPTIONS G6:

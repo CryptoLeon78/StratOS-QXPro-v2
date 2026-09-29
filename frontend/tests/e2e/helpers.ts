@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 // Compartido entre todos los specs de G8 -- mismo patron de login real por
 // UI que resumen.spec.ts (G6), nunca credenciales hardcodeadas ni inyeccion
@@ -12,7 +12,23 @@ export async function login(page: Page): Promise<void> {
   await page.getByLabel("Correo").fill(EMAIL!);
   await page.getByLabel("Contraseña").fill(PASSWORD!);
   await page.getByRole("button", { name: "Entrar" }).click();
-  await page.waitForURL("**/");
+  await selectAccount(page);
+  await goToSummary(page);
+}
+
+export async function goToSummary(page: Page): Promise<void> {
+  await page.getByRole("navigation").getByRole("link", { name: "Resumen", exact: true }).click();
+  await page.waitForURL(/\/$/);
+}
+
+// ADR 0013: sin cuenta elegida la app aterriza en /cuentas-ea. Los specs trabajan
+// contra la cuenta real del seed ("Prod"); la eleccion se persiste en el navegador,
+// asi que los `page.goto` posteriores conservan la cuenta.
+export async function selectAccount(page: Page, name = "Prod"): Promise<void> {
+  await page.waitForURL("**/cuentas-ea");
+  const option = page.getByRole("radiogroup", { name: "Cuenta", exact: true }).getByRole("radio", { name });
+  await option.click();
+  await expect(option).toHaveAttribute("aria-checked", "true");
 }
 
 // Mascara de la cabecera global (persistente en las 11 pestañas): equity,

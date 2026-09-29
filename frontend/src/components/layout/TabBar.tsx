@@ -3,16 +3,17 @@ import { NavLink } from "react-router-dom";
 import uiStrings from "@/styles/ui_strings.es.json";
 import { cn } from "@/lib/utils";
 
-// PARTE 11.3: TabBar, 11 tabs, activo subrayado violeta. tokens.component.Tab
+// PARTE 11.3: TabBar, 12 tabs, activo subrayado violeta. tokens.component.Tab
 // apunta a otros tokens por ruta (activeBorder: "accent.primary", etc.) --
 // se resuelven aqui a las clases Tailwind equivalentes en vez de leer el
 // path en runtime (una sola vez, sin generalizar un resolver para esto).
 const TABS: { to: string; labelKey: keyof typeof uiStrings.tabs }[] = [
-  { to: "/", labelKey: "resumen" },
   { to: "/cuentas-ea", labelKey: "cuentasEa" },
+  { to: "/", labelKey: "resumen" },
   { to: "/pipeline", labelKey: "pipeline" },
   { to: "/bots", labelKey: "bots" },
   { to: "/portfolio", labelKey: "portfolio" },
+  { to: "/correlacion", labelKey: "correlacion" },
   { to: "/salud", labelKey: "salud" },
   { to: "/riesgo", labelKey: "riesgo" },
   { to: "/ejecucion", labelKey: "ejecucion" },

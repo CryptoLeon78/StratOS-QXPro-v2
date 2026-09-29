@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { headerMask } from "./helpers";
+import { goToSummary, headerMask, selectAccount } from "./helpers";
 
 // Requiere PLAYWRIGHT_TEST_EMAIL/PLAYWRIGHT_TEST_PASSWORD de un usuario
 // real en el core-engine que este corriendo (no se hardcodea ninguna
@@ -20,10 +20,13 @@ test("pestana Resumen: cabecera visible <2s, screenshot-diff dentro de umbral", 
   await page.getByLabel("Correo").fill(EMAIL!);
   await page.getByLabel("Contraseña").fill(PASSWORD!);
   await page.getByRole("button", { name: "Entrar" }).click();
+  await selectAccount(page);
+  await goToSummary(page);
 
   // Criterio de salida literal de G6: "cabecera <2 s".
   await expect(page.getByText("EQUITY", { exact: true })).toBeVisible({ timeout: 2000 });
-  await expect(page.getByText("Equity del portfolio (todos los bots)")).toBeVisible();
+  await expect(page.getByText("Equity de Prod")).toBeVisible();
+  await expect(page.getByTestId("account-banner")).toBeVisible();
   await expect(page.getByText("Requiere acción")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Pipeline", exact: true })).toBeVisible();
 

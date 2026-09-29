@@ -17,12 +17,12 @@ function renderPanel() {
 }
 
 describe("PipelinePanel", () => {
-  it("cuenta candidatos por fase (F1-F7) e ignora PRODUCCION/CEMENTERIO", async () => {
+  it("cuenta candidatos por fase (F4-F7, ADR 0012) e ignora PRODUCCION/CEMENTERIO", async () => {
     server.use(
       http.get(`${API_BASE_URL}/api/v1/pipeline/board`, () =>
         HttpResponse.json([
-          { id: 1, bot_id: 1, current_phase: "F1" },
-          { id: 2, bot_id: 2, current_phase: "F1" },
+          { id: 1, bot_id: 1, current_phase: "F4" },
+          { id: 2, bot_id: 2, current_phase: "F4" },
           { id: 3, bot_id: 3, current_phase: "F7" },
           { id: 4, bot_id: 4, current_phase: "PRODUCCION" },
         ])
@@ -31,9 +31,9 @@ describe("PipelinePanel", () => {
     );
     renderPanel();
 
-    expect(await screen.findByText("F1: 2")).toBeInTheDocument();
+    expect(await screen.findByText("F4: 2")).toBeInTheDocument();
     expect(screen.getByText("F7: 1")).toBeInTheDocument();
-    expect(screen.getByText("F2: 0")).toBeInTheDocument();
+    expect(screen.getByText("F5: 0")).toBeInTheDocument();
   });
 
   it("colorea las novedades por module (pipeline=GO, challenger=OVERSTAY, semaphore=NARANJA)", async () => {

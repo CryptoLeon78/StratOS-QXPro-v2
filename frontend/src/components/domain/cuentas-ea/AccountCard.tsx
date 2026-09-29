@@ -33,7 +33,6 @@ export function AccountCard({ account, bots }: { account: AccountRow; bots: BotR
         <Badge variant={account.is_demo ? "outline" : "default"}>
           {account.is_demo ? uiStrings.cuentasEa.demo : uiStrings.cuentasEa.real}
         </Badge>
-        <Badge variant="outline">{account.data_origin}</Badge>
       </CardHeader>
       <CardContent className="space-y-3">
         {/* Grid SIEMPRE presente (nunca se monta/desmonta segun si hay

@@ -25,6 +25,8 @@ export interface CorrelationRow {
   snapshot_id: number;
   source: CorrelationSource;
   created_at: string;
+  n_obs: number | null;
+  low_confidence: boolean;
 }
 
 export type CorrelationSource = "MT5_BACKTEST" | "MT5_REAL";
@@ -82,4 +84,19 @@ export interface BenchmarkComparison {
 
 export function getPortfolioBenchmark(): Promise<BenchmarkComparison | null> {
   return apiFetch<BenchmarkComparison | null>("/api/v1/portfolio/benchmark");
+}
+
+// ADR 0013: bots instalados en la cuenta y si entran en su matriz; `reason`
+// es el codigo del backend (ver ui_strings.portfolio.coverageReasons).
+export interface BotCoverageRow {
+  bot_id: number;
+  name: string;
+  included: boolean;
+  days: number | null;
+  trades: number | null;
+  reason: "SIN_SNAPSHOT" | "HISTORIA_INSUFICIENTE" | "SIN_PARES_VALIDOS" | "SIN_EVIDENCIA_BACKTEST" | null;
+}
+
+export function getCorrelationCoverage(source: CorrelationSource): Promise<BotCoverageRow[]> {
+  return apiFetch<BotCoverageRow[]>(`/api/v1/portfolio/correlations/coverage?source=${source}`);
 }

@@ -3,6 +3,7 @@ import { Link, Navigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AccountBanner } from "@/components/domain/AccountBanner";
 import { HeartbeatCard } from "@/components/domain/ejecucion/HeartbeatCard";
 import { WatchdogTable } from "@/components/domain/ejecucion/WatchdogTable";
 import { NewsShieldPanel } from "@/components/domain/riesgo/NewsShieldPanel";
@@ -48,6 +49,9 @@ export default function DominicalPage() {
           </Link>
         </div>
         <p className="mt-1 text-xs text-text-secondary">{uiStrings.dominical.subtitle}</p>
+        <div className="mt-2">
+          <AccountBanner />
+        </div>
         <p className="mt-2 flex items-center gap-1.5 text-xs text-semantic-warning">
           <EyeOff className="size-3.5" />
           {uiStrings.dominical.noProfitNotice}

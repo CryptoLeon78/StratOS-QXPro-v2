@@ -19,6 +19,7 @@ export interface AccountRow {
   free_margin: string | null;
   margin_level: number | null;
   equity_ts: string | null;
+  bot_count: number;
 }
 
 export function getAccounts(): Promise<AccountRow[]> {

@@ -4,6 +4,26 @@
 
 ## Fase activa: G13 — Stack operacional real/incubadora/análisis — FUNDACIÓN IMPLEMENTADA; GATES EXTERNOS ABIERTOS
 
+**G14 (2026-09-29) — Alcance por cuenta: EN CURSO, implementado y verificado en el stack de desarrollo; SIN DESPLEGAR en el operacional.**
+Petición del operador tras el smoke de G13-76: la app mezclaba las 3 cuentas (BEPB/JJTI reales, Incubadora demo). Plan aprobado; decisiones en
+`docs/adr/0013-alcance-por-cuenta.md` y `0014-alcance-por-cuenta-desviaciones-visuales.md`, supuestos en `ASSUMPTIONS.md` G14-00..03.
+Hecho (commits en `main` del submódulo): (1) migración aditiva `d9e0f1a2b3c4` (`account_id` nullable en `alert`, `decision`, `killswitch_event`,
+`ums_phase_log`, `withdrawal_log`; `n_obs` en `correlation_snapshot_pair`); (2) dependencia `AccountScope` (`?account_id=`, 404 si no existe) en
+cabecera, curva de equity, Salud, Riesgo, Portfolio, Noticias, Ejecución, Cementerio, Impulsos, F5, Auditoría, drift, KS, UMS y retiros — la curva de
+equity ya no excluye demo cuando se pide una cuenta; (3) KS, UMS y retiros por cuenta (sweeps y jobs iteran por cuenta activa; los eventos heredados
+con `account_id` NULL no afectan a ninguna cuenta); (4) alertas/decisiones etiquetadas con la cuenta del bot, las de portfolio (NULL) se ven en todas;
+(5) correlación por cuenta con umbral 10 días u 10 operaciones, `n_obs` por par, baja confianza (<30 obs) y endpoint `correlations/coverage`
+(bots instalados excluidos con motivo); (6) frontend: store `accountScopeStore`, `apiFetch` inyecta `account_id` en toda petición `/api/v1/*` y
+`accountScopeSync` reinicia la caché al cambiar de cuenta, conmutador `AccountSwitcher`, guard de selección en `RootLayout`, pestaña Cuentas como selector
+(primera), Resumen segunda con banner de cuenta, pestaña Correlación propia, Bots con orden/filtro/`?bot=ID`, `QueryError` + `errorElement`.
+Bug real hallado de paso y corregido: `ProvenanceBadge` pedía `/data-provenance` (sin `/api/v1`) y recibía siempre 404.
+Verificado: core-engine 712 tests verdes (más los de esta sección al cerrar), mypy --strict y ruff limpios; frontend `tsc`, `eslint` y 72 tests
+Vitest verdes; e2e Playwright contra el stack de desarrollo con seed. **Pendiente**: (a) baselines linux de Playwright (se regeneran en CI; los win32
+se regeneran en local); (b) despliegue al operacional — exige `pg_dump` previo y `alembic upgrade` sobre la BD real, con confirmación del operador;
+tras migrar hay que lanzar `task_run_correlations` para que existan las matrices por cuenta; (c) smoke autenticado de las pestañas por el operador con
+su login real; (d) matriz teórica de BEPB/JJTI: sin evidencia de backtest en BD (0 `baseline` en cuentas 1 y 2), hay que importar los trades del
+Strategy Tester; (e) el 94 % de los trades reales tiene `bot_id` NULL, lo que limita la matriz observada (atribución retroactiva fuera de alcance).
+
 **Continuación 2026-09-28 (noche, tras G13-75) — G13-76 cerrado: causa raíz real de "cosas
 rotas" en la app (smoke real a petición del operador) — pool de conexiones DB agotado por
 un solo worker de `core-engine`, corregido.** El operador reportó la app rota tras el crash de `AppHeader` y el bug de email-normalization

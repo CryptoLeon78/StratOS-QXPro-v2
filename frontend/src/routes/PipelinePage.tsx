@@ -6,6 +6,7 @@ import { CandidateCard } from "@/components/domain/pipeline/CandidateCard";
 import { ProvenanceBadge } from "@/components/domain/ProvenanceBadge";
 import { useAccounts } from "@/hooks/queries/useAccounts";
 import { useBots } from "@/hooks/queries/useBots";
+import { useAccountScope } from "@/hooks/useAccountScope";
 import { usePipelineBoard } from "@/hooks/queries/usePipelineBoard";
 import { interpolate } from "@/lib/i18n";
 import uiStrings from "@/styles/ui_strings.es.json";
@@ -41,6 +42,7 @@ export default function PipelinePage() {
     refetchInterval: 5_000,
   });
   const { data: accounts } = useAccounts();
+  const { accountId } = useAccountScope();
   const { data: bots } = useBots();
 
   const observationByCandidateId = new Map(
@@ -54,7 +56,10 @@ export default function PipelinePage() {
       candidatesByPhase.set(candidate.current_phase, lane);
     }
   }
-  const realAccounts = (accounts ?? []).filter((account) => account.data_origin === "BROKER_REAL");
+  // ADR 0013: solo la cuenta activa, y solo si es real (la Incubadora no es un portfolio real).
+  const realAccounts = (accounts ?? []).filter(
+    (account) => account.data_origin === "BROKER_REAL" && account.id === accountId
+  );
   const realAccountIds = new Set(realAccounts.map((account) => account.id));
   const accountNameById = new Map(realAccounts.map((account) => [account.id, account.name]));
   const portfolioBots = (bots ?? []).filter((bot) => realAccountIds.has(bot.account_id));
@@ -131,6 +136,7 @@ export default function PipelinePage() {
         </div>
       </section>
 
+      {realAccounts.length > 0 && (
       <section aria-labelledby="real-portfolios-title" className="space-y-2">
         <div>
           <h2 id="real-portfolios-title" className="text-sm font-semibold text-text-primary">
@@ -148,6 +154,7 @@ export default function PipelinePage() {
           </div>
         )}
       </section>
+      )}
     </div>
   );
 }

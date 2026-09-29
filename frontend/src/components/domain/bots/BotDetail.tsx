@@ -15,6 +15,7 @@ import {
   useBotSemaphoreHistory,
 } from "@/hooks/queries/useBots";
 import { useSemaphoreInstructions } from "@/hooks/queries/useConfig";
+import { useAccountScope } from "@/hooks/useAccountScope";
 import { formatAmount, formatPercent } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import { interpolate } from "@/lib/i18n";
@@ -50,6 +51,7 @@ function fmtNum(value: number | null, digits = 2): string {
 // (4.345) sin hogar declarado.
 export function BotDetail({ bot }: { bot: BotRow }) {
   const [impulseOpen, setImpulseOpen] = useState(false);
+  const { account } = useAccountScope();
   const [range, setRange] = useState<(typeof RANGES)[number]>("90d");
   const { data: instructions } = useSemaphoreInstructions();
   const { data: semaphoreHistory } = useBotSemaphoreHistory(bot.id);
@@ -67,7 +69,7 @@ export function BotDetail({ bot }: { bot: BotRow }) {
           <div>
             <CardTitle>{bot.name}</CardTitle>
             <p className="text-xs text-text-secondary">
-              magic {bot.magic_number} · {bot.market} {bot.timeframe} · {bot.profile?.toLowerCase() ?? "—"}{" "}
+              {account ? `${account.name} · ` : ""}magic {bot.magic_number} · {bot.market} {bot.timeframe} · {bot.profile?.toLowerCase() ?? "—"}{" "}
               · {bot.origin_kind === "EXTERNAL_PRODUCTION" ? uiStrings.bots.externalF7 : bot.pipeline_phase} · {bot.role.toLowerCase()}
             </p>
           </div>

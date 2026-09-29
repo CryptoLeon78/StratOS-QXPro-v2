@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import {
+  getCorrelationCoverage,
   getPortfolioBenchmark,
   getPortfolioBlocks,
   getPortfolioCorrelationSnapshot,
@@ -33,4 +34,11 @@ export function usePortfolioCorrelationSnapshot(source: CorrelationSource, windo
 
 export function usePortfolioBenchmark() {
   return useQuery({ queryKey: ["portfolio-benchmark"], queryFn: getPortfolioBenchmark });
+}
+
+export function useCorrelationCoverage(source: CorrelationSource) {
+  return useQuery({
+    queryKey: ["portfolio-correlation-coverage", source],
+    queryFn: () => getCorrelationCoverage(source),
+  });
 }

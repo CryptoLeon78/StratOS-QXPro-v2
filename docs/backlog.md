@@ -804,3 +804,35 @@ de que los 3 procesos rara vez pican a la vez.
 AUTENTICADO — navegar las 10 pestañas ya logueado. No tengo ni debo usar las credenciales
 reales del operador (cuentas Darwinex reales conectadas). El operador debería confirmar
 con su propio login que la navegación completa va fluida ahora.
+
+## G14 — alcance por cuenta: deuda y aplazados (2026-09-29)
+
+Contexto: ADR 0013/0014, `docs/phase_status.md` G14. Lo que sigue queda fuera de la unidad o
+depende de datos/decisiones externas.
+
+- **Matriz teórica (backtest) de BEPB/JJTI vacía.** `baseline` tiene 0 filas para las cuentas
+  1 y 2 y no hay trades de Strategy Tester en `import_artifact` para los 40 EAs reales.
+  Hace falta importar los exports del Tester de esos EAs (¿dónde están? decisión del
+  operador) y ejecutar `scripts/record_mt5_backtest_correlation_snapshot.py` por cuenta
+  (ahora deriva la cuenta de los candidatos). Hasta entonces la UI declara "Sin evidencia
+  de backtest sellada", no inventa.
+- **Atribución de trades huérfanos.** 5.743 de 6.101 trades de JJTI y 6.912 de 7.394 de
+  BEPB tienen `bot_id` NULL (magic heredado o 0): la matriz observada solo ve el ~6 %.
+  `scripts/backfill_legacy_magic_attribution.py` existe; ejecutarlo toca datos reales
+  (BD interna, no MT5) y quedó excluido por decisión del operador.
+- **Correlación con 10 puntos es ruido.** Umbral bajado de 30 a 10 días u operaciones por
+  petición expresa; los pares con <30 observaciones se marcan "baja confianza". Revisar si
+  con más historia conviene volver a exigir más.
+- **Publicación de eventos WS con `account_id`.** Ningún evento `events:*` lo lleva y
+  `events:equity/trade/heartbeat/decision` no se publican nunca: la cabecera vive del
+  polling de 5 s. Filtrar WS por cuenta queda pendiente de que existan publicadores.
+- **Métricas duplicadas en Bots** ("Rolling vs Baseline" vs "Métricas completas": Sharpe,
+  expectancy, DD). Se mantienen porque la captura las muestra así (ADR 0014 §7).
+- **`equity_eur` de la cabecera suma equity crudo sin conversión FX** (documentado en
+  `header.py`); con una sola cuenta seleccionada deja de mezclar divisas, pero la cifra sigue
+  sin convertir si la cuenta no está en EUR.
+- **`test_g8_acceptance_criteria.py` sigue usando escalera KS/UMS de portfolio (NULL)** en el
+  seed; funcionan porque el seed usa el barrido heredado. Etiquetar los eventos del seed con
+  cuenta queda pendiente si se quiere que el seed ejerza el camino por cuenta.
+- **Baselines Playwright linux** de las 12 vistas: regenerar en CI (los win32 se hicieron en
+  local).

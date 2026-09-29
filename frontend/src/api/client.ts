@@ -1,3 +1,4 @@
+import { useAccountScopeStore } from "@/stores/accountScopeStore";
 import { useAuthStore } from "@/stores/authStore";
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8100";
@@ -31,6 +32,21 @@ async function refreshSession(): Promise<boolean> {
   }
 }
 
+// ADR 0013: cada peticion /api/v1/* lleva la cuenta elegida. Un unico punto de
+// inyeccion -- un endpoint olvidado no puede filtrar datos de otra cuenta. Los
+// endpoints que no declaran `account_id` lo ignoran; una peticion que ya lo
+// trae (p.ej. getScopedBots) no se toca.
+export function withAccountScope(path: string): string {
+  if (!path.startsWith("/api/v1/") || /[?&]account_id=/.test(path)) {
+    return path;
+  }
+  const { selectedAccountId } = useAccountScopeStore.getState();
+  if (selectedAccountId === null) {
+    return path;
+  }
+  return `${path}${path.includes("?") ? "&" : "?"}account_id=${selectedAccountId}`;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -49,7 +65,7 @@ export class ApiError extends Error {
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const makeRequest = () => {
     const { accessToken } = useAuthStore.getState();
-    return fetch(`${API_BASE_URL}${path}`, {
+    return fetch(`${API_BASE_URL}${withAccountScope(path)}`, {
       ...init,
       headers: {
         ...(init.body ? { "Content-Type": "application/json" } : {}),
