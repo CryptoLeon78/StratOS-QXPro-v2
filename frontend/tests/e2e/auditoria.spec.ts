@@ -21,6 +21,8 @@ test("pestana Auditoria: reconciliacion limpia, continuidad, sellos de integrida
     page.getByText("NO constituye una auditoría contable, financiera ni legal")
   ).toBeVisible();
 
+  await page.waitForLoadState("networkidle");
+
   await expect(page).toHaveScreenshot("auditoria.png", {
     maxDiffPixelRatio: 0.02,
     mask: headerMask(page),

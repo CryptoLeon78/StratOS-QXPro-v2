@@ -13,6 +13,8 @@ test("pestana Portfolio: estructura macro 40/40/20, 6 perfiles, benchmark", asyn
   await expect(page.getByText("Estructura macro 40/40/20")).toBeVisible();
   await expect(page.getByText("Los 6 perfiles (micro)")).toBeVisible();
 
+  await page.waitForLoadState("networkidle");
+
   await expect(page).toHaveScreenshot("portfolio.png", {
     maxDiffPixelRatio: 0.02,
     mask: [...headerMask(page), page.locator("table")],

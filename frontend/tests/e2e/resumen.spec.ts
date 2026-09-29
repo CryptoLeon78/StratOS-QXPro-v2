@@ -30,6 +30,8 @@ test("pestana Resumen: cabecera visible <2s, screenshot-diff dentro de umbral", 
   await expect(page.getByText("Requiere acción")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Pipeline", exact: true })).toBeVisible();
 
+  await page.waitForLoadState("networkidle");
+
   await expect(page).toHaveScreenshot("resumen.png", {
     maxDiffPixelRatio: 0.02, // screenshot_similarity_max_diff_ratio, thresholds.seed.json
     // Numeros dinamicos (equity/PnL/fechas del chart, badge STALE) -- el

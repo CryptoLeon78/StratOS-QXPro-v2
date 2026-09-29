@@ -19,6 +19,8 @@ test("pestana Ejecución: heartbeat, watchdog (Atlas OK), panel TCA pendiente", 
   await expect(atlasRow.getByText("OK", { exact: true })).toBeVisible();
   await expect(page.getByText("requieren la v1.1 del EA reporter")).toBeVisible();
 
+  await page.waitForLoadState("networkidle");
+
   await expect(page).toHaveScreenshot("ejecucion.png", {
     maxDiffPixelRatio: 0.02,
     mask: [...headerMask(page), page.locator("table")],

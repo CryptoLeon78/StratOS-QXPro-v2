@@ -23,8 +23,17 @@ test("pestana Correlacion: dos matrices de la cuenta activa, con su estado decla
     page.getByText(/media 0[.,]\d\d|Snapshot retenido|Aún no existe un snapshot sellado/).first(),
   ).toBeVisible();
 
+  await page.waitForLoadState("networkidle");
+
   await expect(page).toHaveScreenshot("correlacion.png", {
     maxDiffPixelRatio: 0.02,
-    mask: [...headerMask(page), page.locator("table")],
+    // Fecha/ventana del snapshot y lista de cobertura (dias, operaciones) cambian
+    // entre corridas del seed: se enmascaran como el resto de contenido dinamico.
+    mask: [
+      ...headerMask(page),
+      page.locator("table"),
+      page.locator("ul"),
+      page.getByText(/^Snapshot \d/),
+    ],
   });
 });

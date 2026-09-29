@@ -19,6 +19,8 @@ test("pestana Riesgo: escalera kill-switch, tail risk, exposicion, news shield",
   await expect(page.getByText("IFO Business Climate")).toBeVisible();
   await expect(page.getByText("Durable Goods Orders")).toBeVisible();
 
+  await page.waitForLoadState("networkidle");
+
   await expect(page).toHaveScreenshot("riesgo.png", {
     maxDiffPixelRatio: 0.02,
     mask: headerMask(page),

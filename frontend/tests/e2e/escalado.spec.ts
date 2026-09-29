@@ -12,6 +12,9 @@ test("pestana Escalado: las 6 fases UMS", async ({ page }) => {
   await expect(page.getByText(/1 . Validaci.n Personal/)).toBeVisible();
   await expect(page.getByText("6 · Institucional", { exact: false })).toBeVisible();
 
+  // La fase UMS actual (por cuenta) llega de una peticion aparte: bajo carga en
+  // paralelo la captura se tomaba antes de que pintara (fallo intermitente 1 de 3).
+  await page.waitForLoadState("networkidle");
   await expect(page).toHaveScreenshot("escalado.png", {
     maxDiffPixelRatio: 0.02,
     mask: headerMask(page),

@@ -30,6 +30,8 @@ test("pestana Pipeline: tres carriles de Incubadora y portfolios reales read-onl
   // justo lo que la decision promete.
   await expect(page.getByRole("button", { name: /Promover|Desplegar|Instalar en real/ })).toHaveCount(0);
 
+  await page.waitForLoadState("networkidle");
+
   await expect(page).toHaveScreenshot("pipeline.png", {
     maxDiffPixelRatio: 0.02,
     mask: headerMask(page),
@@ -49,6 +51,8 @@ test("pestana Bots: maestro-detalle, 32 en F7, impulso de intervenir disponible"
   // detalle una vez seleccionado) -- .first() es la fila clicable.
   await page.getByText("Atlas Trend EURUSD").first().click();
   await expect(page.getByRole("button", { name: "Tengo el impulso de intervenir" })).toBeVisible();
+
+  await page.waitForLoadState("networkidle");
 
   await expect(page).toHaveScreenshot("bots.png", {
     maxDiffPixelRatio: 0.02,

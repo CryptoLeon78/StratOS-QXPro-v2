@@ -23,8 +23,14 @@ test("pestana Cuentas: selector Prod + Quarry, detalle de la cuenta elegida, der
   // componente) -- ya no desplaza la pagina, pero el TEXTO (timestamp real,
   // latencia, % de uptime) sigue variando entre corridas, asi que se
   // enmascara igual que el resto de contenido dinamico (headerMask).
+  await page.waitForLoadState("networkidle");
   await expect(page).toHaveScreenshot("cuentas_ea.png", {
     maxDiffPixelRatio: 0.02,
-    mask: [...headerMask(page), page.getByText(/^(Conectado|Desconectado)$/).locator("..")],
+    mask: [
+      ...headerMask(page),
+      page.getByText(/^(Conectado|Desconectado)$/).locator(".."),
+      // equity de las tarjetas del selector: cambia entre corridas del seed
+      page.getByRole("radiogroup", { name: "Elige la cuenta con la que trabajar" }).locator("dd"),
+    ],
   });
 });

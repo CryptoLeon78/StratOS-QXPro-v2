@@ -20,6 +20,8 @@ test("pestana Graveyard: 9 lapidas, banner sin retorno, reactivar sin flujo de e
   // nunca un flujo de exito -- el boton existe pero no hay confirmacion.
   await expect(page.getByRole("button", { name: "Reactivar" }).first()).toBeVisible();
 
+  await page.waitForLoadState("networkidle");
+
   await expect(page).toHaveScreenshot("graveyard.png", {
     maxDiffPixelRatio: 0.02,
     mask: headerMask(page),

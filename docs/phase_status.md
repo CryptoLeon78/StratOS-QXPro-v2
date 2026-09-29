@@ -4,7 +4,13 @@
 
 ## Fase activa: G13 — Stack operacional real/incubadora/análisis — FUNDACIÓN IMPLEMENTADA; GATES EXTERNOS ABIERTOS
 
-**G14 (2026-09-29) — Alcance por cuenta: EN CURSO, implementado y verificado en el stack de desarrollo; SIN DESPLEGAR en el operacional.**
+**G14 (2026-09-29) — Alcance por cuenta: DESPLEGADO en el operacional (2026-09-29, con confirmación explícita del operador).**
+Despliegue: backup `runtime/operational/backups/stratos_operational_pre_g14_20260929_131323.dump` (90 MB, pg_dump -Fc; no se probó un restore) → `alembic upgrade head`
+(`c8d9e0f1a2b3 → d9e0f1a2b3c4`, datos intactos: 13.498 trades, 42 bots, 165.419 snapshots de equity) → recreados `core-engine`, `worker`, `scheduler` y `frontend`
+(health 200/200/200, ingesta MT5 de BEPB/JJTI sin interrupción) → matrices por cuenta generadas con el servicio del scheduler: JJTI (id 1) COMPLETED, 5 bots/10 pares,
+BEPB (id 2) COMPLETED, 18 bots/153 pares (124 de ellos con <30 obs, "baja confianza"); las dos Incubadoras (ids 3 y 4) WITHHELD por historia insuficiente (3 trades
+atribuidos). Rollback: `alembic downgrade -1`; restore con `timescaledb_pre_restore()` antes de `pg_restore`. El smoke autenticado de las 12 pestañas lo sigue debiendo
+hacer el operador con su login real.
 Petición del operador tras el smoke de G13-76: la app mezclaba las 3 cuentas (BEPB/JJTI reales, Incubadora demo). Plan aprobado; decisiones en
 `docs/adr/0013-alcance-por-cuenta.md` y `0014-alcance-por-cuenta-desviaciones-visuales.md`, supuestos en `ASSUMPTIONS.md` G14-00..03.
 Hecho (commits en `main` del submódulo): (1) migración aditiva `d9e0f1a2b3c4` (`account_id` nullable en `alert`, `decision`, `killswitch_event`,

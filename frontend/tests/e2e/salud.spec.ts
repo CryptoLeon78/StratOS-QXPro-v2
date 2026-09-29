@@ -16,6 +16,8 @@ test("pestana Salud: grid de 32 tarjetas con semaforo e instruccion", async ({ p
       .first()
   ).toBeVisible();
 
+  await page.waitForLoadState("networkidle");
+
   await expect(page).toHaveScreenshot("salud.png", {
     maxDiffPixelRatio: 0.02,
     mask: headerMask(page),
