@@ -34,6 +34,8 @@ class CorrelationMatrix(Base):
     bot_b_id: Mapped[int] = mapped_column(ForeignKey("bot.id"))
     correlation: Mapped[float] = mapped_column()
     is_redundant_pair: Mapped[bool] = mapped_column(Boolean)
+    # ADR 0013: observaciones (dias) comunes del par; NULL en snapshots anteriores.
+    n_obs: Mapped[int | None] = mapped_column(Integer, nullable=True)
     window_days: Mapped[int] = mapped_column(Integer)
 
 
@@ -110,6 +112,10 @@ class UmsPhaseLog(Base):
     metrics: Mapped[dict[str, Any]] = mapped_column(JSONB)
     ready_to_advance: Mapped[bool] = mapped_column(Boolean)
     signed_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    # ADR 0013: NULL = fila heredada de portfolio (anterior al alcance por cuenta).
+    account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("account.id"), nullable=True, index=True
+    )
 
 
 class WithdrawalLog(Base):
@@ -123,6 +129,10 @@ class WithdrawalLog(Base):
     amount: Mapped[Decimal] = mapped_column(Money)
     equity_before: Mapped[Decimal] = mapped_column(Money)
     checklist_completed: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    # ADR 0013: NULL = retiro heredado de portfolio (anterior al alcance por cuenta).
+    account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("account.id"), nullable=True, index=True
+    )
 
 
 class NewsEvent(Base):

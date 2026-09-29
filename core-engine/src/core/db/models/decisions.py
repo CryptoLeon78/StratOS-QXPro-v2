@@ -37,6 +37,10 @@ class Alert(Base):
     resolved: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     resolved_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    # ADR 0013: NULL = evento heredado de portfolio (anterior al alcance por cuenta).
+    account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("account.id"), nullable=True, index=True
+    )
 
 
 class Decision(Base):
@@ -61,6 +65,10 @@ class Decision(Base):
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     decided_by: Mapped[str | None] = mapped_column(String, nullable=True)
     postpone_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # ADR 0013: NULL = evento heredado de portfolio (anterior al alcance por cuenta).
+    account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("account.id"), nullable=True, index=True
+    )
 
 
 class ImpulseLog(Base):
@@ -129,3 +137,7 @@ class KillSwitchEvent(Base):
     instruction_text: Mapped[str] = mapped_column(Text)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     confirmed_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    # ADR 0013: NULL = evento heredado de portfolio (anterior al alcance por cuenta).
+    account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("account.id"), nullable=True, index=True
+    )

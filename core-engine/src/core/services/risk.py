@@ -67,15 +67,23 @@ class ExposureCurrencySubtotal:
     pnl: Decimal
 
 
-async def real_portfolio_equity_curve(session: AsyncSession, window_start: datetime) -> pd.Series:
-    rows = (
-        await session.execute(
-            select(EquitySnapshot.account_id, EquitySnapshot.ts, EquitySnapshot.equity)
-            .join(Account, Account.id == EquitySnapshot.account_id)
-            .where(Account.is_demo.is_(False), EquitySnapshot.ts >= window_start)
-            .order_by(EquitySnapshot.account_id, EquitySnapshot.ts)
-        )
-    ).all()
+async def real_portfolio_equity_curve(
+    session: AsyncSession, window_start: datetime, account_id: int | None = None
+) -> pd.Series:
+    """Curva diaria de equity. Sin `account_id`: portfolio de cuentas REALES
+    (P6.2, nunca DEMO). Con `account_id` (ADR 0013): SOLO esa cuenta, real o
+    demo -- pedir una cuenta concreta es pedir su propia curva."""
+    query = (
+        select(EquitySnapshot.account_id, EquitySnapshot.ts, EquitySnapshot.equity)
+        .join(Account, Account.id == EquitySnapshot.account_id)
+        .where(EquitySnapshot.ts >= window_start)
+        .order_by(EquitySnapshot.account_id, EquitySnapshot.ts)
+    )
+    if account_id is None:
+        query = query.where(Account.is_demo.is_(False))
+    else:
+        query = query.where(EquitySnapshot.account_id == account_id)
+    rows = (await session.execute(query)).all()
     if not rows:
         return pd.Series(dtype=float)
 
@@ -89,10 +97,13 @@ async def real_portfolio_equity_curve(session: AsyncSession, window_start: datet
 
 
 async def compute_tail_risk(
-    session: AsyncSession, config: RiskServiceConfig, now: datetime
+    session: AsyncSession,
+    config: RiskServiceConfig,
+    now: datetime,
+    account_id: int | None = None,
 ) -> TailRiskResult | None:
     window_start = now - timedelta(days=config.window_days)
-    equity_curve = await real_portfolio_equity_curve(session, window_start)
+    equity_curve = await real_portfolio_equity_curve(session, window_start, account_id)
     if len(equity_curve) < 2:
         return None
 
@@ -127,20 +138,21 @@ async def compute_tail_risk(
     )
 
 
-async def compute_exposure(session: AsyncSession) -> list[ExposureRow]:
+async def compute_exposure(
+    session: AsyncSession, account_id: int | None = None
+) -> list[ExposureRow]:
     """7.7: tabla Simbolo/Net/Gross/P&L de posiciones abiertas, en la unidad
     nativa de cada simbolo (nunca convertida a EUR -- eso exigiria precio
     en vivo, que este sistema no ingiere). `currency` sale de
     `symbol_currency` (G10, docs/backlog.md) para poder subtotalizar por
     divisa via `exposure_subtotals_by_currency`; un simbolo sin fila ahi
     se queda con `currency=None`, documentado, no inventado."""
-    rows = (
-        await session.execute(
-            select(Trade.symbol, Trade.type, Trade.volume, Trade.profit).where(
-                Trade.close_time.is_(None)
-            )
-        )
-    ).all()
+    query = select(Trade.symbol, Trade.type, Trade.volume, Trade.profit).where(
+        Trade.close_time.is_(None)
+    )
+    if account_id is not None:
+        query = query.where(Trade.account_id == account_id)
+    rows = (await session.execute(query)).all()
 
     aggregated: dict[str, list[Decimal]] = {}
     for symbol, trade_type, volume, profit in rows:
