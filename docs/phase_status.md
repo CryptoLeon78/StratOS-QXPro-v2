@@ -24,10 +24,8 @@ con `account_id` NULL no afectan a ninguna cuenta); (4) alertas/decisiones etiqu
 (primera), Resumen segunda con banner de cuenta, pestaña Correlación propia, Bots con orden/filtro/`?bot=ID`, `QueryError` + `errorElement`.
 Bug real hallado de paso y corregido: `ProvenanceBadge` pedía `/data-provenance` (sin `/api/v1`) y recibía siempre 404.
 Verificado: core-engine 712 tests verdes (más los de esta sección al cerrar), mypy --strict y ruff limpios; frontend `tsc`, `eslint` y 72 tests
-Vitest verdes; e2e Playwright contra el stack de desarrollo con seed. **Pendiente**: (a) baselines linux de Playwright (se regeneran en CI; los win32
-se regeneran en local); (b) despliegue al operacional — exige `pg_dump` previo y `alembic upgrade` sobre la BD real, con confirmación del operador;
-tras migrar hay que lanzar `task_run_correlations` para que existan las matrices por cuenta; (c) smoke autenticado de las pestañas por el operador con
-su login real; (d) matriz teórica de BEPB/JJTI: sin evidencia de backtest en BD (0 `baseline` en cuentas 1 y 2), hay que importar los trades del
+Vitest verdes; e2e Playwright contra el stack de desarrollo con seed. CI 11/11 verde (run 36566325460) con los baselines win32 y linux
+regenerados. **Pendiente**: (c) smoke autenticado de las pestañas por el operador con su login real; (d) matriz teórica de BEPB/JJTI: sin evidencia de backtest en BD (0 `baseline` en cuentas 1 y 2), hay que importar los trades del
 Strategy Tester; (e) el 94 % de los trades reales tiene `bot_id` NULL, lo que limita la matriz observada (atribución retroactiva fuera de alcance).
 
 **Continuación 2026-09-28 (noche, tras G13-75) — G13-76 cerrado: causa raíz real de "cosas

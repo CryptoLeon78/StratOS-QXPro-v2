@@ -834,5 +834,7 @@ depende de datos/decisiones externas.
 - **`test_g8_acceptance_criteria.py` sigue usando escalera KS/UMS de portfolio (NULL)** en el
   seed; funcionan porque el seed usa el barrido heredado. Etiquetar los eventos del seed con
   cuenta queda pendiente si se quiere que el seed ejerza el camino por cuenta.
-- **Baselines Playwright linux** de las 12 vistas: regenerar en CI (los win32 se hicieron en
-  local).
+- ~~**Baselines Playwright linux**~~ **RESUELTO 2026-09-29**: renderizados por CI (artefacto
+  `playwright-report` del run 36565739973) e instalados; CI 11/11 verde en el run 36566325460.
+  Causa de la flakiness que apareció al regenerarlos: los screenshots se tomaban antes de que
+  llegaran los datos bajo carga en paralelo; ahora todos esperan `networkidle`.
