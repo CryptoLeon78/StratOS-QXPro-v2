@@ -5,7 +5,7 @@ set "PYTHON=%ROOT%.venv\Scripts\python.exe"
 set "SCRIPT=%ROOT%scripts\import_manual_sqx_mt5_run.py"
 set "INVENTORY=%ROOT%runtime\operational\analysis-inventory.json"
 set "OUTPUT=%ROOT%runtime\operational\backtests_manual"
-set "TERMINAL_ID=Darwinex MetaTrader 5"
+set "TERMINAL_ID=darwinex_local"
 
 if not exist "%PYTHON%" (
   echo ERROR: No se encuentra el Python del entorno operacional:

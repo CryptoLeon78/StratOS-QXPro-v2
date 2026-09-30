@@ -96,7 +96,7 @@ def import_and_register(root: Path, archive_path: Path, *, register: bool) -> Pa
         "--mq5", str(inputs["mq5"]), "--mt5-report", str(inputs["mt5_report"]),
         "--tester-ini", str(inputs["tester_ini"]), "--mt5-trades-csv", str(inputs["mt5_trades_csv"]),
         "--comparison-report", str(inputs["comparison_report"]), "--output-root", str(output),
-        "--terminal-id", "Darwinex MetaTrader 5",
+        "--terminal-id", "darwinex_local",
     ]
     result = subprocess.run(command, cwd=root, text=True, check=True, capture_output=True)
     print(result.stdout, end="")

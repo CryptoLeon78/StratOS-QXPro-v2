@@ -4,6 +4,8 @@
 
 ## Fase activa: G13 — Stack operacional real/incubadora/análisis — FUNDACIÓN IMPLEMENTADA; GATES EXTERNOS ABIERTOS
 
+**Terminales MT5 por alias (2026-09-30, fuera de fase, petición del operador).** El entorno tiene un registro único de terminales (`mt5_bridge/terminales.json`, alias + roles) y todas las apps lo usan en vez de nombres de instalación o IDs de carpeta; decisión en `ASSUMPTIONS.md` G14-04. Para StratOS: `expected_terminal` del lanzador y `--terminal-id` de los manifiestos G13 pasan a ser el alias `darwinex_local` (antes "Darwinex MetaTrader 5"); `runtime/operational/launcher.json` migrado a mano (no versionado). Verificado: 29 tests de `scripts/tests` (runner operacional, lanzador, cola live e importador) verdes. **No verificado**: CI remota (no se ha hecho push) ni una corrida real del Strategy Tester con el alias. Restos sin tocar, deliberadamente: scripts G12 con el terminal D0E8 fijo (incubadora retirada el 2026-08-29) y `runtime/operational/sources.yaml` (no versionado).
+
 **G14 (2026-09-29) — Alcance por cuenta: DESPLEGADO en el operacional (2026-09-29, con confirmación explícita del operador).**
 Despliegue: backup `runtime/operational/backups/stratos_operational_pre_g14_20260929_131323.dump` (90 MB, pg_dump -Fc; no se probó un restore) → `alembic upgrade head`
 (`c8d9e0f1a2b3 → d9e0f1a2b3c4`, datos intactos: 13.498 trades, 42 bots, 165.419 snapshots de equity) → recreados `core-engine`, `worker`, `scheduler` y `frontend`
