@@ -17,5 +17,6 @@ Cada desviación necesaria de la fidelidad visual 1:1 (P12) o de una decisión d
 - [0012](0012-pipeline-operacional-incubadora-portfolios.md) — Pipeline operacional: Incubadora y portfolios reales (decisión vigente).
 - [0013](0013-alcance-por-cuenta.md) — Alcance por cuenta: selector global, KS/UMS/retiros por cuenta y correlación por cuenta (G14).
 - [0014](0014-alcance-por-cuenta-desviaciones-visuales.md) — Alcance por cuenta: desviaciones visuales respecto a las capturas (pestañas, Correlación, título de equity).
+- [0015](0015-stratos-dentro-de-sqx-central.md) — SQX Central supervisa el stack en solo lectura e incrusta la UI real de StratOS; no reescribe sus vistas (integración con SQX Central, F7).
 
 Los 6 primeros llegaron en G7 (PARTE 12, fidelidad de las 10 pestañas restantes). El 0007 llegó en G9 (Hardening) — primer ADR de arquitectura, no de fidelidad visual (el propio README del apartado ya cubre ambos casos). El 0008 llegó también en G9/G10. El 0011 y 0012 documentan la evolución de Pipeline en G13; el 0012 es la decisión activa.

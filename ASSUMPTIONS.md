@@ -813,3 +813,12 @@ obocorp` —la ubicación estándar de RCC, que estaba libre— y se fijó `ROBO
 - **[G14-02]** Interpretación de "mínimo 10 días o 10 operaciones": un bot entra en la matriz observada si tiene >=10 días con operaciones cerradas **o** >=10 operaciones cerradas. Los pares se calculan sobre los días comunes disponibles y se marcan "baja confianza" por debajo de `correlation_low_confidence_obs` (config, por defecto 30 observaciones). Los umbrales viven en `CorrelationServiceConfig`/`Settings`, no en literales.
 - **[G14-03]** Matriz teórica (backtest) por cuenta: BEPB/JJTI no tienen evidencia de backtest en BD (0 `baseline`); queda vacía con motivo explícito hasta importar los trades del Strategy Tester. No se sintetiza.
 - **[G14-04]** Identidad de terminal MT5 por alias del registro único del entorno (`Apps_entorno_SQX/mt5_bridge/terminales.json`, leído con `_common/terminales_mt5.py`; 2026-09-30, petición del operador de cablear todas las apps igual). `expected_terminal` del lanzador operacional y el `--terminal-id` de los manifiestos G13 son ese **alias** (`darwinex_local`), no el nombre de instalación ("Darwinex MetaTrader 5"): el panel SQX vs MT5 (v1.4.0) expone como `id` de cada terminal su alias, y `assert_safe_terminal` compara contra ese id. Sin cambio de comportamiento de seguridad: sigue exigiendo AutoTrading desactivado y `--allow-real-strategy-tester` para lanzar. Los manifiestos anteriores conservan el nombre antiguo (son históricos, no se reescriben). `runtime/operational/launcher.json` (no versionado) se migró a mano al mismo valor.
+
+### G14-05 — Integración con SQX Central: supervisión de solo lectura e incrustación (ADR 0015)
+
+Petición del operador (2026-10-01, fase F7 de SQX Central). Decisión: SQX Central muestra el estado del stack
+`stratos_operational-*` en solo lectura (`docker ps`, sin arrancar ni parar nada) e incrusta la UI real de StratOS
+(puerto 5473) en una pestaña; no reimplementa pestañas ni reglas, no gestiona credenciales y no cambia la auth (ADR 0007).
+Cualquier vista nativa futura queda condicionada a las cinco condiciones del ADR 0015 (solo GET, token de sesión
+pegado por el operador, cuentas por separado sin totales, datos de `core-engine` tal cual, un ADR por vista).
+Verificado: ver `docs/phase_status.md`.
