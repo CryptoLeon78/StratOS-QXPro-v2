@@ -20,9 +20,9 @@ from typing import Any
 
 
 TIMEFRAME_TO_PERIOD: dict[str, tuple[int, int]] = {
-    "M1": (1, 1),
-    "M5": (1, 5),
-    "M15": (1, 15),
+    "M1": (0, 1),
+    "M5": (0, 5),
+    "M15": (0, 15),
     "M30": (0, 30),
     "H1": (1, 1),
     "H4": (1, 4),

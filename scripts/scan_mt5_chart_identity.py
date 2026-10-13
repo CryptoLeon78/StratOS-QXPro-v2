@@ -15,9 +15,24 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-IDENTITY_KEYS = {"name", "MagicNumber", "CustomComment", "symbol", "period"}
+IDENTITY_KEYS = {"name", "MagicNumber", "CustomComment", "symbol"}
 # ``target.ruta_absoluta`` resolves relative paths below ``<data_root>/MQL5``.
 _CHARTS_ROOT = "Profiles/Charts"
+
+# Un `.chr` de MT5 no tiene clave `period`: guarda `period_type` (0 = minutos,
+# 1 = horas) y `period_size`. Pares observados en perfiles reales (build 6182):
+# (0,30)=M30, (1,1)=H1, (1,4)=H4, (1,24)=D1; M1/M5/M15 son minutos (0,n) por la
+# misma regla. Misma tabla que usa `attach_g12_demo_eas.py` para ESCRIBIR perfiles.
+TIMEFRAME_TO_PERIOD: dict[str, tuple[int, int]] = {
+    "M1": (0, 1),
+    "M5": (0, 5),
+    "M15": (0, 15),
+    "M30": (0, 30),
+    "H1": (1, 1),
+    "H4": (1, 4),
+    "D1": (1, 24),
+}
+_PERIOD_TO_TIMEFRAME = {pair: name for name, pair in TIMEFRAME_TO_PERIOD.items()}
 
 
 def profile_chart_root(profile: str) -> str:
@@ -40,6 +55,22 @@ def _values(payload: bytes) -> dict[str, str]:
                 continue
             values[key] = value.strip()
     return values
+
+
+def _timeframe(payload: bytes) -> str | None:
+    """Timeframe del gráfico raíz, o None si el perfil no declara periodo.
+
+    Un par no mapeado se devuelve como texto explícito: llega al consumidor como
+    un valor que no coincide con ningún timeframe aprobado (fail-closed), en vez
+    de desaparecer como None o confundirse con otro timeframe.
+    """
+    text = payload.decode("utf-16", errors="ignore")
+    period_type = re.search(r"(?m)^period_type=([0-9]+)\r?$", text)
+    period_size = re.search(r"(?m)^period_size=([0-9]+)\r?$", text)
+    if period_type is None or period_size is None:
+        return None
+    pair = (int(period_type.group(1)), int(period_size.group(1)))
+    return _PERIOD_TO_TIMEFRAME.get(pair, f"period_type={pair[0]},period_size={pair[1]}")
 
 
 def _mt5_chart_id(payload: bytes) -> str | None:
@@ -137,7 +168,7 @@ def main() -> None:
                 else None,
                 "comment_identity": values.get("CustomComment"),
                 "symbol": values.get("symbol"),
-                "period": values.get("period"),
+                "period": _timeframe(payload),
             }
         )
     charts, duplicate_serializations, chart_id_conflicts = _logical_charts(rows)
