@@ -40,6 +40,7 @@ class WireTrade(BaseModel):
     profit: Decimal
     commission: Decimal
     swap: Decimal
+    position_id: int | None = None
 
 
 class WirePosition(BaseModel):
@@ -101,6 +102,7 @@ def deal_to_wire(deal: DealDTO) -> WireTrade:
         profit=deal.profit,
         commission=deal.commission,
         swap=deal.swap,
+        position_id=deal.position_id,
     )
 
 

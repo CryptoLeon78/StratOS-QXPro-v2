@@ -4,7 +4,7 @@ determinista."""
 
 import asyncio
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -113,3 +113,50 @@ async def test_run_loop_isolates_failures_and_keeps_running() -> None:
         await task
 
     assert calls >= 2  # sobrevivio al fallo del primer ciclo y siguio llamando
+
+
+class _DeadTerminalClient:
+    def history_deals_get(self, date_from: datetime, date_to: datetime) -> list[object]:
+        raise RuntimeError("MT5 sin respuesta")
+
+
+class _RecordingClient:
+    def __init__(self) -> None:
+        self.windows: list[tuple[datetime, datetime]] = []
+
+    def history_deals_get(self, date_from: datetime, date_to: datetime) -> list[object]:
+        self.windows.append((date_from, date_to))
+        return []
+
+
+async def test_deals_watermark_does_not_advance_while_the_terminal_is_dead(
+    buffer: Buffer,
+) -> None:
+    # Antes, una consulta fallida devolvía [] y la marca avanzaba igual:
+    # los cierres de ese intervalo no se volvían a pedir nunca.
+    await buffer.set_meta("last_deal_ts", "2026-09-28T18:00:00+00:00")
+
+    with pytest.raises(RuntimeError):
+        await poll_deals_incremental_once(
+            _DeadTerminalClient(),  # type: ignore[arg-type]
+            buffer,
+            ACCOUNT_LOGIN,
+            CONNECTOR_ID,
+        )
+
+    assert await buffer.get_meta("last_deal_ts") == "2026-09-28T18:00:00+00:00"
+
+
+async def test_deals_window_overlaps_the_previous_one_by_the_lookback(buffer: Buffer) -> None:
+    await buffer.set_meta("last_deal_ts", "2026-10-13T10:00:00+00:00")
+    client = _RecordingClient()
+
+    await poll_deals_incremental_once(
+        client,  # type: ignore[arg-type]
+        buffer,
+        ACCOUNT_LOGIN,
+        CONNECTOR_ID,
+        timedelta(seconds=60),
+    )
+
+    assert client.windows[0][0] == datetime(2026, 10, 13, 9, 59, tzinfo=UTC)

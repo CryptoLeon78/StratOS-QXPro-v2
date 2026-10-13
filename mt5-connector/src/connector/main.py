@@ -9,7 +9,7 @@ absorbe esos fallos, igual que haria un corte de red real)."""
 import asyncio
 import functools
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
@@ -111,6 +111,7 @@ async def run(mt5_client: Mt5ClientProtocol, settings: ConnectorSettings | None 
                         buffer,
                         settings.account_login,
                         connector_instance_id,
+                        timedelta(seconds=settings.deals_lookback_s),
                     ),
                 )
             ),
@@ -167,7 +168,9 @@ async def run(mt5_client: Mt5ClientProtocol, settings: ConnectorSettings | None 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
-    asyncio.run(run(RealMt5Client()))
+    settings = get_connector_settings()
+    client = RealMt5Client(reconnect_min_interval_s=settings.mt5_reconnect_min_interval_s)
+    asyncio.run(run(client, settings))
 
 
 if __name__ == "__main__":

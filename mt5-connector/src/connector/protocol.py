@@ -56,6 +56,9 @@ class DealDTO:
     magic: int
     time_open: datetime
     time_close: datetime
+    # MT5 position ticket: lets core-engine close the open row that
+    # `/ingest/positions` stored under it. None when the source does not know it.
+    position_id: int | None = None
 
 
 @runtime_checkable

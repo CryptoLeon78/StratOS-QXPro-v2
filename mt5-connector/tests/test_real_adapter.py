@@ -11,7 +11,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from connector.real_adapter import RealMt5Client, _pair_deals_into_closed_trades
+from connector.real_adapter import (
+    Mt5UnavailableError,
+    RealMt5Client,
+    _pair_deals_into_closed_trades,
+)
 
 
 def _raw_deal(**kwargs: object) -> SimpleNamespace:
@@ -56,10 +60,16 @@ class TestModuleImportsCleanly:
             lambda c: c.shutdown(),
         ],
     )
-    def test_every_method_fails_lazily_not_at_import_time(self, call: object) -> None:
+    def test_every_method_fails_lazily_not_at_import_time(
+        self, call: object, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         # las 7 confirman que ninguna se salto el import perezoso: si UNA
         # importara MetaTrader5 a nivel de modulo, la clase entera fallaria
         # al cargar (verificado arriba), no solo esa llamada.
+        # El paquete se bloquea a proposito: en un Windows con MetaTrader5
+        # instalado este test llamaba de verdad a initialize() sin ruta y a
+        # login() contra el terminal abierto (incidente 2026-10-13, cuenta real).
+        monkeypatch.setitem(sys.modules, "MetaTrader5", None)
         client = RealMt5Client()
         with pytest.raises(ModuleNotFoundError):
             call(client)  # type: ignore[operator]
@@ -146,3 +156,147 @@ class TestPairDealsIntoClosedTrades:
         trades = _pair_deals_into_closed_trades([entry, exit_])
         assert trades[0].sl is None
         assert trades[0].tp is None
+
+
+class _FakeMt5:
+    """Módulo `MetaTrader5` falso: cada llamada consume la siguiente respuesta."""
+
+    def __init__(self, **responses: list[object]) -> None:
+        self.responses = responses
+        self.calls: list[str] = []
+        self.error: tuple[int, str] = (-10004, "No IPC connection")
+
+    def _next(self, name: str) -> object:
+        self.calls.append(name)
+        return self.responses[name].pop(0)
+
+    def initialize(self, *args: object) -> bool:
+        self.calls.append("initialize")
+        return True
+
+    def shutdown(self) -> None:
+        self.calls.append("shutdown")
+
+    def last_error(self) -> tuple[int, str]:
+        return self.error
+
+    def positions_get(self) -> object:
+        return self._next("positions_get")
+
+    def account_info(self) -> object:
+        return self._next("account_info")
+
+    def history_deals_get(self, *args: object, **kwargs: object) -> object:
+        return self._next("history_deals_get")
+
+
+_PATH = r"C:\Program Files\Darwinex MetaTrader 5 - BEPB\terminal64.exe"
+
+
+def _client(
+    monkeypatch: pytest.MonkeyPatch, fake: _FakeMt5, running: bool = True, interval: float = 0.0
+) -> RealMt5Client:
+    monkeypatch.setitem(sys.modules, "MetaTrader5", fake)
+    client = RealMt5Client(reconnect_min_interval_s=interval, is_terminal_running=lambda _: running)
+    client.initialize(path=_PATH)
+    fake.calls.clear()
+    return client
+
+
+class TestLostTerminalConnection:
+    """Incidente 2026-09-28: tras reiniciarse el terminal, el IPC quedó muerto y
+    el conector envió 15 días de posiciones vacías y ningún equity ni cierre."""
+
+    def test_reconnects_and_retries_when_the_terminal_stops_answering(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake = _FakeMt5(positions_get=[None, ()])
+        client = _client(monkeypatch, fake)
+
+        assert client.positions_get() == []
+        assert fake.calls == ["positions_get", "shutdown", "initialize", "positions_get"]
+
+    def test_empty_result_with_success_code_is_not_a_failure(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake = _FakeMt5(positions_get=[None])
+        fake.error = (1, "Success")
+        client = _client(monkeypatch, fake)
+
+        assert client.positions_get() == []
+        assert "initialize" not in fake.calls
+
+    def test_never_reports_an_empty_snapshot_while_the_terminal_is_dead(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake = _FakeMt5(positions_get=[None, None])
+        client = _client(monkeypatch, fake)
+
+        with pytest.raises(Mt5UnavailableError):
+            client.positions_get()
+
+    def test_account_info_none_raises_instead_of_silently_skipping(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake = _FakeMt5(account_info=[None, None])
+        fake.error = (1, "Success")
+        client = _client(monkeypatch, fake)
+
+        with pytest.raises(Mt5UnavailableError):
+            client.account_info()
+
+    def test_does_not_launch_a_terminal_that_is_not_running(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake = _FakeMt5(positions_get=[None])
+        client = _client(monkeypatch, fake, running=False)
+
+        with pytest.raises(Mt5UnavailableError, match="no lo arranca"):
+            client.positions_get()
+        assert "initialize" not in fake.calls
+
+    def test_never_reconnects_without_an_explicit_terminal_path(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake = _FakeMt5(positions_get=[None])
+        monkeypatch.setitem(sys.modules, "MetaTrader5", fake)
+        client = RealMt5Client(is_terminal_running=lambda _: True)
+        client.initialize()
+        fake.calls.clear()
+
+        with pytest.raises(Mt5UnavailableError, match="sin ruta"):
+            client.positions_get()
+        assert "initialize" not in fake.calls
+
+    def test_reconnection_is_throttled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake = _FakeMt5(positions_get=[None, None, None])
+        client = _client(monkeypatch, fake, interval=3600.0)
+
+        with pytest.raises(Mt5UnavailableError):
+            client.positions_get()
+        with pytest.raises(Mt5UnavailableError, match="reconexion reciente"):
+            client.positions_get()
+        assert fake.calls.count("initialize") == 1
+
+
+class TestClosedTradeEntryLookup:
+    def test_exit_whose_entry_is_outside_the_window_is_paired_by_position(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        entry = _raw_deal(entry=0, ticket=10, position_id=555, price=1.08, time=1798600000)
+        exit_ = _raw_deal(entry=1, ticket=11, position_id=555, price=1.09, time=1798700000)
+        fake = _FakeMt5(history_deals_get=[(exit_,), (entry, exit_)])
+        client = _client(monkeypatch, fake)
+
+        trades = client.history_deals_get(datetime(2026, 1, 1, tzinfo=UTC), datetime.now(UTC))
+
+        assert len(trades) == 1
+        assert trades[0].ticket == 11
+        assert trades[0].position_id == 555
+        assert trades[0].time_open == datetime.fromtimestamp(1798600000, tz=UTC)
+
+    def test_pairing_keeps_the_position_id(self) -> None:
+        entry = _raw_deal(entry=0, position_id=321)
+        exit_ = _raw_deal(entry=1, ticket=2, position_id=321)
+
+        assert _pair_deals_into_closed_trades([entry, exit_])[0].position_id == 321

@@ -16,7 +16,7 @@ import asyncio
 import json
 import logging
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from ingest_seal.sealing import compute_batch_sha256
 
@@ -74,13 +74,19 @@ async def poll_deals_once(
 
 
 async def poll_deals_incremental_once(
-    client: Mt5ClientProtocol, buffer: Buffer, account_login: str, connector_instance_id: str
+    client: Mt5ClientProtocol,
+    buffer: Buffer,
+    account_login: str,
+    connector_instance_id: str,
+    lookback: timedelta = timedelta(0),
 ) -> None:
     """El watermark (`last_deal_ts`) se persiste en `buffer.meta`, no en
     memoria: sobrevive a un reinicio del servicio (el conector no vuelve a
-    pedir deals ya vistos tras un restart)."""
+    pedir deals ya vistos tras un restart). Sólo avanza si la consulta a MT5
+    tuvo éxito: si el cliente lanza, el intervalo se vuelve a pedir.
+    `lookback` solapa la ventana con la anterior; el servidor deduplica."""
     watermark_str = await buffer.get_meta("last_deal_ts")
-    date_from = datetime.fromisoformat(watermark_str) if watermark_str else _EPOCH
+    date_from = datetime.fromisoformat(watermark_str) - lookback if watermark_str else _EPOCH
     date_to = datetime.now(UTC)
     await poll_deals_once(client, buffer, account_login, connector_instance_id, date_from, date_to)
     await buffer.set_meta("last_deal_ts", date_to.isoformat())

@@ -41,6 +41,12 @@ class ConnectorSettings(BaseSettings):
     reporter_outbox_dir: str | None = None
     reporter_outbox_filename: str = "*.jsonl"
     mt5_terminal_path: str | None = None
+    # Throttle for in-process reconnection after the terminal stops answering
+    # (own assumption, ASSUMPTIONS G14-06): aligned with the equity cadence.
+    mt5_reconnect_min_interval_s: float = 30.0
+    # Overlap of the incremental deals window: a deal can reach the terminal
+    # history after its own timestamp; core-engine deduplicates the overlap.
+    deals_lookback_s: float = 60.0
 
     @field_validator("reporter_outbox_filename")
     @classmethod
