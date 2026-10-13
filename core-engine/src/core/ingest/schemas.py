@@ -66,6 +66,12 @@ class TradeIn(_Strict):
     profit: LaxDecimal
     commission: LaxDecimal
     swap: LaxDecimal
+    # MT5 POSITION ticket (the deal's `position_id`). A closed trade's
+    # `ticket_mt5` is the exit deal ticket, but `/ingest/positions` stores the
+    # open row under the position ticket: without this field the close never
+    # finds the open row, which then stays "open" forever. Optional because
+    # the history importers do not know it.
+    position_id: int | None = None
 
 
 class TradesIngestRequest(_Strict):

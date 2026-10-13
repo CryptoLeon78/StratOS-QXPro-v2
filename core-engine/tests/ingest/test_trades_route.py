@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
 from core.db.models.market import IngestBatch, InstrumentSpec, Trade
-from core.ingest.schemas import TradesIngestRequest
+from core.ingest.schemas import PositionsIngestRequest, TradesIngestRequest
 from tests.factories import AccountFactory, BotFactory
 from tests.ingest.conftest import TEST_INGEST_API_KEY
 
@@ -209,3 +209,120 @@ async def test_r_multiple_stays_null_without_instrument_spec(
             await session2.execute(select(Trade).where(Trade.ticket_mt5 == 3000007))
         ).scalar_one()
         assert trade.r_multiple is None
+
+
+def _sealed_positions_payload(
+    account_login: str, positions: list[dict[str, Any]]
+) -> dict[str, Any]:
+    draft = {
+        "account_login": account_login,
+        "connector_instance_id": "conn-1",
+        "ts": "2026-08-20T09:30:00Z",
+        "positions": positions,
+        "batch_sha256": "0" * 64,
+    }
+    parsed = PositionsIngestRequest.model_validate(draft)
+    canonical_record = parsed.model_dump(mode="json", exclude={"batch_sha256"})
+    seal = compute_batch_sha256(account_login, "positions", [canonical_record])
+    return {**draft, "batch_sha256": seal}
+
+
+def _open_position(position_ticket: int, magic: int) -> dict[str, Any]:
+    return {
+        "ticket_mt5": position_ticket,
+        "symbol": "EURUSD",
+        "magic_number": magic,
+        "type": "BUY",
+        "volume": 0.1,
+        "open_time": "2026-08-20T09:00:00Z",
+        "open_price": 1.085,
+        "sl": 1.08,
+        "tp": 1.09,
+        "profit": 1.0,
+    }
+
+
+async def _rows_for_account(db_connection: AsyncConnection, account_id: int) -> list[Trade]:
+    async with _session(db_connection) as session:
+        return list(
+            (await session.execute(select(Trade).where(Trade.account_id == account_id))).scalars()
+        )
+
+
+async def test_close_with_position_id_closes_the_open_position_row(
+    ingest_client: AsyncClient, db_connection: AsyncConnection
+) -> None:
+    # The open row is stored under the POSITION ticket; the close arrives with
+    # the EXIT deal ticket. Before position_id the close became a second row and
+    # the open one stayed open forever.
+    account = AccountFactory()
+    async with _session(db_connection) as session:
+        session.add(account)
+        await session.commit()
+
+    opened = _sealed_positions_payload(account.login, [_open_position(4000001, 118231)])
+    assert (
+        await ingest_client.post("/ingest/positions", json=opened, headers=HEADERS)
+    ).status_code == 200
+
+    closed = {**_trade(4000002, 118231), "position_id": 4000001}
+    payload = _sealed_trades_payload(account.login, "conn-1", [closed])
+    response = await ingest_client.post("/ingest/trades", json=payload, headers=HEADERS)
+    assert response.status_code == 200
+    assert response.json()["accepted"] == 1
+
+    rows = await _rows_for_account(db_connection, account.id)
+    assert len(rows) == 1
+    assert rows[0].ticket_mt5 == 4000002
+    assert rows[0].close_time == datetime(2026, 8, 20, 10, 0, tzinfo=UTC)
+    assert rows[0].profit == Decimal("10.5")
+    assert rows[0].ingest_batch_id == response.json()["batch_id"]
+
+    resent = await ingest_client.post("/ingest/trades", json=payload, headers=HEADERS)
+    assert resent.json()["accepted"] == 0
+    assert len(await _rows_for_account(db_connection, account.id)) == 1
+
+
+async def test_stale_open_row_is_removed_when_the_close_already_exists(
+    ingest_client: AsyncClient, db_connection: AsyncConnection
+) -> None:
+    account = AccountFactory()
+    async with _session(db_connection) as session:
+        session.add(account)
+        await session.commit()
+
+    # Closed trade ingested before the connector sent position_id.
+    legacy = _sealed_trades_payload(account.login, "conn-1", [_trade(4000012, 118231)])
+    assert (
+        await ingest_client.post("/ingest/trades", json=legacy, headers=HEADERS)
+    ).status_code == 200
+    opened = _sealed_positions_payload(account.login, [_open_position(4000011, 118231)])
+    assert (
+        await ingest_client.post("/ingest/positions", json=opened, headers=HEADERS)
+    ).status_code == 200
+
+    closed = {**_trade(4000012, 118231), "position_id": 4000011}
+    payload = _sealed_trades_payload(account.login, "conn-1", [closed])
+    assert (
+        await ingest_client.post("/ingest/trades", json=payload, headers=HEADERS)
+    ).status_code == 200
+
+    rows = await _rows_for_account(db_connection, account.id)
+    assert [(r.ticket_mt5, r.close_time is not None) for r in rows] == [(4000012, True)]
+
+
+async def test_position_id_without_open_row_inserts_the_closed_trade(
+    ingest_client: AsyncClient, db_connection: AsyncConnection
+) -> None:
+    account = AccountFactory()
+    async with _session(db_connection) as session:
+        session.add(account)
+        await session.commit()
+
+    closed = {**_trade(4000022, 118231), "position_id": 4000021}
+    payload = _sealed_trades_payload(account.login, "conn-1", [closed])
+    response = await ingest_client.post("/ingest/trades", json=payload, headers=HEADERS)
+    assert response.json()["accepted"] == 1
+
+    rows = await _rows_for_account(db_connection, account.id)
+    assert [(r.ticket_mt5, r.close_time is not None) for r in rows] == [(4000022, True)]

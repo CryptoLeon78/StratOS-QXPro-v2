@@ -24,7 +24,7 @@ from core.db.models.accounts import Account, Bot
 from core.db.models.market import InstrumentSpec, Trade
 from core.formulas.trading import r_multiple_net_of_costs
 from core.ingest.batch import seal_and_create_batch
-from core.ingest.schemas import TradesIngestRequest
+from core.ingest.schemas import TradeIn, TradesIngestRequest
 from core.ingest.services import IngestOutcome
 
 BOT_MAGIC_MIN = -(2**31)
@@ -55,6 +55,66 @@ async def _instrument_specs(
         )
     ).all()
     return {symbol: (tick_value, tick_size) for symbol, tick_value, tick_size in rows}
+
+
+async def _close_position_row(
+    session: AsyncSession,
+    account_id: int,
+    trade: TradeIn,
+    r_multiple: Decimal | None,
+    batch_id: int,
+) -> bool:
+    """Cierra la fila abierta que creó `/ingest/positions` para esta posición.
+
+    `/ingest/positions` guarda la posición abierta con el ticket de la POSICIÓN;
+    el trade cerrado llega con el ticket del deal de SALIDA. Sin este paso el
+    cierre se insertaba como fila nueva y la abierta quedaba abierta para
+    siempre. Devuelve True si convirtió la fila abierta en el trade cerrado.
+
+    Si el trade cerrado ya existía como fila propia (ingerido antes de que el
+    conector enviara `position_id`), la fila abierta sobrante se elimina: es la
+    misma posición, provisional, y ya tiene su versión cerrada.
+    """
+    if trade.position_id is None or trade.position_id == trade.ticket_mt5:
+        return False
+    open_row = (
+        await session.execute(
+            select(Trade).where(
+                Trade.account_id == account_id,
+                Trade.ticket_mt5 == trade.position_id,
+                Trade.close_time.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if open_row is None:
+        return False
+    closed_exists = (
+        await session.execute(
+            select(Trade.id).where(
+                Trade.ticket_mt5 == trade.ticket_mt5, Trade.open_time == trade.open_time
+            )
+        )
+    ).scalar_one_or_none()
+    if closed_exists is not None or open_row.open_time != trade.open_time:
+        # Mismatched open_time would move the row across hypertable chunks;
+        # the closed trade is inserted on its own and the stale open row goes.
+        await session.delete(open_row)
+        await session.flush()
+        return False
+    open_row.ticket_mt5 = trade.ticket_mt5
+    open_row.close_time = trade.close_time
+    open_row.close_price = trade.close_price
+    open_row.profit = trade.profit
+    open_row.commission = trade.commission
+    open_row.swap = trade.swap
+    open_row.r_multiple = r_multiple
+    open_row.ingest_batch_id = batch_id
+    if trade.sl is not None:
+        open_row.sl = trade.sl
+    if trade.tp is not None:
+        open_row.tp = trade.tp
+    await session.flush()
+    return True
 
 
 async def ingest_trades(
@@ -101,6 +161,9 @@ async def ingest_trades(
             if spec is not None
             else None
         )
+        if await _close_position_row(session, account.id, trade, r_multiple, batch.id):
+            accepted += 1
+            continue
         stmt = (
             pg_insert(Trade)
             .values(
