@@ -44,6 +44,32 @@ def _mql5_identity(path: Path) -> tuple[int | None, str | None, str | None]:
     )
 
 
+def _withhold_stage_copies(items: list[dict[str, object]]) -> None:
+    """Un EA, una candidata.
+
+    SQX conserva la misma estrategia como .sqx en cada carpeta de etapa (FORWARD, MC, OOS,
+    SPP...) y el EA se exporta una vez: todas esas copias se emparejan por nombre con el mismo
+    .mq5. La candidata es el .sqx de la carpeta del .mq5 (la primera por ruta si no hay ninguno
+    ahí); el resto se retiene como copia de etapa en vez de entrar varias veces en la cola.
+    """
+    by_mql5: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for item in items:
+        if item["status"] == "STATIC_VALIDATED" and item["sqx_path"] and item["mql5_path"]:
+            by_mql5[str(item["mql5_path"])].append(item)
+    for mql5_path, group in by_mql5.items():
+        if len(group) < 2:
+            continue
+        ordered = sorted(group, key=lambda row: str(row["sqx_path"]))
+        canonical = next(
+            (row for row in ordered if Path(str(row["sqx_path"])).parent == Path(mql5_path).parent),
+            ordered[0],
+        )
+        for row in ordered:
+            if row is not canonical:
+                row["status"] = "WITHHELD"
+                row["reason"] = "SQX_STAGE_COPY_OF_PAIRED_EA"
+
+
 def build_inventory(
     root: Path, source_group: str, *, source_root: str | None = None
 ) -> list[dict[str, object]]:
@@ -131,15 +157,18 @@ def build_inventory(
                 "reason": "SQX_PAIR_MISSING",
             }
         )
-    magic_counts = defaultdict(int)
+    _withhold_stage_copies(items)
+    # A magic collision is between DIFFERENT EAs (they would mix orders in one account): count
+    # distinct .mq5 by content, not inventory rows. Stage copies and identical copies are one EA.
+    magic_eas: dict[int, set[object]] = defaultdict(set)
     for item in items:
         if item["status"] == "STATIC_VALIDATED" and item["magic_number"] is not None:
-            magic_counts[int(item["magic_number"])] += 1
+            magic_eas[int(item["magic_number"])].add(item["mql5_sha256"])
     for item in items:
         if (
             item["status"] == "STATIC_VALIDATED"
             and item["magic_number"] is not None
-            and magic_counts[int(item["magic_number"])] > 1
+            and len(magic_eas[int(item["magic_number"])]) > 1
         ):
             item["status"] = "WITHHELD"
             item["reason"] = "DUPLICATE_MAGIC_NUMBER"
