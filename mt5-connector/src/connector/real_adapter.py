@@ -134,13 +134,19 @@ def _terminal_process_running(path: str) -> bool:
     return path.strip().lower() in running
 
 
+class AccountMismatchError(RuntimeError):
+    """El terminal conectado tiene abierta otra cuenta que la del servicio."""
+
+
 class RealMt5Client:
     def __init__(
         self,
         reconnect_min_interval_s: float = 0.0,
         is_terminal_running: Callable[[str], bool] = _terminal_process_running,
+        expected_login: str | None = None,
     ) -> None:
         self._path: str | None = None
+        self._expected_login = expected_login
         self._reconnect_min_interval_s = reconnect_min_interval_s
         self._is_terminal_running = is_terminal_running
         self._last_reconnect_at: float | None = None
@@ -209,8 +215,25 @@ class RealMt5Client:
 
         return bool(mt5.login(login, password=password, server=server))
 
-    def account_info(self) -> AccountInfoDTO | None:
+    def _checked_account(self) -> Any:
+        """`account_info` del terminal, exigiendo que sea la cuenta del servicio.
+
+        El conector etiqueta todo lo que envía con su `account_login` configurado,
+        no con la cuenta que tiene abierta el terminal: si la ruta apunta al
+        terminal de otra cuenta (o el operador cambia de cuenta en él), los datos
+        de una cuenta real entrarían como si fueran de la otra. Se comprueba en
+        cada sondeo; ante discrepancia no se envía nada.
+        """
         info = self._query("account_info", lambda mt5: mt5.account_info(), allow_empty=False)
+        if self._expected_login is not None and str(info.login) != self._expected_login:
+            raise AccountMismatchError(
+                f"el terminal {self._path} tiene abierta la cuenta {info.login}, "
+                f"no la {self._expected_login} del servicio: no se envia nada"
+            )
+        return info
+
+    def account_info(self) -> AccountInfoDTO | None:
+        info = self._checked_account()
         return AccountInfoDTO(
             balance=Decimal(str(info.balance)),
             equity=Decimal(str(info.equity)),
@@ -219,6 +242,7 @@ class RealMt5Client:
         )
 
     def positions_get(self) -> list[PositionDTO]:
+        self._checked_account()
         positions = self._query("positions_get", lambda mt5: mt5.positions_get(), allow_empty=True)
         return [
             PositionDTO(
@@ -245,6 +269,7 @@ class RealMt5Client:
         return next((d for d in deals if d.entry == _DEAL_ENTRY_IN), None)
 
     def history_deals_get(self, date_from: datetime, date_to: datetime) -> list[DealDTO]:
+        self._checked_account()
         deals = self._query(
             "history_deals_get",
             lambda mt5: mt5.history_deals_get(date_from, date_to),

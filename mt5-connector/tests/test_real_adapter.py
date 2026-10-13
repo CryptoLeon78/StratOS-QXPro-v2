@@ -12,6 +12,7 @@ from types import SimpleNamespace
 import pytest
 
 from connector.real_adapter import (
+    AccountMismatchError,
     Mt5UnavailableError,
     RealMt5Client,
     _pair_deals_into_closed_trades,
@@ -184,6 +185,8 @@ class _FakeMt5:
         return self._next("positions_get")
 
     def account_info(self) -> object:
+        if "account_info" not in self.responses:
+            return SimpleNamespace(login=4000055216)
         return self._next("account_info")
 
     def history_deals_get(self, *args: object, **kwargs: object) -> object:
@@ -300,3 +303,40 @@ class TestClosedTradeEntryLookup:
         exit_ = _raw_deal(entry=1, ticket=2, position_id=321)
 
         assert _pair_deals_into_closed_trades([entry, exit_])[0].position_id == 321
+
+
+class TestAccountIdentityGuard:
+    """Los servicios del VPS tienen la ruta de terminal cruzada respecto a su
+    cuenta (2026-10-13): sin esta guarda, los datos de JJTI entrarían como BEPB."""
+
+    def test_positions_from_another_account_are_never_returned(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake = _FakeMt5(account_info=[SimpleNamespace(login=4000059903)], positions_get=[()])
+        monkeypatch.setitem(sys.modules, "MetaTrader5", fake)
+        client = RealMt5Client(is_terminal_running=lambda _: True, expected_login="4000055216")
+        client.initialize(path=_PATH)
+
+        with pytest.raises(AccountMismatchError, match="4000059903"):
+            client.positions_get()
+        assert "positions_get" not in fake.calls
+
+    def test_matching_account_passes(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake = _FakeMt5(positions_get=[()])
+        monkeypatch.setitem(sys.modules, "MetaTrader5", fake)
+        client = RealMt5Client(is_terminal_running=lambda _: True, expected_login="4000055216")
+        client.initialize(path=_PATH)
+
+        assert client.positions_get() == []
+
+    def test_equity_of_another_account_is_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        other = SimpleNamespace(
+            login=4000059903, balance=1.0, equity=1.0, margin_level=0.0, margin_free=0.0
+        )
+        fake = _FakeMt5(account_info=[other])
+        monkeypatch.setitem(sys.modules, "MetaTrader5", fake)
+        client = RealMt5Client(is_terminal_running=lambda _: True, expected_login="4000055216")
+        client.initialize(path=_PATH)
+
+        with pytest.raises(AccountMismatchError):
+            client.account_info()

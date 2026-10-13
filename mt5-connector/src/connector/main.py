@@ -169,7 +169,10 @@ async def run(mt5_client: Mt5ClientProtocol, settings: ConnectorSettings | None 
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
     settings = get_connector_settings()
-    client = RealMt5Client(reconnect_min_interval_s=settings.mt5_reconnect_min_interval_s)
+    client = RealMt5Client(
+        reconnect_min_interval_s=settings.mt5_reconnect_min_interval_s,
+        expected_login=settings.account_login,
+    )
     asyncio.run(run(client, settings))
 
 
