@@ -185,7 +185,13 @@ async def compute_portfolio_contribution(session: AsyncSession, bot: Bot) -> Por
     closed_pnl = func.coalesce(func.sum(Trade.profit), 0)
     pnl_bot_raw = (
         await session.execute(
-            select(closed_pnl).where(Trade.bot_id == bot.id, Trade.close_time.is_not(None))
+            select(closed_pnl).where(
+                Trade.bot_id == bot.id,
+                # G14-07: a bot moved between accounts keeps its history, but its
+                # contribution only counts the trades executed in its own account.
+                Trade.account_id == bot.account_id,
+                Trade.close_time.is_not(None),
+            )
         )
     ).scalar()
     pnl_bot = Decimal(pnl_bot_raw) if pnl_bot_raw is not None else Decimal("0")

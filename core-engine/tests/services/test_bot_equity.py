@@ -231,6 +231,40 @@ class TestComputePortfolioContribution:
         assert contribution.pct_of_total_pnl == pytest.approx(30.0)
         assert contribution.correlation_vs_rest is None  # sin CorrelationMatrix sembrada
 
+    async def test_history_inherited_from_another_account_is_not_counted_in_this_one(
+        self, db_session: object
+    ) -> None:
+        """G14-07: un EA trasladado de cuenta conserva su historial en el bot (BEPB
+        MN5 -> JJTI MN5), pero su contribucion se mide sobre las operaciones de SU
+        cuenta: las cuentas son independientes y no se mezclan."""
+        from core.services.bot_equity import compute_portfolio_contribution
+
+        bot, account, batch = await _bot(db_session)
+        previous_account = AccountFactory()
+        db_session.add(previous_account)  # type: ignore[attr-defined]
+        await db_session.flush()  # type: ignore[attr-defined]
+        for account_id, profit in ((account.id, "40.00"), (previous_account.id, "500.00")):  # type: ignore[attr-defined]
+            db_session.add(  # type: ignore[attr-defined]
+                TradeFactory(
+                    bot_id=bot.id,  # type: ignore[attr-defined]
+                    account_id=account_id,
+                    magic_number=bot.magic_number,  # type: ignore[attr-defined]
+                    symbol="EURUSD",
+                    type=TradeType.BUY,
+                    volume=Decimal("1.00"),
+                    profit=Decimal(profit),
+                    close_time=datetime.now(UTC),
+                    close_price=Decimal("1.1"),
+                    ingest_batch_id=batch.id,  # type: ignore[attr-defined]
+                )
+            )
+        await db_session.flush()  # type: ignore[attr-defined]
+
+        contribution = await compute_portfolio_contribution(db_session, bot)  # type: ignore[arg-type]
+        assert contribution.pnl_bot == Decimal("40.00")
+        assert contribution.pnl_account == Decimal("40.00")
+        assert contribution.pct_of_total_pnl == pytest.approx(100.0)
+
     async def test_averages_correlation_across_all_pairs_involving_the_bot(
         self, db_session: object
     ) -> None:
